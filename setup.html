@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <title>Spotlight Setup</title>
+    <style>
+      @import url("https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap");
+
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      :root {
+        --font: "Segoe UI Variable", "Inter", -apple-system, system-ui,
+          sans-serif;
+        --text-primary: rgba(255, 255, 255, 0.95);
+        --text-secondary: rgba(255, 255, 255, 0.55);
+        --text-tertiary: rgba(255, 255, 255, 0.35);
+        --border-subtle: rgba(255, 255, 255, 0.08);
+        --hover-bg: rgba(255, 255, 255, 0.06);
+        --accent: rgba(136, 192, 255, 0.9);
+        --accent-solid: #88c0ff;
+        --error: #ff6b6b;
+      }
+
+      html,
+      body {
+        height: 100%;
+        width: 100%;
+        overflow: hidden;
+      }
+
+      body {
+        background: #1a1a1a;
+        font-family: var(--font);
+        color: var(--text-primary);
+        -webkit-app-region: drag;
+      }
+
+      .container {
+        padding: 32px;
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+      }
+
+      .header {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        margin-bottom: 32px;
+      }
+
+      .logo {
+        width: 48px;
+        height: 48px;
+      }
+
+      .logo img {
+        width: 100%;
+        height: 100%;
+      }
+
+      h1 {
+        font-size: 24px;
+        font-weight: 600;
+        letter-spacing: -0.5px;
+      }
+
+      .subtitle {
+        font-size: 14px;
+        color: var(--text-secondary);
+        margin-bottom: 24px;
+      }
+
+      .form-group {
+        margin-bottom: 20px;
+        -webkit-app-region: no-drag;
+      }
+
+      label {
+        display: block;
+        font-size: 13px;
+        font-weight: 500;
+        color: var(--text-secondary);
+        margin-bottom: 8px;
+      }
+
+      input {
+        width: 100%;
+        padding: 12px 16px;
+        background: rgba(255, 255, 255, 0.05);
+        border: 1px solid var(--border-subtle);
+        border-radius: 8px;
+        font-size: 14px;
+        color: var(--text-primary);
+        font-family: var(--font);
+        outline: none;
+        transition: border-color 0.4s, all 0.4s;
+      }
+
+      input:focus {
+        border-color: var(--accent);
+        background: rgba(255, 255, 255, 0.08);
+      }
+
+      input::placeholder {
+        color: var(--text-tertiary);
+      }
+
+      .hint {
+        font-size: 11px;
+        color: var(--text-tertiary);
+        margin-top: 6px;
+      }
+
+      .hint a {
+        color: var(--accent-solid);
+        text-decoration: none;
+      }
+
+      .buttons {
+        margin-top: auto;
+        display: flex;
+        gap: 12px;
+        -webkit-app-region: no-drag;
+      }
+
+      button {
+        flex: 1;
+        padding: 12px 24px;
+        border-radius: 8px;
+        font-size: 14px;
+        font-weight: 500;
+        font-family: var(--font);
+        cursor: pointer;
+        transition: all 0.2s;
+      }
+
+      .btn-primary {
+        background: var(--accent-solid);
+        border: none;
+        color: #000;
+      }
+
+      .btn-primary:hover {
+        background: #9dd0ff;
+      }
+
+      .btn-primary:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+      }
+
+      .error-message {
+        color: var(--error);
+        font-size: 12px;
+        margin-top: 8px;
+        display: none;
+      }
+
+      .error-message.visible {
+        display: block;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <div class="header">
+        <div class="logo">
+          <img src="logo.svg" alt="Spotlight" />
+        </div>
+        <h1>Welcome to Spotlight</h1>
+      </div>
+
+      <p class="subtitle">
+        Let's set up your AI-powered search assistant. You'll need a Gemini API
+        key to get started.
+      </p>
+
+      <div class="form-group">
+        <label for="userName">Your Name</label>
+        <input
+          type="text"
+          id="userName"
+          placeholder="Enter your name"
+          value="User"
+        />
+        <p class="hint">The AI will use this name to address you</p>
+      </div>
+
+      <div class="form-group">
+        <label for="apiKey">Gemini API Key</label>
+        <input type="password" id="apiKey" placeholder="Enter your API key" />
+        <p class="hint">
+          Get your API key from <a href="#" id="getApiKey">Google AI Studio</a>
+        </p>
+        <p class="error-message" id="errorMessage">
+          Please enter a valid API key
+        </p>
+      </div>
+
+      <div class="form-group">
+        <label for="modelName">Model Name</label>
+        <input
+          type="text"
+          id="modelName"
+          placeholder="gemini-2.5-flash"
+          value="gemini-2.5-flash"
+        />
+        <p class="hint">
+          Default: gemini-2.5-flash. Other options: gemini-2.0-flash,
+          gemini-2.5-pro
+        </p>
+      </div>
+
+      <div class="buttons">
+        <button class="btn-primary" id="saveBtn">Get Started</button>
+      </div>
+    </div>
+
+    <script>
+      const userNameInput = document.getElementById("userName");
+      const apiKeyInput = document.getElementById("apiKey");
+      const modelNameInput = document.getElementById("modelName");
+      const saveBtn = document.getElementById("saveBtn");
+      const errorMessage = document.getElementById("errorMessage");
+      const getApiKeyLink = document.getElementById("getApiKey");
+
+      getApiKeyLink.addEventListener("click", (e) => {
+        e.preventDefault();
+        window.api.send("open-file", "https://aistudio.google.com/apikey");
+      });
+
+      saveBtn.addEventListener("click", () => {
+        const apiKey = apiKeyInput.value.trim();
+        const modelName = modelNameInput.value.trim() || "gemini-2.5-flash";
+        const userName = userNameInput.value.trim() || "User";
+
+        if (!apiKey) {
+          errorMessage.classList.add("visible");
+          apiKeyInput.focus();
+          return;
+        }
+
+        errorMessage.classList.remove("visible");
+        saveBtn.disabled = true;
+        saveBtn.textContent = "Saving...";
+
+        window.api.send("save-settings", { apiKey, modelName, userName });
+      });
+
+      window.api.receive("settings-saved", (success) => {
+        if (!success) {
+          errorMessage.textContent =
+            "Failed to save settings. Please try again.";
+          errorMessage.classList.add("visible");
+          saveBtn.disabled = false;
+          saveBtn.textContent = "Get Started";
+        }
+      });
+
+      // Handle Enter key
+      [userNameInput, apiKeyInput, modelNameInput].forEach((input) => {
+        input.addEventListener("keydown", (e) => {
+          if (e.key === "Enter") {
+            saveBtn.click();
+          }
+        });
+      });
+    </script>
+  </body>
+</html>

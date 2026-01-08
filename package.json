@@ -1,0 +1,42 @@
+{
+  "name": "spotlight",
+  "version": "1.0.0",
+  "description": "AI-powered spotlight search",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "build": "electron-builder --win",
+    "build:dir": "electron-builder --win --dir"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "electron": "^28.2.3",
+    "electron-builder": "^24.13.3",
+    "sharp": "^0.34.5"
+  },
+  "dependencies": {
+    "@google/generative-ai": "^0.24.1"
+  },
+  "build": {
+    "appId": "com.spotlight.app",
+    "productName": "Spotlight",
+    "directories": {
+      "output": "dist"
+    },
+    "win": {
+      "target": "nsis",
+      "icon": "logo.png",
+      "signAndEditExecutable": false
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true
+    },
+    "files": [
+      "**/*",
+      "!dist/**"
+    ]
+  }
+}
