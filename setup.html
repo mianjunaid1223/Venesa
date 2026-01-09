@@ -2,7 +2,7 @@
 <html>
   <head>
     <meta charset="UTF-8" />
-    <title>Spotlight Setup</title>
+    <title>Venesa Setup</title>
     <style>
       @import url("https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap");
 
@@ -170,9 +170,9 @@
     <div class="container">
       <div class="header">
         <div class="logo">
-          <img src="logo.svg" alt="Spotlight" />
+          <img src="logo.svg" alt="Venesa" />
         </div>
-        <h1>Welcome to Spotlight</h1>
+        <h1>Welcome to Venesa</h1>
       </div>
 
       <p class="subtitle">
@@ -254,12 +254,23 @@
 
       window.api.receive("settings-saved", (success) => {
         if (!success) {
+          // If we didn't receive a more specific error, show a generic message
           errorMessage.textContent =
             "Failed to save settings. Please try again.";
           errorMessage.classList.add("visible");
           saveBtn.disabled = false;
           saveBtn.textContent = "Get Started";
+        } else {
+          // Success — keep UI in saving state while main process shows the main window
+          saveBtn.textContent = "Done";
         }
+      });
+
+      window.api.receive("settings-error", (message) => {
+        errorMessage.textContent = message || "Failed to save settings.";
+        errorMessage.classList.add("visible");
+        saveBtn.disabled = false;
+        saveBtn.textContent = "Get Started";
       });
 
       // Handle Enter key

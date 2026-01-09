@@ -1,7 +1,7 @@
 {
-  "name": "spotlight",
+  "name": "Venesa",
   "version": "1.0.0",
-  "description": "AI-powered spotlight search",
+  "description": "AI-powered Venesa search",
   "main": "main.js",
   "scripts": {
     "start": "electron .",
@@ -12,7 +12,7 @@
   "author": "",
   "license": "ISC",
   "devDependencies": {
-    "electron": "^28.2.3",
+    "electron": "^28.3.3",
     "electron-builder": "^24.13.3",
     "sharp": "^0.34.5"
   },
@@ -20,8 +20,8 @@
     "@google/generative-ai": "^0.24.1"
   },
   "build": {
-    "appId": "com.spotlight.app",
-    "productName": "Spotlight",
+    "appId": "com.Venesa.app",
+    "productName": "Venesa",
     "directories": {
       "output": "dist"
     },

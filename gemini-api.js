@@ -3,7 +3,7 @@ const path = require("path");
 const fs = require("fs");
 const os = require("os");
 
-const SETTINGS_PATH = path.join(os.homedir(), ".spotlight-settings.json");
+const SETTINGS_PATH = path.join(os.homedir(), ".Venesa-settings.json");
 
 const DEFAULT_SETTINGS = {
   apiKey: "",
@@ -64,7 +64,7 @@ function initializeAPI() {
     systemInstruction: {
       parts: [
         {
-          text: `You are Spotlight, an AI-powered desktop search assistant for Windows. The user's name is ${currentSettings.userName}.
+          text: `You are Venesa, an AI-powered desktop search assistant for Windows. The user's name is ${currentSettings.userName}.
 
 CRITICAL: You MUST use action commands for ANY request involving apps, files, or folders. Never just say "okay" or acknowledge - ALWAYS output the action command.
 
@@ -110,7 +110,7 @@ Rules:
       {
         role: "model",
         parts: [
-          { text: `Hello ${currentSettings.userName}! I am Spotlight, your desktop search assistant.` },
+          { text: `Hello ${currentSettings.userName}! I am Venesa, your desktop search assistant.` },
         ],
       },
     ],

@@ -1,6 +1,6 @@
-# Spotlight
+# Venesa
 
-Spotlight is an AI-powered desktop search assistant for Windows, inspired by macOS Spotlight. It enables fast application launching, system-wide file search, and AI-powered interactions from a minimal interface triggered by a global hotkey.
+Venesa is an AI-powered desktop search assistant for Windows, inspired by macOS Venesa. It enables fast application launching, system-wide file search, and AI-powered interactions from a minimal interface triggered by a global hotkey.
 
 ![Platform](https://img.shields.io/badge/Platform-Windows-blue)
 ![Electron](https://img.shields.io/badge/Built%20with-Electron-47848F?logo=electron)
@@ -30,8 +30,8 @@ Spotlight is an AI-powered desktop search assistant for Windows, inspired by mac
 1. Clone the repository
 
    ```bash
-   git clone https://github.com/mianjunaid1223/Spotlight.git
-   cd spotlight
+   git clone https://github.com/mianjunaid1223/Venesa.git
+   cd Venesa
    ```
 
 2. Install dependencies
@@ -64,8 +64,8 @@ The Windows installer will be generated in the `dist` directory.
 
 | Shortcut        | Action                       |
 | --------------- | ---------------------------- |
-| Alt + Space     | Toggle Spotlight             |
-| Escape          | Close Spotlight              |
+| Alt + Space     | Toggle Venesa             |
+| Escape          | Close Venesa              |
 | Enter           | Execute command or selection |
 | Up / Down Arrow | Navigate results             |
 
@@ -82,11 +82,11 @@ The Windows installer will be generated in the `dist` directory.
 
 ### AI Chat Mode
 
-If a query does not match an application or file action, Spotlight automatically switches to AI chat mode and returns a conversational response powered by Gemini.
+If a query does not match an application or file action, Venesa automatically switches to AI chat mode and returns a conversational response powered by Gemini.
 
 ## Configuration
 
-User settings are stored in `~/.spotlight-settings.json`:
+User settings are stored in `~/.Venesa-settings.json`:
 
 ```json
 {
@@ -113,7 +113,7 @@ User settings are stored in `~/.spotlight-settings.json`:
 ## Project Structure
 
 ```
-spotlight/
+Venesa/
 ├── main.js            # Electron main process
 ├── preload.js         # Secure IPC bridge
 ├── index.html         # Main UI
@@ -139,4 +139,4 @@ Licensed under the ISC License.
 
 ## Acknowledgments
 
-Inspired by macOS Spotlight and Raycast. Built using Electron and Google Gemini.
+Inspired by macOS Venesa and Raycast. Built using Electron and Google Gemini.

@@ -19,6 +19,11 @@ const WINDOW_WIDTH = 680;
 const MIN_HEIGHT = 53;
 const MAX_HEIGHT = 470;
 
+app.on("window-all-closed", (e) => {
+  console.log("app: window-all-closed event - preventing app from quitting");
+  e.preventDefault();
+});
+
 function createSetupWindow() {
   setupWindow = new BrowserWindow({
     width: 450,
@@ -91,6 +96,7 @@ function createWindow() {
   });
 
   mainWindow.on("blur", () => {
+    console.log("mainWindow: blur event");
     const bounds = mainWindow.getBounds();
     mainWindow.setBounds({
       x: bounds.x,
@@ -99,6 +105,7 @@ function createWindow() {
       height: MIN_HEIGHT,
     });
     mainWindow.hide();
+    console.log("mainWindow: hidden due to blur");
   });
 
   mainWindow.on("close", (e) => {
@@ -108,6 +115,7 @@ function createWindow() {
 }
 
 app.whenReady().then(() => {
+  console.log("app.whenReady: starting app");
   app.setLoginItemSettings({
     openAtLogin: true,
     path: app.getPath("exe"),
@@ -115,8 +123,10 @@ app.whenReady().then(() => {
   });
 
   if (gemini.needsSetup()) {
+    console.log("needs setup -> creating setup window");
     createSetupWindow();
   } else {
+    console.log("no setup needed -> initializing API and creating main window");
     gemini.initializeAPI();
     createWindow();
   }
@@ -145,15 +155,15 @@ app.whenReady().then(() => {
       const currentDisplay = screen.getDisplayNearestPoint(cursorPoint);
       const { x, y, width, height } = currentDisplay.workArea;
       const windowX = Math.round(x + (width - WINDOW_WIDTH) / 2);
-      const windowY = Math.round(y + height * 0.2);
+      const bottomPadding = 40;
+      const fixedBottomY = y + height - bottomPadding;
 
       mainWindow.setBounds({
         x: windowX,
-        y: windowY,
+        y: fixedBottomY - MIN_HEIGHT,
         width: WINDOW_WIDTH,
         height: MIN_HEIGHT,
       });
-
       mainWindow.show();
       mainWindow.focus();
       mainWindow.webContents.send("focus-input");
@@ -161,8 +171,10 @@ app.whenReady().then(() => {
   });
 
   ipcMain.on("save-settings", (event, settings) => {
+    console.log("ipcMain: save-settings received");
     const success = gemini.saveSettings(settings);
     if (success) {
+      console.log("ipcMain: settings saved successfully");
       gemini.initializeAPI();
       event.sender.send("settings-saved", true);
       if (setupWindow && !setupWindow.isDestroyed()) {
@@ -172,6 +184,11 @@ app.whenReady().then(() => {
         setupWindow = null;
       }
       createWindow();
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        console.log("ipcMain: showing mainWindow after setup");
+        mainWindow.show();
+        mainWindow.focus();
+      }
     } else {
       event.sender.send("settings-saved", false);
     }
@@ -298,7 +315,6 @@ app.whenReady().then(() => {
   let animationTimeout = null;
 
   const easeOutCubic = (t) => 1 - Math.pow(1 - t, 3);
-
   const animateWindowHeight = (fromHeight, toHeight) => {
     if (animationTimeout) {
       clearTimeout(animationTimeout);
@@ -306,6 +322,12 @@ app.whenReady().then(() => {
     }
 
     const bounds = mainWindow.getBounds();
+    const cursorPoint = screen.getCursorScreenPoint();
+    const currentDisplay = screen.getDisplayNearestPoint(cursorPoint);
+    const { y, height } = currentDisplay.workArea;
+    const bottomPadding = 40;
+    const fixedBottomY = y + height - bottomPadding;
+
     const heightDiff = toHeight - fromHeight;
     const stepDuration = ANIMATION_DURATION / ANIMATION_STEPS;
     let currentStep = 0;
@@ -318,7 +340,7 @@ app.whenReady().then(() => {
 
       mainWindow.setBounds({
         x: bounds.x,
-        y: bounds.y,
+        y: fixedBottomY - newHeight,
         width: WINDOW_WIDTH,
         height: newHeight,
       });
@@ -329,7 +351,7 @@ app.whenReady().then(() => {
         animationInProgress = false;
         mainWindow.setBounds({
           x: bounds.x,
-          y: bounds.y,
+          y: fixedBottomY - toHeight,
           width: WINDOW_WIDTH,
           height: toHeight,
         });

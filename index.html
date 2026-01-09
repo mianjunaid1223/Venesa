@@ -2,7 +2,7 @@
 <html>
   <head>
     <meta charset="UTF-8" />
-    <title>Spotlight</title>
+    <title>venessa</title>
     <style>
       @import url("https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap");
 
@@ -40,10 +40,10 @@
         font-family: var(--font);
         color: var(--text-primary);
         -webkit-app-region: drag;
-        transition: background 0.4s var(--ease-smooth);
+        transition: all 0.4s var(--ease-smooth);
       }
 
-      body.gemini-mode .spotlight {
+      body.gemini-mode .Venesa {
         background-image: linear-gradient(
             rgba(32, 32, 32, 0.364),
             rgba(32, 32, 32, 0.364)
@@ -55,7 +55,7 @@
         height: 100%;
       }
 
-      .spotlight {
+      .Venesa {
         display: flex;
         flex-direction: column;
         width: 100%;
@@ -615,41 +615,7 @@
     </style>
   </head>
   <body>
-    <div class="spotlight">
-      <div class="search-wrapper">
-        <div class="search-icon" id="searchIcon">
-          <svg viewBox="0 0 24 24" id="searchSvg">
-            <circle cx="11" cy="11" r="7"></circle>
-            <path d="M21 21l-4.35-4.35"></path>
-          </svg>
-
-          <img
-            src="logo.svg"
-            width="35px"
-            height="35px"
-            id="aiSvg"
-            style="display: none"
-          />
-        </div>
-        <input
-          type="text"
-          id="searchInput"
-          placeholder="Search files or type / for AI..."
-          autofocus
-          spellcheck="false"
-        />
-        <button class="settings-btn" id="settingsBtn" title="Settings">
-          <svg viewBox="0 0 24 24">
-            <circle cx="12" cy="12" r="3"></circle>
-            <path
-              d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"
-            ></path>
-          </svg>
-        </button>
-      </div>
-
-      <div class="divider" id="divider"></div>
-
+    <div class="Venesa">
       <!-- Settings Panel -->
       <div class="settings-panel" id="settingsPanel">
         <div class="settings-header">
@@ -714,6 +680,38 @@
         <div id="gemini-response"></div>
         <div id="no-results">No results found</div>
       </div>
+    </div>
+    <div class="divider" id="divider"></div>
+    <div class="search-wrapper">
+      <div class="search-icon" id="searchIcon">
+        <svg viewBox="0 0 24 24" id="searchSvg">
+          <circle cx="11" cy="11" r="7"></circle>
+          <path d="M21 21l-4.35-4.35"></path>
+        </svg>
+
+        <img
+          src="logo.svg"
+          width="35px"
+          height="35px"
+          id="aiSvg"
+          style="display: none"
+        />
+      </div>
+      <input
+        type="text"
+        id="searchInput"
+        placeholder="Search files or type / for AI..."
+        autofocus
+        spellcheck="false"
+      />
+      <button class="settings-btn" id="settingsBtn" title="Settings">
+        <svg viewBox="0 0 24 24">
+          <circle cx="12" cy="12" r="3"></circle>
+          <path
+            d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"
+          ></path>
+        </svg>
+      </button>
     </div>
 
     <script>
@@ -780,7 +778,7 @@
         MAX: 500,
       };
 
-      const spotlightEl = document.querySelector(".spotlight");
+      const VenesaEl = document.querySelector(".Venesa");
       const searchWrapperEl = document.querySelector(".search-wrapper");
       let measuredBaseHeight = HEIGHTS.BASE;
 
@@ -791,8 +789,8 @@
 
       const recomputeBaseHeight = () => {
         try {
-          if (!spotlightEl || !searchWrapperEl) return;
-          const spotStyle = getComputedStyle(spotlightEl);
+          if (!VenesaEl || !searchWrapperEl) return;
+          const spotStyle = getComputedStyle(VenesaEl);
           const borderY =
             safePx(spotStyle.borderTopWidth) +
             safePx(spotStyle.borderBottomWidth);
