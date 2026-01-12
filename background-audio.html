@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="UTF-8">
+    <title>Background Audio</title>
+</head>
+
+<body>
+    <script>
+        let audioContext = null;
+        let mediaStream = null;
+        let workletNode = null;
+        let isCapturing = false;
+
+        // Acknowledgment sounds
+        const acknowledgments = ['hmm?', 'yes?', 'listening'];
+        let currentAck = 0;
+
+        // Convert Float32 to Int16 PCM
+        function float32ToInt16(float32Array) {
+            const int16Array = new Int16Array(float32Array.length);
+            for (let i = 0; i < float32Array.length; i++) {
+                const s = Math.max(-1, Math.min(1, float32Array[i]));
+                int16Array[i] = s < 0 ? s * 0x8000 : s * 0x7FFF;
+            }
+            return int16Array;
+        }
+
+        // Downsample to 16kHz
+        function downsample(buffer, fromRate, toRate) {
+            if (fromRate === toRate) return buffer;
+            const ratio = fromRate / toRate;
+            const newLength = Math.round(buffer.length / ratio);
+            const result = new Float32Array(newLength);
+            for (let i = 0; i < newLength; i++) {
+                result[i] = buffer[Math.round(i * ratio)];
+            }
+            return result;
+        }
+
+        async function startCapture() {
+            try {
+                mediaStream = await navigator.mediaDevices.getUserMedia({
+                    audio: {
+                        channelCount: 1,
+                        echoCancellation: true,
+                        noiseSuppression: true
+                    }
+                });
+
+                audioContext = new AudioContext({ sampleRate: 48000 });
+                const source = audioContext.createMediaStreamSource(mediaStream);
+
+                // Try AudioWorklet first
+                try {
+                    await audioContext.audioWorklet.addModule('audio-processor.js');
+                    workletNode = new AudioWorkletNode(audioContext, 'audio-capture-processor');
+
+                    workletNode.port.onmessage = (event) => {
+                        if (!isCapturing) return;
+                        if (event.data.type === 'audio') {
+                            const downsampled = downsample(event.data.buffer, audioContext.sampleRate, 16000);
+                            const int16Data = float32ToInt16(downsampled);
+                            window.backgroundApi.send('background-audio-data', int16Data.buffer);
+                        }
+                    };
+
+                    source.connect(workletNode);
+                    // Don't connect to destination to avoid feedback
+                } catch (e) {
+                    // Fallback to ScriptProcessor
+                    const scriptProcessor = audioContext.createScriptProcessor(4096, 1, 1);
+                    scriptProcessor.onaudioprocess = (e) => {
+                        if (!isCapturing) return;
+                        const inputData = e.inputBuffer.getChannelData(0);
+                        const downsampled = downsample(inputData, audioContext.sampleRate, 16000);
+                        const int16Data = float32ToInt16(downsampled);
+                        window.backgroundApi.send('background-audio-data', int16Data.buffer);
+                    };
+                    source.connect(scriptProcessor);
+                    scriptProcessor.connect(audioContext.destination);
+                }
+
+                isCapturing = true;
+                window.backgroundApi.send('background-audio-ready');
+            } catch (err) {
+                console.error('Background audio capture failed:', err);
+            }
+        }
+
+        // Play clean acknowledgment chime (like Siri/Alexa)
+        function playAcknowledgmentChime() {
+            const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+            // Create a pleasant two-tone chime
+            const now = audioCtx.currentTime;
+
+            // First tone (higher pitch)
+            const osc1 = audioCtx.createOscillator();
+            const gain1 = audioCtx.createGain();
+            osc1.type = 'sine';
+            osc1.frequency.setValueAtTime(880, now); // A5
+            gain1.gain.setValueAtTime(0.3, now);
+            gain1.gain.exponentialRampToValueAtTime(0.01, now + 0.15);
+            osc1.connect(gain1);
+            gain1.connect(audioCtx.destination);
+            osc1.start(now);
+            osc1.stop(now + 0.15);
+
+            // Second tone (slightly higher, creates pleasant chord)
+            const osc2 = audioCtx.createOscillator();
+            const gain2 = audioCtx.createGain();
+            osc2.type = 'sine';
+            osc2.frequency.setValueAtTime(1320, now + 0.08); // E6
+            gain2.gain.setValueAtTime(0, now);
+            gain2.gain.setValueAtTime(0.25, now + 0.08);
+            gain2.gain.exponentialRampToValueAtTime(0.01, now + 0.25);
+            osc2.connect(gain2);
+            gain2.connect(audioCtx.destination);
+            osc2.start(now + 0.08);
+            osc2.stop(now + 0.25);
+        }
+
+        // Listen for acknowledgment request
+        window.backgroundApi.receive('play-acknowledgment', () => {
+            playAcknowledgmentChime();
+        });
+
+        // Start capture on load
+        window.addEventListener('load', () => {
+            startCapture();
+        });
+    </script>
+</body>
+
+</html>

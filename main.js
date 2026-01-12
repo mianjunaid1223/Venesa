@@ -11,10 +11,14 @@ const path = require("path");
 const os = require("os");
 const gemini = require("./gemini-api.js");
 const taskExecutor = require("./task-executor.js");
+const voskService = require("./vosk-service.js");
+const piperService = require("./piper-service.js");
+const wakeWordService = require("./wake-word-service.js");
 
 let mainWindow;
 let setupWindow;
 let voiceWindow;
+let backgroundAudioWindow = null; // Hidden window for background mic
 const startHidden = process.argv.includes("--hidden");
 
 const WINDOW_WIDTH = 680;
@@ -116,11 +120,15 @@ app.whenReady().then(() => {
     args: ["--hidden"],
   });
 
+  // Initialize API key pool at startup
+  gemini.initializeAPI();
+
   if (gemini.needsSetup()) {
     createSetupWindow();
   } else {
-    gemini.initializeAPI();
     createWindow();
+    // Start background wake word detection
+    startBackgroundWakeWordDetection();
   }
 
   globalShortcut.register("Alt+Space", () => {
@@ -417,6 +425,7 @@ app.whenReady().then(() => {
     // Clicking outside (blur) closes the window
     voiceWindow.on("blur", () => {
       if (voiceWindow && !voiceWindow.isDestroyed()) {
+        voskService.stop();
         voiceWindow.hide();
       }
     });
@@ -450,7 +459,10 @@ app.whenReady().then(() => {
   // Voice window IPC handlers
   ipcMain.on("close-voice-window", () => {
     if (voiceWindow && !voiceWindow.isDestroyed()) {
+      voskService.stop();
       voiceWindow.hide();
+      // Resume wake word detection when voice window is closed
+      wakeWordService.resume();
     }
   });
 
@@ -461,16 +473,68 @@ app.whenReady().then(() => {
 
   ipcMain.on("voice-window-ready", () => {
     if (voiceWindow && !voiceWindow.isDestroyed()) {
-      voiceWindow.webContents.send("start-listening");
+      // Start Vosk service and wait for it to be ready
+      voskService.start((type, text) => {
+        if (voiceWindow && !voiceWindow.isDestroyed()) {
+          if (type === 'text') {
+            voiceWindow.webContents.send('stt-result', text);
+          } else if (type === 'partial') {
+            voiceWindow.webContents.send('stt-partial-result', text);
+          } else if (type === 'ready') {
+            // Vosk is ready, now tell renderer to start listening
+            voiceWindow.webContents.send('start-listening');
+          }
+        }
+      });
     }
   });
 
   ipcMain.on("voice-query", async (event, payload) => {
     try {
-      const response = await gemini.sendQuery(payload.query, payload.image);
-      event.sender.send("voice-response", response);
+      let response = await gemini.sendQuery(payload.query, payload.image);
+
+      // Check if AI needs screen capture (two-request flow)
+      if (response.includes('[NEED_SCREEN]') && !payload.image) {
+        // Capture screen and resend query with image
+        const sources = await desktopCapturer.getSources({
+          types: ['screen'],
+          thumbnailSize: { width: 1920, height: 1080 }
+        });
+
+        if (sources.length > 0) {
+          const imageData = sources[0].thumbnail.toDataURL();
+          // Resend query with screen capture
+          response = await gemini.sendQuery(payload.query, imageData);
+        }
+      }
+
+      // Clean up any remaining [NEED_SCREEN] tags
+      response = response.replace(/\[NEED_SCREEN\]/g, '').trim();
+
+      // Try to synthesize with Piper TTS
+      let audioDataUrl = null;
+      if (piperService.isAvailable() && response.length > 0) {
+        try {
+          audioDataUrl = await piperService.synthesizeToDataURL(response);
+        } catch (ttsError) {
+          console.error('Piper TTS failed:', ttsError);
+        }
+      }
+
+      event.sender.send("voice-response", {
+        text: response,
+        audio: audioDataUrl
+      });
     } catch (error) {
-      event.sender.send("voice-response", `Error: ${error}`);
+      event.sender.send("voice-response", { text: `Error: ${error}`, audio: null });
+    }
+  });
+
+  // Handle audio data from renderer (Web Audio API)
+  ipcMain.on("audio-data", (event, audioBuffer) => {
+    if (voskService && voskService.isListening) {
+      // audioBuffer is an ArrayBuffer of Int16 PCM data
+      voskService.feedAudio(Buffer.from(audioBuffer));
     }
   });
 
@@ -494,6 +558,9 @@ app.whenReady().then(() => {
       console.error("Screen capture failed:", error);
     }
   };
+
+  // Handle capture-screen from voice window
+  ipcMain.on("capture-screen", handleCapture);
 
   ipcMain.on("capture-region", async (event, rect) => {
     try {
@@ -522,7 +589,78 @@ app.whenReady().then(() => {
   // Escape to close voice window
   globalShortcut.register("Escape", () => {
     if (voiceWindow && !voiceWindow.isDestroyed() && voiceWindow.isVisible()) {
+      voskService.stop();
       voiceWindow.hide();
     }
   });
+
+  // === WAKE WORD DETECTION ===
+  function createBackgroundAudioWindow() {
+    if (backgroundAudioWindow && !backgroundAudioWindow.isDestroyed()) return;
+
+    backgroundAudioWindow = new BrowserWindow({
+      width: 1,
+      height: 1,
+      show: false,
+      skipTaskbar: true,
+      webPreferences: {
+        preload: path.join(__dirname, "background-audio-preload.js"),
+        contextIsolation: true,
+        nodeIntegration: false,
+      },
+    });
+
+    backgroundAudioWindow.loadFile("background-audio.html");
+
+    backgroundAudioWindow.on("closed", () => {
+      backgroundAudioWindow = null;
+    });
+  }
+
+  function startBackgroundWakeWordDetection() {
+    createBackgroundAudioWindow();
+
+    // Handle background audio data for wake word detection
+    ipcMain.on("background-audio-data", (event, audioBuffer) => {
+      wakeWordService.feedAudio(Buffer.from(audioBuffer));
+    });
+
+    ipcMain.on("background-audio-ready", () => {
+      console.log("Background audio capture ready");
+      wakeWordService.start((wakeWord) => {
+        console.log(`Wake word "${wakeWord}" detected!`);
+
+        // Pause wake word detection while voice window is active
+        wakeWordService.pause();
+
+        // Play acknowledgment and show voice window
+        if (backgroundAudioWindow && !backgroundAudioWindow.isDestroyed()) {
+          backgroundAudioWindow.webContents.send("play-acknowledgment");
+        }
+
+        // Show voice window after brief delay for acknowledgment
+        setTimeout(() => {
+          showVoiceWindow();
+        }, 300);
+      });
+    });
+  }
+
+  // Resume wake word detection when voice window closes
+  ipcMain.on("voice-window-closed", () => {
+    wakeWordService.resume();
+  });
+
+  // Handle auto-close signal from voice window
+  ipcMain.on("auto-close-voice", () => {
+    if (voiceWindow && !voiceWindow.isDestroyed()) {
+      voskService.stop();
+      voiceWindow.hide();
+      wakeWordService.resume();
+    }
+  });
 });
+
+// Export for external use
+module.exports = { startBackgroundWakeWordDetection: () => { } };
+

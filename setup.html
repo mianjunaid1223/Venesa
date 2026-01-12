@@ -3,9 +3,9 @@
 
 <head>
   <meta charset="UTF-8" />
-  <title>Spotlight Setup</title>
+  <title>Venesa Setup</title>
   <style>
-    @import url("https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap");
+    @import url("https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap");
 
     * {
       margin: 0;
@@ -14,20 +14,15 @@
     }
 
     :root {
-      --font: "Segoe UI Variable", "Inter", -apple-system, system-ui,
-        sans-serif;
-      --primary: #c979ee;
-      --accent1: #74bcd6;
-      --accent2: #ef788c;
-      --background: #e7e7fb;
-      --highlight: #eb7fc6;
-      --text-primary: rgba(30, 30, 40, 0.95);
-      --text-secondary: rgba(30, 30, 40, 0.60);
-      --text-tertiary: rgba(30, 30, 40, 0.45);
-      --border-subtle: rgba(201, 121, 238, 0.2);
-      --hover-bg: rgba(201, 121, 238, 0.08);
-      --accent: var(--primary);
-      --accent-solid: #c979ee;
+      --font: "Segoe UI Variable", "Inter", -apple-system, system-ui, sans-serif;
+      --primary: #8B5CF6;
+      --secondary: #06B6D4;
+      --tertiary: #EC4899;
+      --accent: #A855F7;
+      --text-primary: #1a1a2e;
+      --text-secondary: #64648a;
+      --text-tertiary: #9999b3;
+      --border-subtle: rgba(139, 92, 246, 0.2);
       --error: #ef788c;
     }
 
@@ -39,79 +34,127 @@
     }
 
     body {
-      background: linear-gradient(135deg, #e7e7fb 0%, #f5f3ff 50%, #e7e7fb 100%);
+      background: #ffffff;
       font-family: var(--font);
       color: var(--text-primary);
       -webkit-app-region: drag;
     }
 
     .container {
-      padding: 32px;
+      padding: 40px 36px;
       height: 100%;
       display: flex;
       flex-direction: column;
+      position: relative;
+    }
+
+    /* Subtle decorative gradient orb */
+    .container::before {
+      content: '';
+      position: absolute;
+      top: -60px;
+      right: -60px;
+      width: 200px;
+      height: 200px;
+      background: radial-gradient(circle, rgba(139, 92, 246, 0.08) 0%, transparent 70%);
+      border-radius: 50%;
+      pointer-events: none;
     }
 
     .header {
       display: flex;
       align-items: center;
       gap: 16px;
-      margin-bottom: 32px;
+      margin-bottom: 28px;
     }
 
     .logo {
-      width: 48px;
-      height: 48px;
+      width: 52px;
+      height: 52px;
+      border-radius: 14px;
+      overflow: hidden;
+      box-shadow: 0 4px 16px rgba(139, 92, 246, 0.15);
     }
 
     .logo img {
       width: 100%;
       height: 100%;
+      object-fit: cover;
     }
 
-    h1 {
-      font-size: 24px;
-      font-weight: 600;
+    .title-group h1 {
+      font-size: 26px;
+      font-weight: 700;
       letter-spacing: -0.5px;
+      background: linear-gradient(135deg, var(--primary) 0%, var(--tertiary) 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
     }
 
-    .subtitle {
+    .title-group .tagline {
+      font-size: 13px;
+      color: var(--text-tertiary);
+      margin-top: 2px;
+    }
+
+    .greeting {
+      margin-bottom: 32px;
+    }
+
+    .greeting h2 {
+      font-size: 20px;
+      font-weight: 600;
+      color: var(--text-primary);
+      margin-bottom: 8px;
+    }
+
+    .greeting p {
       font-size: 14px;
       color: var(--text-secondary);
-      margin-bottom: 24px;
+      line-height: 1.6;
+    }
+
+    .form-section {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      -webkit-app-region: no-drag;
     }
 
     .form-group {
-      margin-bottom: 20px;
-      -webkit-app-region: no-drag;
+      margin-bottom: 24px;
     }
 
     label {
       display: block;
       font-size: 13px;
-      font-weight: 500;
-      color: var(--text-secondary);
-      margin-bottom: 8px;
+      font-weight: 600;
+      color: var(--text-primary);
+      margin-bottom: 10px;
     }
 
     input {
       width: 100%;
-      padding: 12px 16px;
-      background: rgba(255, 255, 255, 0.8);
-      border: 1px solid var(--border-subtle);
-      border-radius: 8px;
-      font-size: 14px;
+      padding: 14px 18px;
+      background: #fafafa;
+      border: 2px solid transparent;
+      border-radius: 12px;
+      font-size: 15px;
       color: var(--text-primary);
       font-family: var(--font);
       outline: none;
-      transition: border-color 0.4s, all 0.4s;
-      box-shadow: 0 2px 8px rgba(100, 80, 150, 0.06);
+      transition: all 0.3s ease;
+    }
+
+    input:hover {
+      background: #f5f5f5;
     }
 
     input:focus {
-      border-color: var(--accent);
-      background: rgba(255, 255, 255, 0.95);
-      box-shadow: 0 4px 12px rgba(120, 80, 220, 0.12);
+      background: #ffffff;
+      border-color: var(--primary);
+      box-shadow: 0 0 0 4px rgba(139, 92, 246, 0.1);
     }
 
     input::placeholder {
@@ -119,47 +162,48 @@
     }
 
     .hint {
-      font-size: 11px;
+      font-size: 12px;
       color: var(--text-tertiary);
-      margin-top: 6px;
-    }
-
-    .hint a {
-      color: var(--accent-solid);
-      text-decoration: none;
+      margin-top: 8px;
+      line-height: 1.5;
     }
 
     .buttons {
       margin-top: auto;
-      display: flex;
-      gap: 12px;
-      -webkit-app-region: no-drag;
+      padding-top: 20px;
     }
 
     button {
-      flex: 1;
-      padding: 12px 24px;
-      border-radius: 8px;
-      font-size: 14px;
-      font-weight: 500;
+      width: 100%;
+      padding: 14px 28px;
+      border-radius: 12px;
+      font-size: 15px;
+      font-weight: 600;
       font-family: var(--font);
       cursor: pointer;
-      transition: all 0.2s;
+      transition: all 0.3s ease;
+      border: none;
     }
 
     .btn-primary {
-      background: var(--accent-solid);
-      border: none;
-      color: #000;
+      background: linear-gradient(135deg, var(--primary) 0%, var(--accent) 100%);
+      color: #ffffff;
+      box-shadow: 0 4px 16px rgba(139, 92, 246, 0.3);
     }
 
     .btn-primary:hover {
-      background: #9dd0ff;
+      transform: translateY(-2px);
+      box-shadow: 0 6px 24px rgba(139, 92, 246, 0.4);
+    }
+
+    .btn-primary:active {
+      transform: translateY(0);
     }
 
     .btn-primary:disabled {
-      opacity: 0.5;
+      opacity: 0.6;
       cursor: not-allowed;
+      transform: none;
     }
 
     .error-message {
@@ -179,95 +223,87 @@
   <div class="container">
     <div class="header">
       <div class="logo">
-        <img src="logo.svg" alt="Spotlight" />
+        <img src="logo.svg" alt="Venesa" />
       </div>
-      <h1>Welcome to Spotlight</h1>
+      <div class="title-group">
+        <h1>Venesa</h1>
+        <p class="tagline">Your AI-powered assistant</p>
+      </div>
     </div>
 
-    <p class="subtitle">
-      Let's set up your AI-powered search assistant. You'll need a Gemini API
-      key to get started.
-    </p>
-
-    <div class="form-group">
-      <label for="userName">Your Name</label>
-      <input type="text" id="userName" placeholder="Enter your name" value="User" />
-      <p class="hint">The AI will use this name to address you</p>
-    </div>
-
-    <div class="form-group">
-      <label for="apiKey">Gemini API Key</label>
-      <input type="password" id="apiKey" placeholder="Enter your API key" />
-      <p class="hint">
-        Get your API key from <a href="#" id="getApiKey">Google AI Studio</a>
-      </p>
-      <p class="error-message" id="errorMessage">
-        Please enter a valid API key
+    <div class="greeting">
+      <h2>Nice to meet you</h2>
+      <p>
+        Before we begin, I would love to know what to call you.
+        This helps me personalize our conversations and feel more like a true assistant.
       </p>
     </div>
 
-    <div class="form-group">
-      <label for="modelName">Model Name</label>
-      <input type="text" id="modelName" placeholder="gemini-2.5-flash" value="gemini-2.5-flash" />
-      <p class="hint">
-        Default: gemini-2.5-flash. Other options: gemini-2.0-flash,
-        gemini-2.5-pro
-      </p>
-    </div>
+    <div class="form-section">
+      <div class="form-group">
+        <label for="userName">What is your name?</label>
+        <input type="text" id="userName" placeholder="Enter your name here" autocomplete="off" spellcheck="false" />
+        <p class="hint">
+          You can always change this later in the settings.
+        </p>
+        <p class="error-message" id="errorMessage">
+          Please enter your name to continue
+        </p>
+      </div>
 
-    <div class="buttons">
-      <button class="btn-primary" id="saveBtn">Get Started</button>
+      <div class="buttons">
+        <button class="btn-primary" id="saveBtn">Continue</button>
+      </div>
     </div>
   </div>
 
   <script>
     const userNameInput = document.getElementById("userName");
-    const apiKeyInput = document.getElementById("apiKey");
-    const modelNameInput = document.getElementById("modelName");
     const saveBtn = document.getElementById("saveBtn");
     const errorMessage = document.getElementById("errorMessage");
-    const getApiKeyLink = document.getElementById("getApiKey");
 
-    getApiKeyLink.addEventListener("click", (e) => {
-      e.preventDefault();
-      window.api.send("open-file", "https://aistudio.google.com/apikey");
-    });
+    // Focus the input on load
+    setTimeout(() => userNameInput.focus(), 100);
 
     saveBtn.addEventListener("click", () => {
-      const apiKey = apiKeyInput.value.trim();
-      const modelName = modelNameInput.value.trim() || "gemini-2.5-flash";
-      const userName = userNameInput.value.trim() || "User";
+      const userName = userNameInput.value.trim();
 
-      if (!apiKey) {
+      if (!userName) {
         errorMessage.classList.add("visible");
-        apiKeyInput.focus();
+        userNameInput.focus();
         return;
       }
 
       errorMessage.classList.remove("visible");
       saveBtn.disabled = true;
-      saveBtn.textContent = "Saving...";
+      saveBtn.textContent = "Getting ready...";
 
-      window.api.send("save-settings", { apiKey, modelName, userName });
+      // Save only the userName - API keys are loaded from .env file
+      window.api.send("save-settings", {
+        modelName: "gemini-2.5-flash",
+        userName
+      });
     });
 
     window.api.receive("settings-saved", (success) => {
       if (!success) {
-        errorMessage.textContent =
-          "Failed to save settings. Please try again.";
+        errorMessage.textContent = "Something went wrong. Please try again.";
         errorMessage.classList.add("visible");
         saveBtn.disabled = false;
-        saveBtn.textContent = "Get Started";
+        saveBtn.textContent = "Continue";
       }
     });
 
     // Handle Enter key
-    [userNameInput, apiKeyInput, modelNameInput].forEach((input) => {
-      input.addEventListener("keydown", (e) => {
-        if (e.key === "Enter") {
-          saveBtn.click();
-        }
-      });
+    userNameInput.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") {
+        saveBtn.click();
+      }
+    });
+
+    // Clear error when typing
+    userNameInput.addEventListener("input", () => {
+      errorMessage.classList.remove("visible");
     });
   </script>
 </body>
