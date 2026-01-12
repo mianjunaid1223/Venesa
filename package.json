@@ -1,42 +1,20 @@
 {
-  "name": "Venesa",
+  "name": "venesa",
   "version": "1.0.0",
-  "description": "AI-powered Venesa search",
+  "description": "Venesa OS-level Intelligent Agent",
   "main": "main.js",
   "scripts": {
     "start": "electron .",
-    "build": "electron-builder --win",
-    "build:dir": "electron-builder --win --dir"
+    "build": "electron-builder"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "devDependencies": {
-    "electron": "^28.3.3",
-    "electron-builder": "^24.13.3",
-    "sharp": "^0.34.5"
+    "electron": "^28.0.0",
+    "electron-builder": "^24.9.1"
   },
   "dependencies": {
-    "@google/generative-ai": "^0.24.1"
-  },
-  "build": {
-    "appId": "com.Venesa.app",
-    "productName": "Venesa",
-    "directories": {
-      "output": "dist"
-    },
-    "win": {
-      "target": "nsis",
-      "icon": "logo.png",
-      "signAndEditExecutable": false
-    },
-    "nsis": {
-      "oneClick": false,
-      "allowToChangeInstallationDirectory": true
-    },
-    "files": [
-      "**/*",
-      "!dist/**"
-    ]
+    "@google/generative-ai": "^0.1.3"
   }
 }

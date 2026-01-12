@@ -3,7 +3,7 @@ const path = require("path");
 const fs = require("fs");
 const os = require("os");
 
-const SETTINGS_PATH = path.join(os.homedir(), ".Venesa-settings.json");
+const SETTINGS_PATH = path.join(os.homedir(), ".spotlight-settings.json");
 
 const DEFAULT_SETTINGS = {
   apiKey: "",
@@ -22,7 +22,7 @@ function loadSettings() {
   } catch (error) {
     try {
       fs.unlinkSync(SETTINGS_PATH);
-    } catch (e) {}
+    } catch (e) { }
   }
   return DEFAULT_SETTINGS;
 }
@@ -52,7 +52,7 @@ let currentSettings = null;
 
 function initializeAPI() {
   currentSettings = loadSettings();
-  
+
   if (!currentSettings.apiKey) {
     return false;
   }
@@ -61,59 +61,41 @@ function initializeAPI() {
 
   model = genAI.getGenerativeModel({
     model: currentSettings.modelName,
-    systemInstruction: {
-      parts: [
-        {
-          text: `You are Venesa, an AI-powered desktop search assistant for Windows. The user's name is ${currentSettings.userName}.
+    parts: [
+      {
+        text: `You are Venesa, an advanced AI-powered desktop assistant for Windows. The user's name is ${currentSettings.userName}.
+You have access to see the user's screen context effectively.
 
-CRITICAL: You MUST use action commands for ANY request involving apps, files, or folders. Never just say "okay" or acknowledge - ALWAYS output the action command.
+CRITICAL INSTRUCTIONS:
+1. **Screen Context**: You may receive an image of the user's screen. **Only analyze or mention the screen content if the user explicitly asks** (e.g., "what is this?", "analyze this image", "help me with this code", "read this"). Otherwise, ignore the screen image and answer normally.
+2. **Action Commands**: You MUST use action commands for ANY request involving apps, files, or folders.
 
 Action format (MUST use this exact format):
 [action: actionName, paramName: value]
 
 Available actions:
-
 1. Launch applications: [action: launchApplication, appName: <name>]
-   Examples: chrome, notepad, firefox, word, excel, calculator, settings, explorer, spotify, discord, slack, teams, outlook, code
-
 2. Open files: [action: openFile, filePath: <path>]
-
 3. Search for files/folders: [action: searchFiles, query: <search-term>]
-   Use this when user wants to find, search, or locate any file or folder.
 
-EXAMPLES - You MUST respond exactly like this:
+EXAMPLES:
 - User: "open chrome" → You: [action: launchApplication, appName: chrome]
-- User: "launch notepad" → You: [action: launchApplication, appName: notepad]
-- User: "find my documents" → You: [action: searchFiles, query: documents]
-- User: "search for photos" → You: [action: searchFiles, query: photos]
-- User: "open file explorer" → You: [action: launchApplication, appName: explorer]
-- User: "where is my resume" → You: [action: searchFiles, query: resume]
+- User: "what's on my screen?" → You: "I see a browser window with..."
+- User: "summarize this text" (with screen) → You: "The text discusses..."
+- User: "hello" → You: "Hello! How can I help you today?"
 
 Rules:
-- For app/file/folder requests: Output ONLY the action command, nothing else.
-- For general questions: Answer briefly without action commands.
-- NEVER say "okay", "sure", "I'll do that" - just output the action.
-- Do not use markdown.
+- Output actions for app/file requests.
+- Be concise and helpful.
+- Do not use markdown for actions.
 `,
-        },
-      ],
-      role: "model",
-    },
+      },
+    ],
+    role: "model",
   });
 
   chat = model.startChat({
-    history: [
-      {
-        role: "user",
-        parts: [{ text: "Hello" }],
-      },
-      {
-        role: "model",
-        parts: [
-          { text: `Hello ${currentSettings.userName}! I am Venesa, your desktop search assistant.` },
-        ],
-      },
-    ],
+    history: [], // Clear history on init or keep simple
   });
 
   return true;
@@ -155,7 +137,7 @@ function getErrorMessage(error) {
   return "Something went wrong. Please try again.";
 }
 
-async function sendQuery(query) {
+async function sendQuery(query, image = null) {
   if (!chat) {
     if (!initializeAPI()) {
       return "⚠️ API not configured. Click the gear icon to set up your API key.";
@@ -163,10 +145,34 @@ async function sendQuery(query) {
   }
 
   try {
-    const result = await chat.sendMessage(query);
+    let result;
+    if (image) {
+      // Image provided - extract base64
+      const base64Data = image.split(',')[1];
+      const mimeType = image.split(':')[1].split(';')[0];
+
+      const imagePart = {
+        inlineData: {
+          data: base64Data,
+          mimeType: mimeType
+        }
+      };
+
+      // For multimodal requests, we might need a flash model.
+      // Assuming 'gemini-1.5-flash' or similar which supports vision.
+      // Current chat session might not support mix if init with text-only model?
+      // Gemini 1.5/Pro supports it.
+
+      result = await chat.sendMessage([query, imagePart]);
+    } else {
+      result = await chat.sendMessage(query);
+    }
+
     const response = await result.response;
     return response.text();
   } catch (error) {
+    // If chat gets corrupted or model issues, try single shot or refind
+    console.error("Gemini Error:", error);
     return `⚠️ ${getErrorMessage(error)}`;
   }
 }

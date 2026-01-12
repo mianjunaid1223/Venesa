@@ -1,687 +1,716 @@
 ﻿<!DOCTYPE html>
 <html>
-  <head>
-    <meta charset="UTF-8" />
-    <title>venessa</title>
-    <style>
-      @import url("https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap");
 
-      * {
-        margin: 0;
-        padding: 0;
-        box-sizing: border-box;
-      }
+<head>
+  <meta charset="UTF-8" />
+  <title>Spotlight</title>
+  <style>
+    @import url("https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap");
 
-      :root {
-        --font: "Segoe UI Variable", "Inter", -apple-system, system-ui,
-          sans-serif;
-        --text-primary: rgba(255, 255, 255, 0.95);
-        --text-secondary: rgba(255, 255, 255, 0.55);
-        --text-tertiary: rgba(255, 255, 255, 0.35);
-        --border-subtle: rgba(255, 255, 255, 0.08);
-        --hover-bg: rgba(255, 255, 255, 0.06);
-        --active-bg: rgba(255, 255, 255, 0.04);
-        --accent: rgba(136, 192, 255, 0.9);
-        --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
-        --ease-smooth: cubic-bezier(0.4, 0, 0.2, 1);
-      }
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
 
-      html,
-      body {
-        height: 100%;
-        width: 100%;
-        overflow: hidden;
-        margin: 0;
-        padding: 0;
-      }
+    :root {
+      --font: "Segoe UI Variable", "Inter", -apple-system, system-ui,
+        sans-serif;
+      --primary: #c979ee;
+      --accent1: #74bcd6;
+      --accent2: #ef788c;
+      --background: #e7e7fb;
+      --highlight: #eb7fc6;
+      --text-primary: rgba(30, 30, 40, 0.95);
+      --text-secondary: rgba(30, 30, 40, 0.55);
+      --text-tertiary: rgba(30, 30, 40, 0.40);
+      --border-subtle: rgba(201, 121, 238, 0.15);
+      --hover-bg: rgba(201, 121, 238, 0.08);
+      --active-bg: rgba(201, 121, 238, 0.12);
+      --accent: var(--primary);
+      --accent-glow: rgba(201, 121, 238, 0.4);
+      --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+      --ease-smooth: cubic-bezier(0.4, 0, 0.2, 1);
+    }
 
-      body {
-        background: transparent;
-        font-family: var(--font);
-        color: var(--text-primary);
-        -webkit-app-region: drag;
-        transition: all 0.4s var(--ease-smooth);
-      }
+    html,
+    body {
+      height: 100%;
+      width: 100%;
+      overflow: hidden;
+      margin: 0;
+      padding: 0;
+    }
 
-      body.gemini-mode .Venesa {
-        background-image: linear-gradient(
-            rgba(32, 32, 32, 0.364),
-            rgba(32, 32, 32, 0.364)
-          ),
-          linear-gradient(45deg, #ee76524a, #e73c7e4e, #23a5d54f, #23d5ab55);
-        background-origin: border-box;
-        background-clip: padding-box, border-box;
-        border-color: transparent;
-        height: 100%;
-      }
+    body {
+      background: transparent;
+      font-family: var(--font);
+      color: var(--text-primary);
+      -webkit-app-region: drag;
+      transition: all 0.4s var(--ease-smooth);
+    }
 
-      .Venesa {
-        display: flex;
-        flex-direction: column;
-        width: 100%;
-        height: 100% !important;
-        box-sizing: border-box;
-        border-radius: 12px;
-        overflow: hidden;
-        border: 2px solid var(--border-subtle);
-        background: rgba(32, 32, 32, 0.364);
-      }
+    body.gemini-mode .spotlight {
+      background-image: linear-gradient(135deg,
+          rgba(71, 149, 227, 0.479) 0%,
+          rgba(146, 119, 199, 0.473) 50%,
+          rgba(202, 102, 115, 0.479) 100%);
+      background-origin: border-box;
+      background-clip: padding-box, border-box;
+      border-color: transparent;
+      height: 100%;
+      background-color: white;
+      box-shadow: 0 8px 32px rgba(201, 121, 238, 0.15), 0 0 0 1px rgba(201, 121, 238, 0.2);
+    }
 
-      .results-wrapper {
-        max-height: 450px;
-        overflow-y: auto;
-        height: auto;
-      }
+    .spotlight {
+      display: flex;
+      flex-direction: column;
+      width: 100%;
+      height: 100% !important;
+      box-sizing: border-box;
+      border-radius: 15px;
+      overflow: hidden;
+      background: linear-gradient(135deg,
+          rgba(255, 255, 255, 0.98) 0%,
+          rgba(231, 231, 251, 0.95) 50%,
+          rgba(255, 255, 255, 0.98) 100%);
+      backdrop-filter: blur(20px);
+      transition: all 0.4s;
+      box-shadow: 0 8px 32px rgba(201, 121, 238, 0.1), 0 0 0 1px rgba(201, 121, 238, 0.15);
+    }
 
-      .results-wrapper:empty,
-      .results-wrapper.collapsed {
-        display: none;
-        height: 0;
-        padding: 0;
-        margin: 0;
-        overflow: hidden;
-      }
+    .results-wrapper {
+      max-height: 450px;
+      overflow-y: auto;
+      height: auto;
+    }
 
-      .search-wrapper {
-        display: flex;
-        align-items: center;
-        padding: 0 16px;
-        gap: 14px;
-        min-height: 58px;
-      }
+    .results-wrapper:empty,
+    .results-wrapper.collapsed {
+      display: none;
+      height: 0;
+      padding: 0;
+      margin: 0;
+      overflow: hidden;
+    }
 
-      .search-icon {
-        width: 24px;
-        height: 24px;
-        opacity: 0.5;
-        flex-shrink: 0;
-        transition: opacity 0.5s var(--ease-smooth),
-          width 0.3s var(--ease-smooth), height 0.3s var(--ease-smooth);
-      }
+    .search-wrapper {
+      display: flex;
+      align-items: center;
+      padding: 0 16px;
+      gap: 14px;
+      min-height: 58px;
+    }
 
-      .search-icon.ai-active {
+    .search-icon {
+      width: 24px;
+      height: 24px;
+      opacity: 0.5;
+      flex-shrink: 0;
+      transition: all 0.5s var(--ease-smooth),
+    }
+
+    .search-icon.ai-active {
+      opacity: 1;
+      width: 24px;
+      height: 24px;
+    }
+
+    .search-icon img {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      filter: drop-shadow(0 0 8px rgba(168, 85, 247, 0.5));
+    }
+
+    .search-icon svg {
+      width: 100%;
+      height: 100%;
+      fill: none;
+      stroke: currentColor;
+      stroke-width: 2;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+
+    input {
+      flex: 1;
+      background: transparent;
+      border: none;
+      outline: none;
+      font-size: 18px;
+      font-weight: 700;
+      padding: 16px;
+      font-family: var(--font);
+      color: var(--text-primary);
+      letter-spacing: -0.2px;
+      -webkit-app-region: no-drag;
+      caret-color: var(--accent);
+    }
+
+    input::placeholder {
+      color: var(--text-tertiary);
+      font-weight: 400;
+    }
+
+    input::selection {
+      background: rgba(136, 192, 255, 0.3);
+    }
+
+    .divider {
+      height: 1px;
+      background: var(--border-subtle);
+      margin: 0 16px;
+      opacity: 0;
+      transform: scaleX(0.5);
+      transition: opacity 0.5s var(--ease-smooth),
+        transform 0.5s var(--ease-out);
+    }
+
+    .divider.visible {
+      opacity: 1;
+      transform: scaleX(1);
+    }
+
+    #results {
+      padding: 8px;
+      opacity: 0;
+      animation: fadeIn 0.15s var(--ease-out) forwards;
+    }
+
+    #results:empty {
+      padding: 0;
+      animation: none;
+    }
+
+    .result-item {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      padding: 10px 14px;
+      margin: 2px 0;
+      border-radius: 8px;
+      cursor: pointer;
+      background: transparent;
+      border: none;
+      width: 100%;
+      text-align: left;
+      color: inherit;
+      font-family: inherit;
+      -webkit-app-region: no-drag;
+      opacity: 0;
+      transform: translateY(-6px);
+      animation: fadeSlideIn 0.25s var(--ease-out) forwards;
+      transition: all 0.15s var(--ease-smooth),
+        transform 0.1s var(--ease-smooth);
+    }
+
+    .result-item:hover {
+      background: var(--hover-bg);
+    }
+
+    .result-item:active {
+      background: var(--active-bg);
+      transform: scale(0.99);
+    }
+
+    .result-item.selected {
+      background: rgba(201, 121, 238, 0.1);
+      box-shadow: inset 0 0 0 1px rgba(201, 121, 238, 0.25);
+    }
+
+    .file-icon {
+      width: 36px;
+      height: 36px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.04);
+      flex-shrink: 0;
+    }
+
+    .file-icon svg {
+      width: 18px;
+      height: 18px;
+      stroke: var(--text-secondary);
+      stroke-width: 1.5;
+      fill: none;
+    }
+
+    .file-icon.app-icon svg {
+      stroke: #88c0ff;
+      fill: rgba(136, 192, 255, 0.15);
+    }
+
+    .file-icon.folder-icon svg {
+      stroke: #f5c542;
+      fill: rgba(245, 197, 66, 0.15);
+    }
+
+    .file-icon.image-icon svg {
+      stroke: #e879f9;
+      fill: rgba(232, 121, 249, 0.15);
+    }
+
+    .file-icon.code-icon svg {
+      stroke: #4ade80;
+      fill: rgba(74, 222, 128, 0.15);
+    }
+
+    .file-icon.document-icon svg {
+      stroke: #fb923c;
+      fill: rgba(251, 146, 60, 0.15);
+    }
+
+    .file-icon.default-icon svg {
+      stroke: #94a3b8;
+      fill: rgba(148, 163, 184, 0.1);
+    }
+
+    .result-content {
+      flex: 1;
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .result-name {
+      font-size: 14px;
+      font-weight: 500;
+      color: var(--text-primary);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      letter-spacing: -0.1px;
+    }
+
+    .result-path {
+      font-size: 12px;
+      font-weight: 400;
+      color: var(--text-tertiary);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .result-action {
+      font-size: 11px;
+      color: var(--text-tertiary);
+      padding: 4px 8px;
+      border-radius: 4px;
+      background: rgba(255, 255, 255, 0.04);
+      opacity: 0;
+      transition: opacity 0.15s var(--ease-smooth);
+    }
+
+    .result-item:hover .result-action {
+      opacity: 1;
+    }
+
+    #gemini-response {
+      padding: 16px 20px;
+      font-size: 14px;
+      line-height: 1.65;
+      color: var(--text-primary);
+      display: none;
+      opacity: 0;
+      transform: translateY(8px);
+    }
+
+    #gemini-response.visible {
+      display: block;
+      animation: fadeSlideIn 0.3s var(--ease-out) forwards;
+    }
+
+    @keyframes fadeInUp {
+      to {
         opacity: 1;
-        width: 40px;
-        height: 40px;
+        transform: translateY(0);
       }
+    }
 
-      .search-icon img {
-        width: 100%;
-        height: 100%;
-        object-fit: contain;
-        filter: drop-shadow(0 0 8px rgba(168, 85, 247, 0.5));
-      }
+    .loader-wrapper {
+      display: none;
+      justify-content: center;
+      padding: 24px;
+      opacity: 0;
+      animation: fadeIn 0.2s var(--ease-out) forwards;
+    }
 
-      .search-icon svg {
-        width: 100%;
-        height: 100%;
-        fill: none;
-        stroke: currentColor;
-        stroke-width: 2;
-        stroke-linecap: round;
-        stroke-linejoin: round;
-      }
+    .loader-wrapper.visible {
+      display: flex;
+    }
 
-      input {
-        flex: 1;
-        background: transparent;
-        border: none;
-        outline: none;
-        font-size: 18px;
-        font-weight: 400;
-        padding: 16px;
-        font-family: var(--font);
-        color: var(--text-primary);
-        letter-spacing: -0.2px;
-        -webkit-app-region: no-drag;
-        caret-color: var(--accent);
-      }
+    .loader {
+      width: 24px;
+      height: 24px;
+      border: 2px solid var(--border-subtle);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+    }
 
-      input::placeholder {
-        color: var(--text-tertiary);
-        font-weight: 400;
-      }
-
-      input::selection {
-        background: rgba(136, 192, 255, 0.3);
-      }
-
-      .divider {
-        height: 1px;
-        background: var(--border-subtle);
-        margin: 0 16px;
+    @keyframes fadeIn {
+      from {
         opacity: 0;
-        transform: scaleX(0.5);
-        transition: opacity 0.5s var(--ease-smooth),
-          transform 0.5s var(--ease-out);
       }
 
-      .divider.visible {
-        opacity: 1;
-        transform: scaleX(1);
-      }
-
-      #results {
-        padding: 8px;
-        opacity: 0;
-        animation: fadeIn 0.15s var(--ease-out) forwards;
-      }
-
-      #results:empty {
-        padding: 0;
-        animation: none;
-      }
-
-      .result-item {
-        display: flex;
-        align-items: center;
-        gap: 14px;
-        padding: 10px 14px;
-        margin: 2px 0;
-        border-radius: 8px;
-        cursor: pointer;
-        background: transparent;
-        border: none;
-        width: 100%;
-        text-align: left;
-        color: inherit;
-        font-family: inherit;
-        -webkit-app-region: no-drag;
-        opacity: 0;
-        transform: translateY(-6px);
-        animation: fadeSlideIn 0.25s var(--ease-out) forwards;
-        transition: all 0.15s var(--ease-smooth),
-          transform 0.1s var(--ease-smooth);
-      }
-
-      .result-item:hover {
-        background: var(--hover-bg);
-      }
-
-      .result-item:active {
-        background: var(--active-bg);
-        transform: scale(0.99);
-      }
-
-      .result-item.selected {
-        background: rgba(136, 192, 255, 0.12);
-      }
-
-      .file-icon {
-        width: 36px;
-        height: 36px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        border-radius: 8px;
-        background: rgba(255, 255, 255, 0.04);
-        flex-shrink: 0;
-      }
-
-      .file-icon svg {
-        width: 18px;
-        height: 18px;
-        stroke: var(--text-secondary);
-        stroke-width: 1.5;
-        fill: none;
-      }
-
-      .file-icon.app-icon svg {
-        stroke: #88c0ff;
-        fill: rgba(136, 192, 255, 0.15);
-      }
-
-      .file-icon.folder-icon svg {
-        stroke: #f5c542;
-        fill: rgba(245, 197, 66, 0.15);
-      }
-
-      .file-icon.image-icon svg {
-        stroke: #e879f9;
-        fill: rgba(232, 121, 249, 0.15);
-      }
-
-      .file-icon.code-icon svg {
-        stroke: #4ade80;
-        fill: rgba(74, 222, 128, 0.15);
-      }
-
-      .file-icon.document-icon svg {
-        stroke: #fb923c;
-        fill: rgba(251, 146, 60, 0.15);
-      }
-
-      .file-icon.default-icon svg {
-        stroke: #94a3b8;
-        fill: rgba(148, 163, 184, 0.1);
-      }
-
-      .result-content {
-        flex: 1;
-        min-width: 0;
-        display: flex;
-        flex-direction: column;
-        gap: 2px;
-      }
-
-      .result-name {
-        font-size: 14px;
-        font-weight: 500;
-        color: var(--text-primary);
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        letter-spacing: -0.1px;
-      }
-
-      .result-path {
-        font-size: 12px;
-        font-weight: 400;
-        color: var(--text-tertiary);
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
-      }
-
-      .result-action {
-        font-size: 11px;
-        color: var(--text-tertiary);
-        padding: 4px 8px;
-        border-radius: 4px;
-        background: rgba(255, 255, 255, 0.04);
-        opacity: 0;
-        transition: opacity 0.15s var(--ease-smooth);
-      }
-
-      .result-item:hover .result-action {
-        opacity: 1;
-      }
-
-      #gemini-response {
-        padding: 16px 20px;
-        font-size: 14px;
-        line-height: 1.65;
-        color: #fff;
-        display: none;
-        opacity: 0;
-        transform: translateY(8px);
-      }
-
-      #gemini-response.visible {
-        display: block;
-        animation: fadeSlideIn 0.3s var(--ease-out) forwards;
-      }
-
-      @keyframes fadeInUp {
-        to {
-          opacity: 1;
-          transform: translateY(0);
-        }
-      }
-
-      .loader-wrapper {
-        display: none;
-        justify-content: center;
-        padding: 24px;
-        opacity: 0;
-        animation: fadeIn 0.2s var(--ease-out) forwards;
-      }
-
-      .loader-wrapper.visible {
-        display: flex;
-      }
-
-      .loader {
-        width: 24px;
-        height: 24px;
-        border: 2px solid var(--border-subtle);
-        border-top-color: var(--accent);
-        border-radius: 50%;
-        animation: spin 0.7s linear infinite;
-      }
-
-      @keyframes fadeIn {
-        from {
-          opacity: 0;
-        }
-        to {
-          opacity: 1;
-        }
-      }
-
-      #no-results {
-        display: none;
-        padding: 32px 20px;
-        text-align: center;
-        color: var(--text-tertiary);
-        font-size: 14px;
-      }
-
-      .results-wrapper::-webkit-scrollbar {
-        width: 6px;
-      }
-
-      .results-wrapper::-webkit-scrollbar-track {
-        background: transparent;
-      }
-
-      .results-wrapper::-webkit-scrollbar-thumb {
-        background: rgba(255, 255, 255, 0.1);
-        border-radius: 3px;
-      }
-
-      .results-wrapper::-webkit-scrollbar-thumb:hover {
-        background: rgba(255, 255, 255, 0.15);
-      }
-
-      @keyframes fadeSlideIn {
-        to {
-          opacity: 1;
-          transform: translateY(0);
-        }
-      }
-
-      @keyframes spin {
-        to {
-          transform: rotate(360deg);
-        }
-      }
-
-      .search-stats {
-        display: none;
-        padding: 6px 16px;
-        font-size: 11px;
-        color: var(--text-tertiary);
-        border-bottom: 1px solid var(--border-subtle);
-      }
-
-      .search-stats.visible {
-        display: flex;
-        align-items: center;
-        gap: 12px;
-        animation: fadeIn 0.2s var(--ease-out);
-      }
-
-      .search-stats span {
-        display: flex;
-        align-items: center;
-        gap: 4px;
-      }
-
-      .hint {
-        font-size: 10px;
-        color: var(--text-tertiary);
-        opacity: 0;
-        transition: opacity 0.15s var(--ease-smooth);
-        padding: 2px 6px;
-        border-radius: 3px;
-        background: rgba(255, 255, 255, 0.03);
-        white-space: nowrap;
-      }
-
-      .result-item:hover .hint {
+      to {
         opacity: 1;
       }
+    }
 
-      .result-hints {
-        display: flex;
-        gap: 6px;
-        align-items: center;
-      }
+    #no-results {
+      display: none;
+      padding: 32px 20px;
+      text-align: center;
+      color: var(--text-tertiary);
+      font-size: 14px;
+    }
 
-      .input-hint {
-        position: absolute;
-        right: 16px;
-        font-size: 11px;
-        color: var(--text-tertiary);
-        opacity: 0.6;
-        pointer-events: none;
-        transition: opacity 0.2s var(--ease-smooth);
-      }
+    .results-wrapper::-webkit-scrollbar {
+      width: 6px;
+    }
 
-      .search-wrapper {
-        position: relative;
-      }
+    .results-wrapper::-webkit-scrollbar-track {
+      background: transparent;
+    }
 
-      svg {
-        opacity: 1 !important;
-      }
+    .results-wrapper::-webkit-scrollbar-thumb {
+      background: rgba(201, 121, 238, 0.2);
+      border-radius: 3px;
+    }
 
-      .settings-btn {
-        width: 32px;
-        height: 32px;
-        border: none;
-        background: transparent;
-        cursor: pointer;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        border-radius: 6px;
-        transition: background 0.15s;
-        -webkit-app-region: no-drag;
-        opacity: 0.4;
-      }
+    .results-wrapper::-webkit-scrollbar-thumb:hover {
+      background: rgba(201, 121, 238, 0.35);
+    }
 
-      .settings-btn:hover {
-        background: var(--hover-bg);
+    @keyframes fadeSlideIn {
+      to {
         opacity: 1;
+        transform: translateY(0);
       }
+    }
 
-      .settings-btn svg {
-        width: 18px;
-        height: 18px;
-        stroke: var(--text-secondary);
-        fill: none;
-        stroke-width: 2;
+    @keyframes spin {
+      to {
+        transform: rotate(360deg);
       }
+    }
 
-      .settings-panel {
-        display: none;
-        padding: 20px;
-        padding-bottom: 24px;
-        background: rgba(26, 26, 26, 0.98);
-        animation: fadeIn 0.2s ease-out;
-      }
+    .search-stats {
+      display: none;
+      padding: 6px 16px;
+      font-size: 11px;
+      color: var(--text-tertiary);
+      border-bottom: 1px solid var(--border-subtle);
+    }
 
-      .settings-panel.visible {
-        display: block;
-      }
+    .search-stats.visible {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      animation: fadeIn 0.2s var(--ease-out);
+    }
 
-      .settings-header {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        margin-bottom: 20px;
-      }
+    .search-stats span {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
 
-      .settings-header h2 {
-        font-size: 16px;
-        font-weight: 600;
-        color: var(--text-primary);
-      }
+    .hint {
+      font-size: 10px;
+      color: var(--text-tertiary);
+      opacity: 0;
+      transition: opacity 0.15s var(--ease-smooth);
+      padding: 2px 6px;
+      border-radius: 3px;
+      background: rgba(255, 255, 255, 0.03);
+      white-space: nowrap;
+    }
 
-      .close-settings {
-        width: 28px;
-        height: 28px;
-        border: none;
-        background: transparent;
-        cursor: pointer;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        border-radius: 6px;
-        transition: background 0.15s;
-        -webkit-app-region: no-drag;
-      }
+    .result-item:hover .hint {
+      opacity: 1;
+    }
 
-      .close-settings:hover {
-        background: var(--hover-bg);
-      }
+    .result-hints {
+      display: flex;
+      gap: 6px;
+      align-items: center;
+    }
 
-      .close-settings svg {
-        width: 16px;
-        height: 16px;
-        stroke: var(--text-secondary);
-        fill: none;
-        stroke-width: 2;
-      }
+    .input-hint {
+      position: absolute;
+      right: 16px;
+      font-size: 11px;
+      color: var(--text-tertiary);
+      opacity: 0.6;
+      pointer-events: none;
+      transition: all 0.2s var(--ease-smooth);
+    }
 
-      .settings-form .form-group {
-        margin-bottom: 16px;
-        -webkit-app-region: no-drag;
-      }
+    .search-wrapper {
+      position: relative;
+    }
 
-      .settings-form label {
-        display: block;
-        font-size: 12px;
-        font-weight: 500;
-        color: var(--text-secondary);
-        margin-bottom: 6px;
-      }
+    svg {
+      opacity: 1 !important;
+    }
 
-      .settings-form input {
-        width: 100%;
-        padding: 10px 12px;
-        background: rgba(255, 255, 255, 0.05);
-        border: 1px solid var(--border-subtle);
-        border-radius: 6px;
-        font-size: 13px;
-        color: var(--text-primary);
-        font-family: var(--font);
-        outline: none;
-        transition: border-color 0.2s;
-      }
+    .settings-btn {
+      width: 32px;
+      height: 32px;
+      border: none;
+      background: transparent;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 6px;
+      transition: all 0.15s;
+      -webkit-app-region: no-drag;
+      opacity: 0.4;
+    }
 
-      .settings-form input:focus {
-        border-color: var(--accent);
-      }
+    body.gemini-mode .settings-btn {
 
-      .settings-form .hint {
-        font-size: 10px;
-        color: var(--text-tertiary);
-        margin-top: 4px;
-      }
+      opacity: 1;
+    }
 
-      .settings-buttons {
-        display: flex;
-        gap: 10px;
-        margin-top: 20px;
-        -webkit-app-region: no-drag;
-      }
+    .settings-btn:hover {
+      background: var(--hover-bg);
+      opacity: 1;
+    }
 
-      .settings-buttons button {
-        flex: 1;
-        padding: 10px 16px;
-        border-radius: 6px;
-        font-size: 13px;
-        font-weight: 500;
-        font-family: var(--font);
-        cursor: pointer;
-        transition: all 0.15s;
-      }
+    .settings-btn svg {
+      width: 18px;
+      height: 18px;
+      stroke: var(--text-secondary);
+      fill: none;
+      stroke-width: 2;
+    }
 
-      .btn-save {
-        background: var(--accent);
-        border: none;
-        color: #000;
-      }
+    .settings-panel {
+      display: none;
+      padding: 20px;
+      padding-bottom: 24px;
+      background: rgba(255, 255, 255, 0.98);
+      animation: fadeIn 0.2s ease-out;
+    }
 
-      .btn-save:hover {
-        background: #9dd0ff;
-      }
+    .settings-panel.visible {
+      display: block;
+    }
 
-      .btn-cancel {
-        background: transparent;
-        border: 1px solid var(--border-subtle);
-        color: var(--text-secondary);
-      }
+    .settings-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 20px;
+    }
 
-      .btn-cancel:hover {
-        background: var(--hover-bg);
-        color: var(--text-primary);
-      }
+    .settings-header h2 {
+      font-size: 16px;
+      font-weight: 600;
+      color: var(--text-primary);
+    }
 
-      .settings-saved {
-        display: none;
-        font-size: 12px;
-        color: #4ade80;
-        margin-top: 10px;
-        text-align: center;
-      }
+    .close-settings {
+      width: 28px;
+      height: 28px;
+      border: none;
+      background: transparent;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 6px;
+      transition: all 0.15s;
+      -webkit-app-region: no-drag;
+    }
 
-      .settings-saved.visible {
-        display: block;
-      }
-    </style>
-  </head>
-  <body>
-    <div class="Venesa">
-      <!-- Settings Panel -->
-      <div class="settings-panel" id="settingsPanel">
-        <div class="settings-header">
-          <h2>Settings</h2>
-          <button class="close-settings" id="closeSettings">
-            <svg viewBox="0 0 24 24">
-              <line x1="18" y1="6" x2="6" y2="18"></line>
-              <line x1="6" y1="6" x2="18" y2="18"></line>
-            </svg>
-          </button>
-        </div>
-        <div class="settings-form">
-          <div class="form-group">
-            <label for="settingsUserName">Your Name</label>
-            <input
-              type="text"
-              id="settingsUserName"
-              placeholder="Enter your name"
-            />
-            <p class="hint">The AI will address you by this name</p>
-          </div>
-          <div class="form-group">
-            <label for="settingsApiKey">Gemini API Key</label>
-            <input
-              type="password"
-              id="settingsApiKey"
-              placeholder="Enter your API key"
-            />
-            <p class="hint">Your key is stored locally and never shared</p>
-          </div>
-          <div class="form-group">
-            <label for="settingsModelName">Model Name</label>
-            <input
-              type="text"
-              id="settingsModelName"
-              placeholder="gemini-2.5-flash"
-            />
-            <p class="hint">
-              Options: gemini-2.5-flash, gemini-2.0-flash, gemini-1.5-pro
-            </p>
-          </div>
-          <div class="settings-buttons">
-            <button class="btn-cancel" id="cancelSettings">Cancel</button>
-            <button class="btn-save" id="saveSettings">Save</button>
-          </div>
-          <p class="settings-saved" id="settingsSaved">
-            Settings saved! Restart the app to apply changes.
-          </p>
-        </div>
-      </div>
+    .close-settings:hover {
+      background: var(--hover-bg);
+    }
 
-      <div class="search-stats" id="searchStats">
-        <span id="resultCount">0 results in total</span>
-        <span id="searchTime">0.00s</span>
-      </div>
+    .close-settings svg {
+      width: 16px;
+      height: 16px;
+      stroke: var(--text-secondary);
+      fill: none;
+      stroke-width: 2;
+    }
 
-      <div class="results-wrapper" id="resultsWrapper">
-        <div class="loader-wrapper" id="loader">
-          <div class="loader"></div>
-        </div>
-        <div id="results"></div>
-        <div id="gemini-response"></div>
-        <div id="no-results">No results found</div>
-      </div>
-    </div>
-    <div class="divider" id="divider"></div>
+    .settings-form .form-group {
+      margin-bottom: 16px;
+      -webkit-app-region: no-drag;
+    }
+
+    .settings-form label {
+      display: block;
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--text-secondary);
+      margin-bottom: 6px;
+    }
+
+    .settings-form input {
+      width: 100%;
+      padding: 10px 12px;
+      background: rgba(255, 255, 255, 0.8);
+      border: 1px solid var(--border-subtle);
+      border-radius: 6px;
+      font-size: 13px;
+      color: var(--text-primary);
+      font-family: var(--font);
+      outline: none;
+      transition: border-color 0.2s;
+      box-shadow: 0 1px 4px rgba(201, 121, 238, 0.08);
+    }
+
+    .settings-form input:focus {
+      border-color: var(--primary);
+      box-shadow: 0 2px 8px rgba(201, 121, 238, 0.15);
+    }
+
+    .settings-form .hint {
+      font-size: 10px;
+      color: var(--text-tertiary);
+      margin-top: 4px;
+    }
+
+    .settings-buttons {
+      display: flex;
+      gap: 10px;
+      margin-top: 20px;
+      -webkit-app-region: no-drag;
+    }
+
+    .settings-buttons button {
+      flex: 1;
+      padding: 10px 16px;
+      border-radius: 6px;
+      font-size: 13px;
+      font-weight: 500;
+      font-family: var(--font);
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+
+    .btn-save {
+      background: var(--primary);
+      border: none;
+      color: #fff;
+    }
+
+    .btn-save:hover {
+      background: var(--highlight);
+    }
+
+    .btn-cancel {
+      background: transparent;
+      border: 1px solid var(--border-subtle);
+      color: var(--text-secondary);
+    }
+
+    .btn-cancel:hover {
+      background: var(--hover-bg);
+      color: var(--text-primary);
+    }
+
+    .settings-saved {
+      display: none;
+      font-size: 12px;
+      color: #4ade80;
+      margin-top: 10px;
+      text-align: center;
+    }
+
+    .settings-saved.visible {
+      display: block;
+    }
+
+    /* === Google Search Container - Clean minimal === */
+    .google-container {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      height: 0;
+      background: rgba(255, 255, 255, 0.98);
+      border-radius: 12px 12px 0 0;
+      overflow: hidden;
+      transition: height 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      box-shadow: 0 -4px 20px rgba(201, 121, 238, 0.15);
+      display: flex;
+      flex-direction: column;
+      -webkit-app-region: no-drag;
+    }
+
+    /* Auto-expand when visible */
+    .google-container.visible {
+      height: calc(100% - 56px);
+      /* Full height minus small top gap */
+      border-radius: 12px 12px 0 0;
+    }
+
+    #googleWebview {
+      flex: 1;
+      width: 100%;
+      border: none;
+      bottom: 0;
+      background: rgba(255, 255, 255, 0);
+      backdrop-filter: blur(20px);
+      transition: all 0.3s;
+    }
+
+    #googleWebview::before {
+      content: 'Searching...';
+      color: #3a3d41;
+      position: absolute;
+      bottom: 0;
+      right: 0;
+      width: 100%;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      z-index: -1;
+      background-color: white;
+
+
+
+    }
+
+    /* Google mode indicator */
+    body.google-mode .spotlight {
+      background-image:
+        radial-gradient(circle, white 70%, rgb(255, 255, 255)),
+        conic-gradient(#EA4335 0deg 90deg,
+          /* Top: Red */
+          #FBBC05 90deg 180deg,
+          /* Right: Yellow */
+          #34A853 180deg 270deg,
+          /* Bottom: Green */
+          #4285F4 270deg 360deg
+          /* Left: Blue */
+        );
+      background-origin: border-box;
+      background-clip: padding-box, border-box;
+      border: 4px solid transparent;
+      border-radius: 50px;
+      outline-offset: 3px;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="spotlight">
     <div class="search-wrapper">
       <div class="search-icon" id="searchIcon">
         <svg viewBox="0 0 24 24" id="searchSvg">
@@ -689,820 +718,953 @@
           <path d="M21 21l-4.35-4.35"></path>
         </svg>
 
-        <img
-          src="logo.svg"
-          width="35px"
-          height="35px"
-          id="aiSvg"
-          style="display: none"
-        />
+        <img src="logo.svg" width="35px" height="35px" id="aiSvg" style="display: none" />
       </div>
-      <input
-        type="text"
-        id="searchInput"
-        placeholder="Search files or type / for AI..."
-        autofocus
-        spellcheck="false"
-      />
+      <input type="text" id="searchInput" placeholder="Search files, type / for AI or type // for Google..." autofocus
+        spellcheck="false" />
+      <button class="settings-btn" id="voiceBtn" title="Voice Mode (Ctrl+Shift+V)">
+        <svg viewBox="0 0 24 24">
+          <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path>
+          <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path>
+          <line x1="12" y1="19" x2="12" y2="23"></line>
+          <line x1="8" y1="23" x2="16" y2="23"></line>
+        </svg>
+      </button>
       <button class="settings-btn" id="settingsBtn" title="Settings">
         <svg viewBox="0 0 24 24">
           <circle cx="12" cy="12" r="3"></circle>
           <path
-            d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"
-          ></path>
+            d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z">
+          </path>
         </svg>
       </button>
     </div>
 
-    <script>
-      const searchInput = document.getElementById("searchInput");
-      const resultsDiv = document.getElementById("results");
-      const geminiResponse = document.getElementById("gemini-response");
-      const loader = document.getElementById("loader");
-      const noResults = document.getElementById("no-results");
-      const divider = document.getElementById("divider");
-      const resultsWrapper = document.getElementById("resultsWrapper");
-      const searchIcon = document.getElementById("searchIcon");
-      const searchSvg = document.getElementById("searchSvg");
-      const aiSvg = document.getElementById("aiSvg");
-      const searchStats = document.getElementById("searchStats");
-      const resultCountEl = document.getElementById("resultCount");
-      const searchTimeEl = document.getElementById("searchTime");
+    <div class="divider" id="divider"></div>
 
-      const settingsBtn = document.getElementById("settingsBtn");
-      const settingsPanel = document.getElementById("settingsPanel");
-      const closeSettingsBtn = document.getElementById("closeSettings");
-      const cancelSettingsBtn = document.getElementById("cancelSettings");
-      const saveSettingsBtn = document.getElementById("saveSettings");
-      const settingsUserName = document.getElementById("settingsUserName");
-      const settingsApiKey = document.getElementById("settingsApiKey");
-      const settingsModelName = document.getElementById("settingsModelName");
-      const settingsSaved = document.getElementById("settingsSaved");
+    <!-- Settings Panel -->
+    <div class="settings-panel" id="settingsPanel">
+      <div class="settings-header">
+        <h2>Settings</h2>
+        <button class="close-settings" id="closeSettings">
+          <svg viewBox="0 0 24 24">
+            <line x1="18" y1="6" x2="6" y2="18"></line>
+            <line x1="6" y1="6" x2="18" y2="18"></line>
+          </svg>
+        </button>
+      </div>
+      <div class="settings-form">
+        <div class="form-group">
+          <label for="settingsUserName">Your Name</label>
+          <input type="text" id="settingsUserName" placeholder="Enter your name" />
+          <p class="hint">The AI will address you by this name</p>
+        </div>
+        <div class="form-group">
+          <label for="settingsApiKey">Gemini API Key</label>
+          <input type="password" id="settingsApiKey" placeholder="Enter your API key" />
+          <p class="hint">Your key is stored locally and never shared</p>
+        </div>
+        <div class="form-group">
+          <label for="settingsModelName">Model Name</label>
+          <input type="text" id="settingsModelName" placeholder="gemini-2.5-flash" />
+          <p class="hint">
+            Options: gemini-2.5-flash, gemini-2.0-flash, gemini-1.5-pro
+          </p>
+        </div>
+        <div class="settings-buttons">
+          <button class="btn-cancel" id="cancelSettings">Cancel</button>
+          <button class="btn-save" id="saveSettings">Save</button>
+        </div>
+        <p class="settings-saved" id="settingsSaved">
+          Settings saved! Restart the app to apply changes.
+        </p>
+      </div>
+    </div>
 
-      let debounceTimer;
-      let selectedIndex = -1;
-      let resultItems = [];
-      let lastQuery = "";
-      let pendingQuery = "";
-      let settingsOpen = false;
-      let isGeminiAction = false;
-      let isAIMode = false;
-      let searchStartTime = 0;
+    <div class="search-stats" id="searchStats">
+      <span id="resultCount">0 results in total</span>
+      <span id="searchTime">0.00s</span>
+    </div>
 
-      const setAIMode = (enabled) => {
-        isAIMode = enabled;
-        if (enabled) {
-          document.body.classList.add("gemini-mode");
-          searchIcon.classList.add("ai-active");
-          searchSvg.style.display = "none";
-          aiSvg.style.display = "block";
-          searchInput.placeholder =
-            "Ask AI anything or search in natural language...";
-        } else {
-          document.body.classList.remove("gemini-mode");
-          searchIcon.classList.remove("ai-active");
-          searchSvg.style.display = "block";
-          aiSvg.style.display = "none";
-          searchInput.placeholder = "Search files or type / for AI...";
-        }
-      };
+    <div class="results-wrapper" id="resultsWrapper">
+      <div class="loader-wrapper" id="loader">
+        <div class="loader"></div>
+      </div>
+      <div id="results"></div>
+      <div id="gemini-response"></div>
+      <div id="no-results">No results found</div>
+    </div>
 
-      const HEIGHTS = {
-        BASE: 56,
-        SETTINGS_PANEL: 460,
-        LOADER: 120,
-        NO_RESULTS: 130,
-        RESULT_ITEM: 58,
-        RESULT_PADDING: 70,
-        GEMINI_MIN: 150,
-        MAX: 500,
-      };
+    <!-- Google Search Container (// mode) -->
+    <div class="google-container" id="googleContainer">
 
-      const VenesaEl = document.querySelector(".Venesa");
-      const searchWrapperEl = document.querySelector(".search-wrapper");
-      let measuredBaseHeight = HEIGHTS.BASE;
+      <webview id="googleWebview" partition="persist:google"></webview>
+    </div>
+  </div>
 
-      const safePx = (value) => {
-        const n = Number.parseFloat(value);
-        return Number.isFinite(n) ? n : 0;
-      };
+  <script>
+    const searchInput = document.getElementById("searchInput");
+    const resultsDiv = document.getElementById("results");
+    const geminiResponse = document.getElementById("gemini-response");
+    const loader = document.getElementById("loader");
+    const noResults = document.getElementById("no-results");
+    const divider = document.getElementById("divider");
+    const resultsWrapper = document.getElementById("resultsWrapper");
+    const searchIcon = document.getElementById("searchIcon");
+    const searchSvg = document.getElementById("searchSvg");
+    const aiSvg = document.getElementById("aiSvg");
+    const searchStats = document.getElementById("searchStats");
+    const resultCountEl = document.getElementById("resultCount");
+    const searchTimeEl = document.getElementById("searchTime");
 
-      const recomputeBaseHeight = () => {
-        try {
-          if (!VenesaEl || !searchWrapperEl) return;
-          const spotStyle = getComputedStyle(VenesaEl);
-          const borderY =
-            safePx(spotStyle.borderTopWidth) +
-            safePx(spotStyle.borderBottomWidth);
+    const settingsBtn = document.getElementById("settingsBtn");
+    const settingsPanel = document.getElementById("settingsPanel");
+    const closeSettingsBtn = document.getElementById("closeSettings");
+    const cancelSettingsBtn = document.getElementById("cancelSettings");
+    const saveSettingsBtn = document.getElementById("saveSettings");
+    const settingsUserName = document.getElementById("settingsUserName");
+    const settingsApiKey = document.getElementById("settingsApiKey");
+    const settingsModelName = document.getElementById("settingsModelName");
+    const settingsSaved = document.getElementById("settingsSaved");
 
-          const dividerStyle = getComputedStyle(divider);
-          const dividerY =
-            divider.getBoundingClientRect().height +
-            safePx(dividerStyle.marginTop) +
-            safePx(dividerStyle.marginBottom);
+    // Google search elements
+    const googleContainer = document.getElementById("googleContainer");
+    const googleWebview = document.getElementById("googleWebview");
 
-          const searchY = searchWrapperEl.getBoundingClientRect().height;
-          const next = Math.ceil(searchY + dividerY + borderY);
-          if (Number.isFinite(next) && next > 0) {
-            measuredBaseHeight = next;
-          }
-        } catch {}
-      };
+    let debounceTimer;
+    let selectedIndex = -1;
+    let resultItems = [];
+    let lastQuery = "";
+    let pendingQuery = "";
+    let settingsOpen = false;
+    let isGeminiAction = false;
+    let isAIMode = false;
+    let isGoogleMode = false;
+    let searchStartTime = 0;
 
-      const getBaseHeight = () => {
-        if (!Number.isFinite(measuredBaseHeight) || measuredBaseHeight <= 0) {
-          recomputeBaseHeight();
-        }
-        return measuredBaseHeight;
-      };
 
-      window.addEventListener("resize", () => {
-        recomputeBaseHeight();
-      });
-
-      window.api.receive("focus-input", () => {
-        clearTimeout(debounceTimer);
-
-        selectedIndex = -1;
-        resultItems = [];
-        lastQuery = "";
-        pendingQuery = "";
-        isGeminiAction = false;
-        settingsOpen = false;
-        isAIMode = false;
-
+    const setAIMode = (enabled) => {
+      isAIMode = enabled;
+      if (enabled) {
+        document.body.classList.add("gemini-mode");
+        searchIcon.classList.add("ai-active");
+        searchSvg.style.display = "none";
+        aiSvg.style.display = "block";
+        searchInput.placeholder =
+          "Ask AI anything or search in natural language...";
+      } else {
         document.body.classList.remove("gemini-mode");
         searchIcon.classList.remove("ai-active");
         searchSvg.style.display = "block";
         aiSvg.style.display = "none";
         searchInput.placeholder = "Search files or type / for AI...";
+      }
+    };
 
-        searchInput.value = "";
+    const setGoogleMode = (enabled) => {
+      isGoogleMode = enabled;
+      if (enabled) {
+        document.body.classList.add("google-mode");
+        searchInput.placeholder = "Search Google...";
+      } else {
+        document.body.classList.remove("google-mode");
+        closeGoogleSearch();
+      }
+    };
 
-        divider.classList.remove("visible");
-        loader.classList.remove("visible");
-        loader.style.display = "none";
-        resultsDiv.innerHTML = "";
-        geminiResponse.style.display = "none";
-        geminiResponse.classList.remove("visible");
-        geminiResponse.textContent = "";
-        noResults.style.display = "none";
-        searchStats.classList.remove("visible");
-        settingsPanel.classList.remove("visible");
-        resultsWrapper.classList.add("collapsed");
+    const openGoogleSearch = (query) => {
+      const searchQuery = encodeURIComponent(query);
+      googleWebview.src = `https://www.google.com/search?q=${searchQuery}&igu=1`;
+      googleContainer.classList.add("visible");
 
-        searchInput.focus();
+      // Expand window height for Google results (Max height)
+      window.api.send("resize-window", HEIGHTS.MAX);
+    };
+
+    const closeGoogleSearch = () => {
+      googleContainer.classList.remove("visible", "expanded");
+      try {
+        googleWebview.stop();
+      } catch (e) { }
+    };
+
+    // Google container controls
+    // Expand button removed per user request
+
+    // Handle external links in webview
+    googleWebview.addEventListener("new-window", (e) => {
+      e.preventDefault();
+      window.api.send("open-external-url", e.url);
+    });
+
+    googleWebview.addEventListener("will-navigate", (e) => {
+      // Allow Google navigation, but open other domains externally
+      if (!e.url.includes("google.com")) {
+        e.preventDefault();
+        window.api.send("open-external-url", e.url);
+      }
+    });
+
+    const HEIGHTS = {
+      BASE: 56,
+      SETTINGS_PANEL: 460,
+      LOADER: 120,
+      NO_RESULTS: 130,
+      RESULT_ITEM: 58,
+      RESULT_PADDING: 70,
+      GEMINI_MIN: 150,
+      MAX: 500,
+    };
+
+    const spotlightEl = document.querySelector(".spotlight");
+    const searchWrapperEl = document.querySelector(".search-wrapper");
+    let measuredBaseHeight = HEIGHTS.BASE;
+
+    const safePx = (value) => {
+      const n = Number.parseFloat(value);
+      return Number.isFinite(n) ? n : 0;
+    };
+
+    const recomputeBaseHeight = () => {
+      try {
+        if (!spotlightEl || !searchWrapperEl) return;
+        const spotStyle = getComputedStyle(spotlightEl);
+        const borderY =
+          safePx(spotStyle.borderTopWidth) +
+          safePx(spotStyle.borderBottomWidth);
+
+        const dividerStyle = getComputedStyle(divider);
+        const dividerY =
+          divider.getBoundingClientRect().height +
+          safePx(dividerStyle.marginTop) +
+          safePx(dividerStyle.marginBottom);
+
+        const searchY = searchWrapperEl.getBoundingClientRect().height;
+        const next = Math.ceil(searchY + dividerY + borderY);
+        if (Number.isFinite(next) && next > 0) {
+          measuredBaseHeight = next;
+        }
+      } catch { }
+    };
+
+    const getBaseHeight = () => {
+      if (!Number.isFinite(measuredBaseHeight) || measuredBaseHeight <= 0) {
         recomputeBaseHeight();
+      }
+      return measuredBaseHeight;
+    };
+
+    window.addEventListener("resize", () => {
+      recomputeBaseHeight();
+    });
+
+    window.api.receive("focus-input", () => {
+      clearTimeout(debounceTimer);
+
+      selectedIndex = -1;
+      resultItems = [];
+      lastQuery = "";
+      pendingQuery = "";
+      isGeminiAction = false;
+      settingsOpen = false;
+      isAIMode = false;
+      isGoogleMode = false;
+
+      document.body.classList.remove("gemini-mode", "google-mode");
+      searchIcon.classList.remove("ai-active");
+      searchSvg.style.display = "block";
+      aiSvg.style.display = "none";
+      searchInput.placeholder = "Search files or type / for AI...";
+
+      searchInput.value = "";
+
+      divider.classList.remove("visible");
+      loader.classList.remove("visible");
+      loader.style.display = "none";
+      resultsDiv.innerHTML = "";
+      geminiResponse.style.display = "none";
+      geminiResponse.classList.remove("visible");
+      geminiResponse.textContent = "";
+      noResults.style.display = "none";
+      searchStats.classList.remove("visible");
+      settingsPanel.classList.remove("visible");
+      resultsWrapper.classList.add("collapsed");
+      closeGoogleSearch();
+
+      searchInput.focus();
+      recomputeBaseHeight();
+      window.api.send("resize-window", getBaseHeight());
+    });
+
+    const updateWindowHeight = () => {
+      requestAnimationFrame(() => {
+        recomputeBaseHeight();
+        let targetHeight = getBaseHeight();
+
+        if (settingsPanel.classList.contains("visible")) {
+          targetHeight = HEIGHTS.SETTINGS_PANEL;
+          window.api.send("resize-window", targetHeight);
+          return;
+        }
+
+        if (loader.classList.contains("visible")) {
+          targetHeight = HEIGHTS.LOADER + getBaseHeight();
+          resultsWrapper.classList.remove("collapsed");
+          window.api.send("resize-window", targetHeight);
+          return;
+        }
+
+        const resultCount = resultsDiv.children.length;
+        if (resultCount > 0) {
+          const resultsHeight =
+            HEIGHTS.RESULT_PADDING + resultCount * HEIGHTS.RESULT_ITEM;
+          targetHeight = Math.min(resultsHeight, HEIGHTS.MAX) + 40;
+          resultsWrapper.classList.remove("collapsed");
+          window.api.send("resize-window", targetHeight);
+          return;
+        }
+
+        if (geminiResponse.classList.contains("visible")) {
+          const contentHeight = geminiResponse.scrollHeight;
+          targetHeight = Math.min(
+            Math.max(
+              HEIGHTS.GEMINI_MIN,
+              getBaseHeight() + 20 + contentHeight
+            ),
+            HEIGHTS.MAX
+          );
+          resultsWrapper.classList.remove("collapsed");
+          window.api.send("resize-window", targetHeight);
+          return;
+        }
+
+        if (noResults.style.display === "block") {
+          targetHeight = HEIGHTS.NO_RESULTS;
+          resultsWrapper.classList.remove("collapsed");
+          window.api.send("resize-window", targetHeight);
+          return;
+        }
+
+        resultsWrapper.classList.add("collapsed");
         window.api.send("resize-window", getBaseHeight());
       });
+    };
 
-      const updateWindowHeight = () => {
-        requestAnimationFrame(() => {
-          recomputeBaseHeight();
-          let targetHeight = getBaseHeight();
+    const hideContent = () => {
+      divider.classList.remove("visible");
+      loader.classList.remove("visible");
+      loader.style.display = "none";
+      resultsDiv.innerHTML = "";
+      geminiResponse.style.display = "none";
+      geminiResponse.classList.remove("visible");
+      geminiResponse.textContent = "";
+      noResults.style.display = "none";
+      searchStats.classList.remove("visible");
+      settingsPanel.classList.remove("visible");
+      settingsOpen = false;
+      selectedIndex = -1;
+      resultItems = [];
+      isGeminiAction = false;
+      resultsWrapper.classList.add("collapsed");
+      closeGoogleSearch();
+      updateWindowHeight();
+    };
 
-          if (settingsPanel.classList.contains("visible")) {
-            targetHeight = HEIGHTS.SETTINGS_PANEL;
-            window.api.send("resize-window", targetHeight);
-            return;
-          }
+    const showLoader = () => {
+      divider.classList.add("visible");
+      loader.style.display = "flex";
+      loader.classList.add("visible");
+      resultsDiv.innerHTML = "";
+      geminiResponse.style.display = "none";
+      geminiResponse.classList.remove("visible");
+      noResults.style.display = "none";
+      resultsWrapper.classList.remove("collapsed");
+      updateWindowHeight();
+    };
 
-          if (loader.classList.contains("visible")) {
-            targetHeight = HEIGHTS.LOADER + getBaseHeight();
-            resultsWrapper.classList.remove("collapsed");
-            window.api.send("resize-window", targetHeight);
-            return;
-          }
+    const getFolderIcon = () => {
+      return '<svg viewBox="0 0 24 24"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>';
+    };
 
-          const resultCount = resultsDiv.children.length;
-          if (resultCount > 0) {
-            const resultsHeight =
-              HEIGHTS.RESULT_PADDING + resultCount * HEIGHTS.RESULT_ITEM;
-            targetHeight = Math.min(resultsHeight, HEIGHTS.MAX) + 40;
-            resultsWrapper.classList.remove("collapsed");
-            window.api.send("resize-window", targetHeight);
-            return;
-          }
-
-          if (geminiResponse.classList.contains("visible")) {
-            const contentHeight = geminiResponse.scrollHeight;
-            targetHeight = Math.min(
-              Math.max(
-                HEIGHTS.GEMINI_MIN,
-                getBaseHeight() + 20 + contentHeight
-              ),
-              HEIGHTS.MAX
-            );
-            resultsWrapper.classList.remove("collapsed");
-            window.api.send("resize-window", targetHeight);
-            return;
-          }
-
-          if (noResults.style.display === "block") {
-            targetHeight = HEIGHTS.NO_RESULTS;
-            resultsWrapper.classList.remove("collapsed");
-            window.api.send("resize-window", targetHeight);
-            return;
-          }
-
-          resultsWrapper.classList.add("collapsed");
-          window.api.send("resize-window", getBaseHeight());
-        });
+    const getFileIcon = (fileName) => {
+      const ext = fileName.split(".").pop().toLowerCase();
+      const icons = {
+        folder:
+          '<svg viewBox="0 0 24 24"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>',
+        image:
+          '<svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>',
+        document:
+          '<svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line></svg>',
+        code: '<svg viewBox="0 0 24 24"><polyline points="16 18 22 12 16 6"></polyline><polyline points="8 6 2 12 8 18"></polyline></svg>',
+        default:
+          '<svg viewBox="0 0 24 24"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"></path><polyline points="13 2 13 9 20 9"></polyline></svg>',
       };
 
-      const hideContent = () => {
-        divider.classList.remove("visible");
-        loader.classList.remove("visible");
-        loader.style.display = "none";
+      const imageExts = [
+        "jpg",
+        "jpeg",
+        "png",
+        "gif",
+        "svg",
+        "webp",
+        "bmp",
+        "ico",
+      ];
+      const codeExts = [
+        "js",
+        "ts",
+        "jsx",
+        "tsx",
+        "py",
+        "html",
+        "css",
+        "json",
+        "xml",
+        "java",
+        "cpp",
+        "c",
+        "h",
+        "cs",
+        "php",
+        "rb",
+        "go",
+        "rs",
+        "swift",
+      ];
+      const docExts = [
+        "doc",
+        "docx",
+        "pdf",
+        "txt",
+        "md",
+        "rtf",
+        "xls",
+        "xlsx",
+        "ppt",
+        "pptx",
+      ];
+
+      if (imageExts.includes(ext))
+        return { icon: icons.image, class: "image-icon" };
+      if (codeExts.includes(ext))
+        return { icon: icons.code, class: "code-icon" };
+      if (docExts.includes(ext))
+        return { icon: icons.document, class: "document-icon" };
+      return { icon: icons.default, class: "default-icon" };
+    };
+
+    const updateSelection = () => {
+      resultItems.forEach((item, i) => {
+        item.classList.toggle("selected", i === selectedIndex);
+      });
+    };
+
+    const openSelectedFile = () => {
+      if (selectedIndex >= 0 && resultItems[selectedIndex]) {
+        resultItems[selectedIndex].click();
+      }
+    };
+
+    searchInput.addEventListener("input", (e) => {
+      const query = e.target.value.trim();
+
+      clearTimeout(debounceTimer);
+
+      selectedIndex = -1;
+      resultItems = [];
+
+      // Check for Google mode (// prefix)
+      const googleModeTriggered = query.startsWith("//");
+      const aiModeTriggered = !googleModeTriggered && (query.startsWith("/") || query.startsWith(">"));
+
+      setGoogleMode(googleModeTriggered);
+      setAIMode(aiModeTriggered);
+
+      if (!query) {
+        lastQuery = "";
+        pendingQuery = "";
+        hideContent();
+        return;
+      }
+
+      if (googleModeTriggered || aiModeTriggered) {
         resultsDiv.innerHTML = "";
-        geminiResponse.style.display = "none";
-        geminiResponse.classList.remove("visible");
-        geminiResponse.textContent = "";
-        noResults.style.display = "none";
         searchStats.classList.remove("visible");
-        settingsPanel.classList.remove("visible");
-        settingsOpen = false;
-        selectedIndex = -1;
-        resultItems = [];
-        isGeminiAction = false;
-        resultsWrapper.classList.add("collapsed");
-        updateWindowHeight();
-      };
-
-      const showLoader = () => {
-        divider.classList.add("visible");
-        loader.style.display = "flex";
-        loader.classList.add("visible");
-        resultsDiv.innerHTML = "";
         geminiResponse.style.display = "none";
         geminiResponse.classList.remove("visible");
         noResults.style.display = "none";
-        resultsWrapper.classList.remove("collapsed");
         updateWindowHeight();
-      };
+        return;
+      }
 
-      const getFolderIcon = () => {
-        return '<svg viewBox="0 0 24 24"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>';
-      };
+      showLoader();
+      searchStartTime = performance.now();
+      pendingQuery = query;
 
-      const getFileIcon = (fileName) => {
-        const ext = fileName.split(".").pop().toLowerCase();
-        const icons = {
-          folder:
-            '<svg viewBox="0 0 24 24"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>',
-          image:
-            '<svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>',
-          document:
-            '<svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line></svg>',
-          code: '<svg viewBox="0 0 24 24"><polyline points="16 18 22 12 16 6"></polyline><polyline points="8 6 2 12 8 18"></polyline></svg>',
-          default:
-            '<svg viewBox="0 0 24 24"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"></path><polyline points="13 2 13 9 20 9"></polyline></svg>',
-        };
-
-        const imageExts = [
-          "jpg",
-          "jpeg",
-          "png",
-          "gif",
-          "svg",
-          "webp",
-          "bmp",
-          "ico",
-        ];
-        const codeExts = [
-          "js",
-          "ts",
-          "jsx",
-          "tsx",
-          "py",
-          "html",
-          "css",
-          "json",
-          "xml",
-          "java",
-          "cpp",
-          "c",
-          "h",
-          "cs",
-          "php",
-          "rb",
-          "go",
-          "rs",
-          "swift",
-        ];
-        const docExts = [
-          "doc",
-          "docx",
-          "pdf",
-          "txt",
-          "md",
-          "rtf",
-          "xls",
-          "xlsx",
-          "ppt",
-          "pptx",
-        ];
-
-        if (imageExts.includes(ext))
-          return { icon: icons.image, class: "image-icon" };
-        if (codeExts.includes(ext))
-          return { icon: icons.code, class: "code-icon" };
-        if (docExts.includes(ext))
-          return { icon: icons.document, class: "document-icon" };
-        return { icon: icons.default, class: "default-icon" };
-      };
-
-      const updateSelection = () => {
-        resultItems.forEach((item, i) => {
-          item.classList.toggle("selected", i === selectedIndex);
-        });
-      };
-
-      const openSelectedFile = () => {
-        if (selectedIndex >= 0 && resultItems[selectedIndex]) {
-          resultItems[selectedIndex].click();
+      debounceTimer = setTimeout(() => {
+        if (pendingQuery === query) {
+          lastQuery = query;
+          window.api.send("perform-action", {
+            actionName: "searchFiles",
+            params: { query },
+          });
         }
-      };
+      }, 500);
+    });
 
-      searchInput.addEventListener("input", (e) => {
-        const query = e.target.value.trim();
+    searchInput.addEventListener("keydown", (e) => {
+      if (e.key === "ArrowDown") {
+        e.preventDefault();
+        if (resultItems.length > 0) {
+          selectedIndex = Math.min(selectedIndex + 1, resultItems.length - 1);
+          updateSelection();
+          resultItems[selectedIndex]?.scrollIntoView({ block: "nearest" });
+        }
+      } else if (e.key === "ArrowUp") {
+        e.preventDefault();
+        if (resultItems.length > 0) {
+          selectedIndex = Math.max(selectedIndex - 1, 0);
+          updateSelection();
+          resultItems[selectedIndex]?.scrollIntoView({ block: "nearest" });
+        }
+      } else if (e.key === "Enter") {
+        e.preventDefault();
+        if (selectedIndex >= 0) {
+          openSelectedFile();
+        } else if (searchInput.value.trim()) {
+          const query = searchInput.value.trim();
 
-        clearTimeout(debounceTimer);
+          // Google mode (// prefix)
+          if (isGoogleMode && query.startsWith("//")) {
+            const googleQuery = query.substring(2).trim();
+            if (googleQuery) {
+              openGoogleSearch(googleQuery);
+            }
+          }
+          // AI mode (/ prefix)
+          else if (isAIMode && (query.startsWith("/") || query.startsWith(">"))) {
+            const aiQuery = query.substring(1).trim();
+            if (aiQuery) {
+              showLoader();
+              searchStartTime = performance.now();
+              window.api.send("send-to-gemini", aiQuery);
+            }
+          } else if (!isAIMode && !isGoogleMode && resultItems.length > 0) {
+            selectedIndex = 0;
+            openSelectedFile();
+          }
+        }
+      } else if (e.key === "Escape") {
+        searchInput.value = "";
+        setAIMode(false);
+        setGoogleMode(false);
+        hideContent();
+      }
+    });
 
-        selectedIndex = -1;
-        resultItems = [];
+    const getAppIcon = () => {
+      return '<svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"></rect><rect x="14" y="3" width="7" height="7" rx="1"></rect><rect x="3" y="14" width="7" height="7" rx="1"></rect><rect x="14" y="14" width="7" height="7" rx="1"></rect></svg>';
+    };
 
-        const aiModeTriggered = query.startsWith("/") || query.startsWith(">");
-        setAIMode(aiModeTriggered);
+    window.api.receive("action-result", (result) => {
+      loader.classList.remove("visible");
+      loader.style.display = "none";
 
-        if (!query) {
-          lastQuery = "";
-          pendingQuery = "";
+      const wasGeminiAction = isGeminiAction;
+      isGeminiAction = false;
+
+      if (!wasGeminiAction) {
+        const currentQuery = searchInput.value.trim();
+        if (
+          !currentQuery ||
+          currentQuery.startsWith(">") ||
+          currentQuery !== lastQuery
+        ) {
           hideContent();
           return;
         }
+      }
 
-        if (aiModeTriggered) {
+      try {
+        const data = JSON.parse(result);
+
+        if (data && data.notFound === true) {
+          showAIResponse(`Not found.`);
+          return;
+        }
+
+        if (
+          data &&
+          typeof data === "object" &&
+          (data.apps !== undefined ||
+            data.files !== undefined ||
+            data.folders !== undefined)
+        ) {
+          const apps = data.apps || [];
+          const files = data.files || [];
+          const folders = data.folders || [];
+
           resultsDiv.innerHTML = "";
-          searchStats.classList.remove("visible");
           geminiResponse.style.display = "none";
           geminiResponse.classList.remove("visible");
+
+          if (
+            apps.length === 0 &&
+            files.length === 0 &&
+            folders.length === 0
+          ) {
+            noResults.style.display = "block";
+            divider.classList.add("visible");
+            updateWindowHeight();
+            return;
+          }
+
           noResults.style.display = "none";
-          updateWindowHeight();
-          return;
-        }
+          resultItems = [];
+          selectedIndex = 0;
+          let itemIndex = 0;
 
-        showLoader();
-        searchStartTime = performance.now();
-        pendingQuery = query;
-
-        debounceTimer = setTimeout(() => {
-          if (pendingQuery === query) {
-            lastQuery = query;
-            window.api.send("perform-action", {
-              actionName: "searchFiles",
-              params: { query },
-            });
-          }
-        }, 500);
-      });
-
-      searchInput.addEventListener("keydown", (e) => {
-        if (e.key === "ArrowDown") {
-          e.preventDefault();
-          if (resultItems.length > 0) {
-            selectedIndex = Math.min(selectedIndex + 1, resultItems.length - 1);
-            updateSelection();
-            resultItems[selectedIndex]?.scrollIntoView({ block: "nearest" });
-          }
-        } else if (e.key === "ArrowUp") {
-          e.preventDefault();
-          if (resultItems.length > 0) {
-            selectedIndex = Math.max(selectedIndex - 1, 0);
-            updateSelection();
-            resultItems[selectedIndex]?.scrollIntoView({ block: "nearest" });
-          }
-        } else if (e.key === "Enter") {
-          e.preventDefault();
-          if (selectedIndex >= 0) {
-            openSelectedFile();
-          } else if (searchInput.value.trim()) {
-            const query = searchInput.value.trim();
-            if (isAIMode && (query.startsWith("/") || query.startsWith(">"))) {
-              const aiQuery = query.substring(1).trim();
-              if (aiQuery) {
-                showLoader();
-                searchStartTime = performance.now();
-                window.api.send("send-to-gemini", aiQuery);
-              }
-            } else if (!isAIMode && resultItems.length > 0) {
-              selectedIndex = 0;
-              openSelectedFile();
-            }
-          }
-        } else if (e.key === "Escape") {
-          searchInput.value = "";
-          setAIMode(false);
-          hideContent();
-        }
-      });
-
-      const getAppIcon = () => {
-        return '<svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"></rect><rect x="14" y="3" width="7" height="7" rx="1"></rect><rect x="3" y="14" width="7" height="7" rx="1"></rect><rect x="14" y="14" width="7" height="7" rx="1"></rect></svg>';
-      };
-
-      window.api.receive("action-result", (result) => {
-        loader.classList.remove("visible");
-        loader.style.display = "none";
-
-        const wasGeminiAction = isGeminiAction;
-        isGeminiAction = false;
-
-        if (!wasGeminiAction) {
-          const currentQuery = searchInput.value.trim();
-          if (
-            !currentQuery ||
-            currentQuery.startsWith(">") ||
-            currentQuery !== lastQuery
-          ) {
-            hideContent();
-            return;
-          }
-        }
-
-        try {
-          const data = JSON.parse(result);
-
-          if (data && data.notFound === true) {
-            showAIResponse(`Not found.`);
-            return;
-          }
-
-          if (
-            data &&
-            typeof data === "object" &&
-            (data.apps !== undefined ||
-              data.files !== undefined ||
-              data.folders !== undefined)
-          ) {
-            const apps = data.apps || [];
-            const files = data.files || [];
-            const folders = data.folders || [];
-
-            resultsDiv.innerHTML = "";
-            geminiResponse.style.display = "none";
-            geminiResponse.classList.remove("visible");
-
-            if (
-              apps.length === 0 &&
-              files.length === 0 &&
-              folders.length === 0
-            ) {
-              noResults.style.display = "block";
-              divider.classList.add("visible");
-              updateWindowHeight();
-              return;
-            }
-
-            noResults.style.display = "none";
-            resultItems = [];
-            selectedIndex = 0;
-            let itemIndex = 0;
-
-            const totalResults = apps.length + files.length + folders.length;
-            const searchDuration = (
-              (performance.now() - searchStartTime) /
-              1000
-            ).toFixed(2);
-            resultCountEl.textContent =
-              totalResults +
-              (totalResults === 1 ? " result in total" : " results in total");
-            searchTimeEl.textContent = searchDuration + "s";
-            searchStats.classList.add("visible");
-
-            const maxTotal = 20;
-            let remainingSlots = maxTotal;
-
-            const appsToShow = apps.slice(0, remainingSlots);
-            appsToShow.forEach((app) => {
-              const item = document.createElement("button");
-              item.className = "result-item";
-              item.style.animationDelay = itemIndex * 40 + "ms";
-
-              item.innerHTML =
-                '<div class="file-icon app-icon">' +
-                getAppIcon() +
-                '</div><div class="result-content"><div class="result-name">' +
-                app.name +
-                '</div><div class="result-path">Application</div></div>' +
-                '<div class="result-hints"><span class="hint">Enter to launch</span></div>';
-
-              item.addEventListener("click", () => {
-                window.api.send("launch-app", app);
-              });
-
-              resultsDiv.appendChild(item);
-              resultItems.push(item);
-              itemIndex++;
-            });
-
-            remainingSlots -= appsToShow.length;
-
-            const foldersToShow = folders.slice(0, remainingSlots);
-            foldersToShow.forEach((folderPath) => {
-              const folderName = folderPath.split(/[\\/]/).pop();
-              const parentPath =
-                folderPath.substring(
-                  0,
-                  folderPath.lastIndexOf(/[\\/]/.exec(folderPath)?.[0] || "\\")
-                ) || folderPath;
-
-              const item = document.createElement("button");
-              item.className = "result-item";
-              item.style.animationDelay = itemIndex * 40 + "ms";
-
-              item.innerHTML =
-                '<div class="file-icon folder-icon">' +
-                getFolderIcon() +
-                '</div><div class="result-content"><div class="result-name">' +
-                folderName +
-                '</div><div class="result-path">' +
-                parentPath +
-                "</div></div>" +
-                '<div class="result-hints"><span class="hint">Click open</span><span class="hint">Right-click location</span></div>';
-
-              item.addEventListener("click", () => {
-                window.api.send("open-folder", folderPath);
-              });
-
-              item.addEventListener("contextmenu", (e) => {
-                e.preventDefault();
-                window.api.send("show-file-in-folder", folderPath);
-              });
-
-              resultsDiv.appendChild(item);
-              resultItems.push(item);
-              itemIndex++;
-            });
-
-            remainingSlots -= foldersToShow.length;
-
-            files.slice(0, remainingSlots).forEach((filePath) => {
-              const fileName = filePath.split(/[\\/]/).pop();
-              const dirPath =
-                filePath.substring(
-                  0,
-                  filePath.lastIndexOf(/[\\/]/.exec(filePath)?.[0] || "\\")
-                ) || filePath;
-
-              const fileIconData = getFileIcon(fileName);
-
-              const item = document.createElement("button");
-              item.className = "result-item";
-              item.style.animationDelay = itemIndex * 40 + "ms";
-
-              item.innerHTML =
-                '<div class="file-icon ' +
-                fileIconData.class +
-                '">' +
-                fileIconData.icon +
-                '</div><div class="result-content"><div class="result-name">' +
-                fileName +
-                '</div><div class="result-path">' +
-                dirPath +
-                "</div></div>" +
-                '<div class="result-hints"><span class="hint">Click open</span><span class="hint">Right-click location</span></div>';
-
-              item.addEventListener("click", () => {
-                window.api.send("open-file", filePath);
-              });
-
-              item.addEventListener("contextmenu", (e) => {
-                e.preventDefault();
-                window.api.send("show-file-in-folder", filePath);
-              });
-
-              resultsDiv.appendChild(item);
-              resultItems.push(item);
-              itemIndex++;
-            });
-
-            updateSelection();
-            divider.classList.add("visible");
-            updateWindowHeight();
-          } else if (Array.isArray(data)) {
-            resultsDiv.innerHTML = "";
-            geminiResponse.style.display = "none";
-            geminiResponse.classList.remove("visible");
-
-            if (data.length === 0) {
-              noResults.style.display = "block";
-              divider.classList.add("visible");
-              updateWindowHeight();
-              return;
-            }
-
-            noResults.style.display = "none";
-            resultItems = [];
-            selectedIndex = 0;
-
-            const searchDuration = (
-              (performance.now() - searchStartTime) /
-              1000
-            ).toFixed(2);
-            resultCountEl.textContent =
-              data.length + (data.length === 1 ? " result" : " results");
-            searchTimeEl.textContent = searchDuration + "s";
-            searchStats.classList.add("visible");
-
-            const items = data.slice(0, 20);
-            items.forEach((filePath, i) => {
-              const fileName = filePath.split(/[\\/]/).pop();
-              const dirPath =
-                filePath.substring(
-                  0,
-                  filePath.lastIndexOf(/[\\/]/.exec(filePath)?.[0] || "\\")
-                ) || filePath;
-
-              const fileIconData = getFileIcon(fileName);
-
-              const item = document.createElement("button");
-              item.className = "result-item";
-              item.style.animationDelay = i * 40 + "ms";
-
-              item.innerHTML =
-                '<div class="file-icon ' +
-                fileIconData.class +
-                '">' +
-                fileIconData.icon +
-                '</div><div class="result-content"><div class="result-name">' +
-                fileName +
-                '</div><div class="result-path">' +
-                dirPath +
-                "</div></div>" +
-                '<div class="result-hints"><span class="hint">Click open</span><span class="hint">Right-click location</span></div>';
-
-              item.addEventListener("click", () => {
-                window.api.send("open-file", filePath);
-              });
-
-              item.addEventListener("contextmenu", (e) => {
-                e.preventDefault();
-                window.api.send("show-file-in-folder", filePath);
-              });
-
-              resultsDiv.appendChild(item);
-              resultItems.push(item);
-            });
-
-            updateSelection();
-
-            divider.classList.add("visible");
-            updateWindowHeight();
-          } else {
-            showAIResponse(result);
-          }
-        } catch (err) {
-          showAIResponse(result);
-        }
-      });
-
-      window.api.receive("gemini-response", (response) => {
-        loader.classList.remove("visible");
-        loader.style.display = "none";
-
-        const actionRegex = /\[action:\s*(\w+)(?:,\s*|\s*,\s*)([^\]]+)\]/gi;
-        let match;
-        let cleanResponse = response;
-        let actionsExecuted = false;
-
-        while ((match = actionRegex.exec(response)) !== null) {
-          actionsExecuted = true;
-          cleanResponse = cleanResponse.replace(match[0], "").trim();
-
-          const actionName = match[1].trim();
-          const paramsStr = match[2].trim();
-          const params = {};
-
-          const paramPairs = paramsStr.split(/,\s*/);
-          paramPairs.forEach((pair) => {
-            const colonIdx = pair.indexOf(":");
-            if (colonIdx > 0) {
-              const key = pair.substring(0, colonIdx).trim();
-              const value = pair.substring(colonIdx + 1).trim();
-              params[key] = value;
-            }
-          });
-
-          isGeminiAction = true;
-          showLoader();
-          window.api.send("perform-action", { actionName, params });
-        }
-
-        if (cleanResponse) {
-          showAIResponse(cleanResponse);
-        }
-      });
-
-      function showAIResponse(text) {
-        loader.classList.remove("visible");
-        loader.style.display = "none";
-
-        resultsDiv.innerHTML = "";
-        noResults.style.display = "none";
-        resultsWrapper.classList.remove("collapsed");
-
-        if (searchStartTime > 0) {
+          const totalResults = apps.length + files.length + folders.length;
           const searchDuration = (
             (performance.now() - searchStartTime) /
             1000
           ).toFixed(2);
-          resultCountEl.textContent = "AI response";
+          resultCountEl.textContent =
+            totalResults +
+            (totalResults === 1 ? " result in total" : " results in total");
           searchTimeEl.textContent = searchDuration + "s";
           searchStats.classList.add("visible");
+
+          const maxTotal = 20;
+          let remainingSlots = maxTotal;
+
+          const appsToShow = apps.slice(0, remainingSlots);
+          appsToShow.forEach((app) => {
+            const item = document.createElement("button");
+            item.className = "result-item";
+            item.style.animationDelay = itemIndex * 40 + "ms";
+
+            item.innerHTML =
+              '<div class="file-icon app-icon">' +
+              getAppIcon() +
+              '</div><div class="result-content"><div class="result-name">' +
+              app.name +
+              '</div><div class="result-path">Application</div></div>' +
+              '<div class="result-hints"><span class="hint">Enter to launch</span></div>';
+
+            item.addEventListener("click", () => {
+              window.api.send("launch-app", app);
+            });
+
+            resultsDiv.appendChild(item);
+            resultItems.push(item);
+            itemIndex++;
+          });
+
+          remainingSlots -= appsToShow.length;
+
+          const foldersToShow = folders.slice(0, remainingSlots);
+          foldersToShow.forEach((folderPath) => {
+            const folderName = folderPath.split(/[\\/]/).pop();
+            const parentPath =
+              folderPath.substring(
+                0,
+                folderPath.lastIndexOf(/[\\/]/.exec(folderPath)?.[0] || "\\")
+              ) || folderPath;
+
+            const item = document.createElement("button");
+            item.className = "result-item";
+            item.style.animationDelay = itemIndex * 40 + "ms";
+
+            item.innerHTML =
+              '<div class="file-icon folder-icon">' +
+              getFolderIcon() +
+              '</div><div class="result-content"><div class="result-name">' +
+              folderName +
+              '</div><div class="result-path">' +
+              parentPath +
+              "</div></div>" +
+              '<div class="result-hints"><span class="hint">Click open</span><span class="hint">Right-click location</span></div>';
+
+            item.addEventListener("click", () => {
+              window.api.send("open-folder", folderPath);
+            });
+
+            item.addEventListener("contextmenu", (e) => {
+              e.preventDefault();
+              window.api.send("show-file-in-folder", folderPath);
+            });
+
+            resultsDiv.appendChild(item);
+            resultItems.push(item);
+            itemIndex++;
+          });
+
+          remainingSlots -= foldersToShow.length;
+
+          files.slice(0, remainingSlots).forEach((filePath) => {
+            const fileName = filePath.split(/[\\/]/).pop();
+            const dirPath =
+              filePath.substring(
+                0,
+                filePath.lastIndexOf(/[\\/]/.exec(filePath)?.[0] || "\\")
+              ) || filePath;
+
+            const fileIconData = getFileIcon(fileName);
+
+            const item = document.createElement("button");
+            item.className = "result-item";
+            item.style.animationDelay = itemIndex * 40 + "ms";
+
+            item.innerHTML =
+              '<div class="file-icon ' +
+              fileIconData.class +
+              '">' +
+              fileIconData.icon +
+              '</div><div class="result-content"><div class="result-name">' +
+              fileName +
+              '</div><div class="result-path">' +
+              dirPath +
+              "</div></div>" +
+              '<div class="result-hints"><span class="hint">Click open</span><span class="hint">Right-click location</span></div>';
+
+            item.addEventListener("click", () => {
+              window.api.send("open-file", filePath);
+            });
+
+            item.addEventListener("contextmenu", (e) => {
+              e.preventDefault();
+              window.api.send("show-file-in-folder", filePath);
+            });
+
+            resultsDiv.appendChild(item);
+            resultItems.push(item);
+            itemIndex++;
+          });
+
+          updateSelection();
+          divider.classList.add("visible");
+          updateWindowHeight();
+        } else if (Array.isArray(data)) {
+          resultsDiv.innerHTML = "";
+          geminiResponse.style.display = "none";
+          geminiResponse.classList.remove("visible");
+
+          if (data.length === 0) {
+            noResults.style.display = "block";
+            divider.classList.add("visible");
+            updateWindowHeight();
+            return;
+          }
+
+          noResults.style.display = "none";
+          resultItems = [];
+          selectedIndex = 0;
+
+          const searchDuration = (
+            (performance.now() - searchStartTime) /
+            1000
+          ).toFixed(2);
+          resultCountEl.textContent =
+            data.length + (data.length === 1 ? " result" : " results");
+          searchTimeEl.textContent = searchDuration + "s";
+          searchStats.classList.add("visible");
+
+          const items = data.slice(0, 20);
+          items.forEach((filePath, i) => {
+            const fileName = filePath.split(/[\\/]/).pop();
+            const dirPath =
+              filePath.substring(
+                0,
+                filePath.lastIndexOf(/[\\/]/.exec(filePath)?.[0] || "\\")
+              ) || filePath;
+
+            const fileIconData = getFileIcon(fileName);
+
+            const item = document.createElement("button");
+            item.className = "result-item";
+            item.style.animationDelay = i * 40 + "ms";
+
+            item.innerHTML =
+              '<div class="file-icon ' +
+              fileIconData.class +
+              '">' +
+              fileIconData.icon +
+              '</div><div class="result-content"><div class="result-name">' +
+              fileName +
+              '</div><div class="result-path">' +
+              dirPath +
+              "</div></div>" +
+              '<div class="result-hints"><span class="hint">Click open</span><span class="hint">Right-click location</span></div>';
+
+            item.addEventListener("click", () => {
+              window.api.send("open-file", filePath);
+            });
+
+            item.addEventListener("contextmenu", (e) => {
+              e.preventDefault();
+              window.api.send("show-file-in-folder", filePath);
+            });
+
+            resultsDiv.appendChild(item);
+            resultItems.push(item);
+          });
+
+          updateSelection();
+
+          divider.classList.add("visible");
+          updateWindowHeight();
+        } else {
+          showAIResponse(result);
         }
+      } catch (err) {
+        showAIResponse(result);
+      }
+    });
 
-        geminiResponse.textContent = text;
-        geminiResponse.style.display = "block";
-        geminiResponse.classList.add("visible");
-        divider.classList.add("visible");
+    window.api.receive("gemini-response", (response) => {
+      loader.classList.remove("visible");
+      loader.style.display = "none";
 
-        updateWindowHeight();
+      const actionRegex = /\[action:\s*(\w+)(?:,\s*|\s*,\s*)([^\]]+)\]/gi;
+      let match;
+      let cleanResponse = response;
+      let actionsExecuted = false;
+
+      while ((match = actionRegex.exec(response)) !== null) {
+        actionsExecuted = true;
+        cleanResponse = cleanResponse.replace(match[0], "").trim();
+
+        const actionName = match[1].trim();
+        const paramsStr = match[2].trim();
+        const params = {};
+
+        const paramPairs = paramsStr.split(/,\s*/);
+        paramPairs.forEach((pair) => {
+          const colonIdx = pair.indexOf(":");
+          if (colonIdx > 0) {
+            const key = pair.substring(0, colonIdx).trim();
+            const value = pair.substring(colonIdx + 1).trim();
+            params[key] = value;
+          }
+        });
+
+        isGeminiAction = true;
+        showLoader();
+        window.api.send("perform-action", { actionName, params });
       }
 
-      const showSettingsPanel = (settings) => {
-        loader.classList.remove("visible");
-        loader.style.display = "none";
-        resultsDiv.innerHTML = "";
-        geminiResponse.style.display = "none";
-        geminiResponse.classList.remove("visible");
-        geminiResponse.textContent = "";
-        noResults.style.display = "none";
-        searchStats.classList.remove("visible");
-        resultsWrapper.classList.add("collapsed");
-        selectedIndex = -1;
-        resultItems = [];
-        isGeminiAction = false;
+      if (cleanResponse) {
+        showAIResponse(cleanResponse);
+      }
+    });
 
-        settingsOpen = true;
-        settingsUserName.value = settings.userName || "User";
-        settingsApiKey.value = settings.apiKey || "";
-        settingsModelName.value = settings.modelName || "gemini-2.5-flash";
-        settingsSaved.classList.remove("visible");
+    function showAIResponse(text) {
+      loader.classList.remove("visible");
+      loader.style.display = "none";
 
-        settingsPanel.classList.add("visible");
-        divider.classList.add("visible");
-        updateWindowHeight();
-      };
+      resultsDiv.innerHTML = "";
+      noResults.style.display = "none";
+      resultsWrapper.classList.remove("collapsed");
 
-      const hideSettingsPanel = () => {
-        settingsOpen = false;
-        settingsPanel.classList.remove("visible");
-        settingsSaved.classList.remove("visible");
-        divider.classList.remove("visible");
-        updateWindowHeight();
-      };
+      if (searchStartTime > 0) {
+        const searchDuration = (
+          (performance.now() - searchStartTime) /
+          1000
+        ).toFixed(2);
+        resultCountEl.textContent = "AI response";
+        searchTimeEl.textContent = searchDuration + "s";
+        searchStats.classList.add("visible");
+      }
 
-      settingsBtn.addEventListener("click", () => {
-        if (settingsOpen) {
-          hideSettingsPanel();
-        } else {
-          window.api.send("get-settings");
-        }
-      });
-
-      closeSettingsBtn.addEventListener("click", hideSettingsPanel);
-      cancelSettingsBtn.addEventListener("click", hideSettingsPanel);
-
-      saveSettingsBtn.addEventListener("click", () => {
-        const settings = {
-          userName: settingsUserName.value.trim() || "User",
-          apiKey: settingsApiKey.value.trim(),
-          modelName: settingsModelName.value.trim() || "gemini-2.5-flash",
-        };
-
-        if (!settings.apiKey) {
-          settingsApiKey.focus();
-          return;
-        }
-
-        window.api.send("save-settings", settings);
-      });
-
-      window.api.receive("current-settings", (settings) => {
-        showSettingsPanel(settings);
-      });
-
-      window.api.receive("settings-saved", (success) => {
-        if (success) {
-          settingsSaved.classList.add("visible");
-          setTimeout(() => {
-            hideSettingsPanel();
-          }, 1500);
-        }
-      });
+      geminiResponse.textContent = text;
+      geminiResponse.style.display = "block";
+      geminiResponse.classList.add("visible");
+      divider.classList.add("visible");
 
       updateWindowHeight();
-    </script>
-  </body>
+    }
+
+    const showSettingsPanel = (settings) => {
+      loader.classList.remove("visible");
+      loader.style.display = "none";
+      resultsDiv.innerHTML = "";
+      geminiResponse.style.display = "none";
+      geminiResponse.classList.remove("visible");
+      geminiResponse.textContent = "";
+      noResults.style.display = "none";
+      searchStats.classList.remove("visible");
+      resultsWrapper.classList.add("collapsed");
+      selectedIndex = -1;
+      resultItems = [];
+      isGeminiAction = false;
+
+      settingsOpen = true;
+      settingsUserName.value = settings.userName || "User";
+      settingsApiKey.value = settings.apiKey || "";
+      settingsModelName.value = settings.modelName || "gemini-2.5-flash";
+      settingsSaved.classList.remove("visible");
+
+      settingsPanel.classList.add("visible");
+      divider.classList.add("visible");
+      updateWindowHeight();
+    };
+
+    const hideSettingsPanel = () => {
+      settingsOpen = false;
+      settingsPanel.classList.remove("visible");
+      settingsSaved.classList.remove("visible");
+      divider.classList.remove("visible");
+      updateWindowHeight();
+    };
+
+    settingsBtn.addEventListener("click", () => {
+      if (settingsOpen) {
+        hideSettingsPanel();
+      } else {
+        window.api.send("get-settings");
+      }
+    });
+
+    // Voice button handler
+    const voiceBtn = document.getElementById("voiceBtn");
+    voiceBtn.addEventListener("click", () => {
+      window.api.send("open-voice-window");
+    });
+
+    closeSettingsBtn.addEventListener("click", hideSettingsPanel);
+    cancelSettingsBtn.addEventListener("click", hideSettingsPanel);
+
+    saveSettingsBtn.addEventListener("click", () => {
+      const settings = {
+        userName: settingsUserName.value.trim() || "User",
+        apiKey: settingsApiKey.value.trim(),
+        modelName: settingsModelName.value.trim() || "gemini-2.5-flash",
+      };
+
+      if (!settings.apiKey) {
+        settingsApiKey.focus();
+        return;
+      }
+
+      window.api.send("save-settings", settings);
+    });
+
+    window.api.receive("current-settings", (settings) => {
+      showSettingsPanel(settings);
+    });
+
+    window.api.receive("settings-saved", (success) => {
+      if (success) {
+        settingsSaved.classList.add("visible");
+        setTimeout(() => {
+          hideSettingsPanel();
+        }, 1500);
+      }
+    });
+
+    updateWindowHeight();
+  </script>
+</body>
+
 </html>

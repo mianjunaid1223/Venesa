@@ -5,6 +5,7 @@ const {
   ipcMain,
   shell,
   screen,
+  desktopCapturer,
 } = require("electron");
 const path = require("path");
 const os = require("os");
@@ -13,16 +14,12 @@ const taskExecutor = require("./task-executor.js");
 
 let mainWindow;
 let setupWindow;
+let voiceWindow;
 const startHidden = process.argv.includes("--hidden");
 
 const WINDOW_WIDTH = 680;
 const MIN_HEIGHT = 53;
 const MAX_HEIGHT = 470;
-
-app.on("window-all-closed", (e) => {
-  console.log("app: window-all-closed event - preventing app from quitting");
-  e.preventDefault();
-});
 
 function createSetupWindow() {
   setupWindow = new BrowserWindow({
@@ -30,7 +27,7 @@ function createSetupWindow() {
     height: 550,
     frame: false,
     transparent: false,
-    backgroundColor: "#1a1a1a",
+    backgroundColor: "#e7e7fb",
     resizable: false,
     minimizable: false,
     maximizable: false,
@@ -70,9 +67,8 @@ function createWindow() {
     width: WINDOW_WIDTH,
     height: MIN_HEIGHT,
     frame: false,
-    transparent: false,
-    backgroundColor: "#00000000",
-    backgroundMaterial: "acrylic",
+    transparent: true,
+
     alwaysOnTop: true,
     resizable: false,
     minimizable: false,
@@ -83,6 +79,7 @@ function createWindow() {
       preload: path.join(__dirname, "preload.js"),
       contextIsolation: true,
       nodeIntegration: false,
+      webviewTag: true,
     },
   });
 
@@ -96,7 +93,6 @@ function createWindow() {
   });
 
   mainWindow.on("blur", () => {
-    console.log("mainWindow: blur event");
     const bounds = mainWindow.getBounds();
     mainWindow.setBounds({
       x: bounds.x,
@@ -105,7 +101,6 @@ function createWindow() {
       height: MIN_HEIGHT,
     });
     mainWindow.hide();
-    console.log("mainWindow: hidden due to blur");
   });
 
   mainWindow.on("close", (e) => {
@@ -115,7 +110,6 @@ function createWindow() {
 }
 
 app.whenReady().then(() => {
-  console.log("app.whenReady: starting app");
   app.setLoginItemSettings({
     openAtLogin: true,
     path: app.getPath("exe"),
@@ -123,10 +117,8 @@ app.whenReady().then(() => {
   });
 
   if (gemini.needsSetup()) {
-    console.log("needs setup -> creating setup window");
     createSetupWindow();
   } else {
-    console.log("no setup needed -> initializing API and creating main window");
     gemini.initializeAPI();
     createWindow();
   }
@@ -155,15 +147,15 @@ app.whenReady().then(() => {
       const currentDisplay = screen.getDisplayNearestPoint(cursorPoint);
       const { x, y, width, height } = currentDisplay.workArea;
       const windowX = Math.round(x + (width - WINDOW_WIDTH) / 2);
-      const bottomPadding = 40;
-      const fixedBottomY = y + height - bottomPadding;
+      const windowY = Math.round(y + height * 0.2);
 
       mainWindow.setBounds({
         x: windowX,
-        y: fixedBottomY - MIN_HEIGHT,
+        y: windowY,
         width: WINDOW_WIDTH,
         height: MIN_HEIGHT,
       });
+
       mainWindow.show();
       mainWindow.focus();
       mainWindow.webContents.send("focus-input");
@@ -171,10 +163,9 @@ app.whenReady().then(() => {
   });
 
   ipcMain.on("save-settings", (event, settings) => {
-    console.log("ipcMain: save-settings received");
+    event.preventDefault();
     const success = gemini.saveSettings(settings);
     if (success) {
-      console.log("ipcMain: settings saved successfully");
       gemini.initializeAPI();
       event.sender.send("settings-saved", true);
       if (setupWindow && !setupWindow.isDestroyed()) {
@@ -184,11 +175,6 @@ app.whenReady().then(() => {
         setupWindow = null;
       }
       createWindow();
-      if (mainWindow && !mainWindow.isDestroyed()) {
-        console.log("ipcMain: showing mainWindow after setup");
-        mainWindow.show();
-        mainWindow.focus();
-      }
     } else {
       event.sender.send("settings-saved", false);
     }
@@ -288,7 +274,7 @@ app.whenReady().then(() => {
     if (!path.isAbsolute(filePath)) {
       fullPath = path.join(os.homedir(), filePath);
     }
-    shell.openPath(fullPath).catch(() => {});
+    shell.openPath(fullPath).catch(() => { });
   });
 
   ipcMain.on("show-file-in-folder", (event, filePath) => {
@@ -304,7 +290,14 @@ app.whenReady().then(() => {
     if (!path.isAbsolute(folderPath)) {
       fullPath = path.join(os.homedir(), folderPath);
     }
-    shell.openPath(fullPath).catch(() => {});
+    shell.openPath(fullPath).catch(() => { });
+  });
+
+  // Open URLs in external browser
+  ipcMain.on("open-external-url", (event, url) => {
+    if (url && (url.startsWith("http://") || url.startsWith("https://"))) {
+      shell.openExternal(url);
+    }
   });
 
   const ANIMATION_DURATION = 150;
@@ -315,6 +308,7 @@ app.whenReady().then(() => {
   let animationTimeout = null;
 
   const easeOutCubic = (t) => 1 - Math.pow(1 - t, 3);
+
   const animateWindowHeight = (fromHeight, toHeight) => {
     if (animationTimeout) {
       clearTimeout(animationTimeout);
@@ -322,12 +316,6 @@ app.whenReady().then(() => {
     }
 
     const bounds = mainWindow.getBounds();
-    const cursorPoint = screen.getCursorScreenPoint();
-    const currentDisplay = screen.getDisplayNearestPoint(cursorPoint);
-    const { y, height } = currentDisplay.workArea;
-    const bottomPadding = 40;
-    const fixedBottomY = y + height - bottomPadding;
-
     const heightDiff = toHeight - fromHeight;
     const stepDuration = ANIMATION_DURATION / ANIMATION_STEPS;
     let currentStep = 0;
@@ -340,7 +328,7 @@ app.whenReady().then(() => {
 
       mainWindow.setBounds({
         x: bounds.x,
-        y: fixedBottomY - newHeight,
+        y: bounds.y,
         width: WINDOW_WIDTH,
         height: newHeight,
       });
@@ -351,7 +339,7 @@ app.whenReady().then(() => {
         animationInProgress = false;
         mainWindow.setBounds({
           x: bounds.x,
-          y: fixedBottomY - toHeight,
+          y: bounds.y,
           width: WINDOW_WIDTH,
           height: toHeight,
         });
@@ -374,6 +362,167 @@ app.whenReady().then(() => {
       if (currentHeight !== newHeight) {
         animateWindowHeight(currentHeight, newHeight);
       }
+    }
+  });
+
+  // === WINDOW MANAGEMENT HELPERS ===
+  function closeAllFeatureWindows() {
+    if (mainWindow && !mainWindow.isDestroyed() && mainWindow.isVisible()) {
+      mainWindow.hide();
+    }
+    if (voiceWindow && !voiceWindow.isDestroyed() && voiceWindow.isVisible()) {
+      voiceWindow.hide();
+    }
+    // Setup window usually stays until done, but if strictly one feature:
+    // setupWindow is special, we leave it alone if it's strictly for setup.
+  }
+
+  // === VOICE WINDOW ===
+  const VOICE_WINDOW_SIZE = 380;
+
+  function createVoiceWindow() {
+    const cursorPoint = screen.getCursorScreenPoint();
+    const currentDisplay = screen.getDisplayNearestPoint(cursorPoint);
+    const { x, y, width, height } = currentDisplay.workArea;
+
+    voiceWindow = new BrowserWindow({
+      x: x,
+      y: y,
+      width: width,
+      height: height,
+      frame: false,
+      transparent: true,
+      backgroundColor: "#00000000",
+      alwaysOnTop: true,
+      resizable: false,
+      minimizable: false,
+      maximizable: false,
+      skipTaskbar: true,
+      show: false,
+      webPreferences: {
+        preload: path.join(__dirname, "voice-preload.js"),
+        contextIsolation: true,
+        nodeIntegration: false,
+      },
+    });
+
+    voiceWindow.loadFile("voice.html");
+
+    voiceWindow.once("ready-to-show", () => {
+      closeAllFeatureWindows(); // Policy: Only one window open
+      voiceWindow.show();
+      voiceWindow.focus();
+    });
+
+    // Clicking outside (blur) closes the window
+    voiceWindow.on("blur", () => {
+      if (voiceWindow && !voiceWindow.isDestroyed()) {
+        voiceWindow.hide();
+      }
+    });
+
+    voiceWindow.on("closed", () => {
+      voiceWindow = null;
+    });
+  }
+
+  function showVoiceWindow() {
+    if (!voiceWindow || voiceWindow.isDestroyed()) {
+      createVoiceWindow();
+    } else {
+      const cursorPoint = screen.getCursorScreenPoint();
+      const currentDisplay = screen.getDisplayNearestPoint(cursorPoint);
+      const { x, y, width, height } = currentDisplay.workArea;
+
+      voiceWindow.setBounds({
+        x: x,
+        y: y,
+        width: width,
+        height: height,
+      });
+
+      closeAllFeatureWindows(); // Policy: Only one window open
+      voiceWindow.show();
+      voiceWindow.focus();
+    }
+  }
+
+  // Voice window IPC handlers
+  ipcMain.on("close-voice-window", () => {
+    if (voiceWindow && !voiceWindow.isDestroyed()) {
+      voiceWindow.hide();
+    }
+  });
+
+  ipcMain.on("open-voice-window", () => {
+    if (gemini.needsSetup()) return;
+    showVoiceWindow();
+  });
+
+  ipcMain.on("voice-window-ready", () => {
+    if (voiceWindow && !voiceWindow.isDestroyed()) {
+      voiceWindow.webContents.send("start-listening");
+    }
+  });
+
+  ipcMain.on("voice-query", async (event, payload) => {
+    try {
+      const response = await gemini.sendQuery(payload.query, payload.image);
+      event.sender.send("voice-response", response);
+    } catch (error) {
+      event.sender.send("voice-response", `Error: ${error}`);
+    }
+  });
+
+  // Screen capture - Always full screen now
+  const handleCapture = async (event) => {
+    try {
+      const sources = await desktopCapturer.getSources({
+        types: ['screen'],
+        thumbnailSize: { width: 1920, height: 1080 } // Reasonable quality
+      });
+
+      if (sources.length > 0) {
+        // Find screen with cursor or just primary?
+        // Let's use the first one for now, or the one matching current display if possible.
+        // Electron desktopCapturer usually returns 'Screen 1', 'Screen 2'.
+        const thumbnail = sources[0].thumbnail;
+        const imageData = thumbnail.toDataURL();
+        event.sender.send("screen-captured", imageData);
+      }
+    } catch (error) {
+      console.error("Screen capture failed:", error);
+    }
+  };
+
+  ipcMain.on("capture-region", async (event, rect) => {
+    try {
+      const sources = await desktopCapturer.getSources({
+        types: ['screen'],
+        thumbnailSize: { width: 1920, height: 1080 }
+      });
+
+      if (sources.length > 0) {
+        const thumbnail = sources[0].thumbnail;
+        // For now, send the full screen - region cropping would need canvas
+        const imageData = thumbnail.toDataURL();
+        event.sender.send("screen-captured", imageData);
+      }
+    } catch (error) {
+      console.error("Region capture failed:", error);
+    }
+  });
+
+  // Global shortcut for voice (Ctrl+Shift+V for testing, wake word later)
+  globalShortcut.register("Ctrl+Shift+V", () => {
+    if (gemini.needsSetup()) return;
+    showVoiceWindow();
+  });
+
+  // Escape to close voice window
+  globalShortcut.register("Escape", () => {
+    if (voiceWindow && !voiceWindow.isDestroyed() && voiceWindow.isVisible()) {
+      voiceWindow.hide();
     }
   });
 });

@@ -14,7 +14,10 @@ contextBridge.exposeInMainWorld('api', {
       'get-settings',
       'open-settings',
       'close-settings',
-      'save-ui-state'
+      'save-ui-state',
+      'start-screen-capture',
+      'open-external-url',
+      'open-voice-window'
     ];
     if (validChannels.includes(channel)) {
       ipcRenderer.send(channel, data);
@@ -30,7 +33,8 @@ contextBridge.exposeInMainWorld('api', {
       'show-settings-panel',
       'hide-settings-panel',
       'save-state',
-      'restore-state'
+      'restore-state',
+      'screen-captured'
     ];
     if (validChannels.includes(channel)) {
       ipcRenderer.on(channel, (event, ...args) => func(...args));
