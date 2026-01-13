@@ -1,0 +1,756 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Venesa</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: transparent;
+            overflow: hidden;
+            width: 100vw;
+            height: 100vh;
+            cursor: pointer;
+            color: white;
+        }
+
+        /* Transparent overlay */
+        #voice-screen {
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.15);
+            backdrop-filter: blur(10px);
+            position: relative;
+        }
+
+        /* Bottom-right blob container */
+        #blob-container {
+            position: fixed;
+            bottom: 40px;
+            right: 40px;
+            z-index: 10;
+        }
+
+        /* Smaller blob */
+        .ai {
+            --s: 180px;
+            --p: calc(var(--s) / 4);
+            width: var(--s);
+            aspect-ratio: 1;
+            padding: var(--p);
+            display: grid;
+            place-items: center;
+            position: relative;
+            animation: circle1 5s ease-in-out infinite;
+            filter: drop-shadow(0 8px 25px rgba(234, 170, 255, 0.4));
+
+            &::before,
+            &::after {
+                content: "";
+                position: absolute;
+                top: 50%;
+                left: 50%;
+                width: 50%;
+                height: 50%;
+                border-radius: 50%;
+                border: 2px solid white;
+                box-shadow: 0 0 20px rgba(234, 170, 255, 1);
+                filter: blur(4px);
+                transform: translate(-50%, -50%);
+                animation: wave 1.5s linear infinite;
+            }
+
+            &::after {
+                animation-delay: 0.4s;
+            }
+        }
+
+        .ai.listening::before,
+        .ai.listening::after {
+            border-color: #4CAF50;
+            box-shadow: 0 0 25px rgba(76, 175, 80, 1);
+        }
+
+        .ai.speaking::before,
+        .ai.speaking::after {
+            border-color: #eaaaff;
+            box-shadow: 0 0 30px rgba(234, 170, 255, 1);
+            animation: waveSpeaking 0.8s linear infinite;
+        }
+
+        @keyframes wave {
+            0% {
+                transform: translate(-50%, -50%) scale(1);
+                opacity: 0;
+            }
+
+            35% {
+                transform: translate(-50%, -50%) scale(1.3);
+                opacity: 1;
+            }
+
+            70%,
+            100% {
+                transform: translate(-50%, -50%) scale(1.6);
+                opacity: 0;
+            }
+        }
+
+        @keyframes waveSpeaking {
+            0% {
+                transform: translate(-50%, -50%) scale(1);
+                opacity: 0.3;
+            }
+
+            50% {
+                transform: translate(-50%, -50%) scale(1.4);
+                opacity: 1;
+            }
+
+            100% {
+                transform: translate(-50%, -50%) scale(1);
+                opacity: 0.3;
+            }
+        }
+
+        @keyframes ai1 {
+            0% {
+                transform: rotate(0deg) translate(50%) scale(0.9);
+                opacity: 0;
+            }
+
+            25% {
+                transform: rotate(90deg) translate(50%) scale(1.6);
+                opacity: 1;
+            }
+
+            50% {
+                transform: rotate(180deg) translate(50%) scale(0.7);
+                opacity: 0.4;
+            }
+
+            75% {
+                transform: rotate(270deg) translate(50%) scale(1.2);
+                opacity: 1;
+            }
+
+            100% {
+                transform: rotate(360deg) translate(50%) scale(0.9);
+                opacity: 0;
+            }
+        }
+
+        @keyframes ai2 {
+            0% {
+                transform: rotate(90deg) translate(50%) scale(0.5);
+            }
+
+            25% {
+                transform: rotate(180deg) translate(50%) scale(1.5);
+                opacity: 0;
+            }
+
+            50% {
+                transform: rotate(270deg) translate(50%) scale(1);
+                opacity: 0;
+            }
+
+            75% {
+                transform: rotate(360deg) translate(50%) scale(0.8);
+                opacity: 0;
+            }
+
+            100% {
+                transform: rotate(450deg) translate(50%) scale(0.5);
+                opacity: 1;
+            }
+        }
+
+        @keyframes ai3 {
+            0% {
+                transform: rotate(180deg) translate(50%) scale(0.8);
+                opacity: 0.8;
+            }
+
+            25% {
+                transform: rotate(270deg) translate(50%) scale(1.4);
+            }
+
+            50% {
+                transform: rotate(360deg) translate(50%) scale(0.6);
+                opacity: 0.4;
+            }
+
+            75% {
+                transform: rotate(450deg) translate(50%) scale(1.2);
+                opacity: 0.7;
+            }
+
+            100% {
+                transform: rotate(540deg) translate(50%) scale(0.8);
+                opacity: 0.8;
+            }
+        }
+
+        @keyframes ai4 {
+            0% {
+                transform: rotate(270deg) translate(50%) scale(1);
+                opacity: 1;
+            }
+
+            25% {
+                transform: rotate(360deg) translate(50%) scale(0.7);
+            }
+
+            50% {
+                transform: rotate(450deg) translate(50%) scale(1.5);
+                opacity: 0.5;
+            }
+
+            75% {
+                transform: rotate(540deg) translate(50%) scale(0.9);
+                opacity: 0.8;
+            }
+
+            100% {
+                transform: rotate(630deg) translate(50%) scale(1);
+                opacity: 1;
+            }
+        }
+
+        .c {
+            position: absolute;
+            width: 180px;
+            aspect-ratio: 1;
+            border-radius: 50%;
+        }
+
+        .c1 {
+            background: radial-gradient(50% 50% at center, #0066ff, #74bcd6);
+            width: 120px;
+            animation: ai1 5.5s linear infinite;
+        }
+
+        .c2 {
+            background: radial-gradient(50% 50% at center, #ef788c, #e7e7fb);
+            width: 70px;
+            animation: ai2 6s linear infinite;
+        }
+
+        .c3 {
+            background: radial-gradient(50% 50% at center, #eb7fc6, transparent);
+            width: 100px;
+            opacity: 0.6;
+            animation: ai3 4.8s linear infinite;
+        }
+
+        .c4 {
+            background: #6d67c8;
+            animation: ai4 5.2s linear infinite;
+        }
+
+        .container {
+            overflow: hidden;
+            background: #b6a9f8;
+            width: 100%;
+            border-radius: 50%;
+            aspect-ratio: 1;
+            position: relative;
+            display: grid;
+            place-items: center;
+        }
+
+        .glass {
+            overflow: hidden;
+            position: absolute;
+            inset: calc(var(--p) - 4px);
+            border-radius: 50%;
+            backdrop-filter: blur(8px);
+            box-shadow:
+                0 0 30px rgba(255, 255, 255, 0.3),
+                0 30px 40px rgba(0, 0, 0, 0.2),
+                0 0 20px rgba(255, 255, 255, 1);
+            background: radial-gradient(50px at 70% 30%,
+                    rgba(255, 255, 255, 0.7),
+                    transparent);
+        }
+
+        .rings {
+            aspect-ratio: 1;
+            border-radius: 50%;
+            position: absolute;
+            inset: 0;
+            perspective: 11rem;
+            opacity: 0.9;
+
+            &:before,
+            &:after {
+                content: "";
+                position: absolute;
+                inset: 0;
+                background: rgba(255, 0, 0, 1);
+                border-radius: 50%;
+                border: 4px solid transparent;
+                mask:
+                    linear-gradient(#fff 0 0) padding-box,
+                    linear-gradient(#fff 0 0);
+                background: linear-gradient(white, blue, magenta, rgb(255, 7, 7), lightyellow) border-box;
+                mask-composite: exclude;
+            }
+        }
+
+        .rings::before {
+            animation: ring180 10s ease-in-out infinite;
+        }
+
+        .rings::after {
+            animation: ring90 10s ease-in-out infinite;
+        }
+
+        @keyframes ring180 {
+            0% {
+                transform: rotateY(180deg) rotateX(180deg) rotateZ(180deg);
+            }
+
+            25% {
+                transform: rotateY(180deg) rotateX(180deg) rotateZ(180deg);
+            }
+
+            50% {
+                transform: rotateY(360deg) rotateX(360deg) rotateZ(360deg);
+            }
+
+            80% {
+                transform: rotateY(360deg) rotateX(360deg) rotateZ(360deg);
+            }
+
+            100% {
+                transform: rotateY(540deg) rotateX(540deg) rotateZ(540deg);
+            }
+        }
+
+        @keyframes ring90 {
+            0% {
+                transform: rotateY(90deg) rotateX(90deg) rotateZ(90deg);
+            }
+
+            25% {
+                transform: rotateY(90deg) rotateX(90deg) rotateZ(90deg) scale(1.1);
+            }
+
+            50% {
+                transform: rotateY(270deg) rotateX(270deg) rotateZ(270deg);
+            }
+
+            75% {
+                transform: rotateY(270deg) rotateX(270deg) rotateZ(270deg);
+            }
+
+            100% {
+                transform: rotateY(450deg) rotateX(450deg) rotateZ(450deg);
+            }
+        }
+
+        @keyframes circle1 {
+
+            0%,
+            100% {
+                transform: scale(0.97);
+            }
+
+            15%,
+            85% {
+                transform: scale(1);
+            }
+
+            30% {
+                transform: scale(0.98);
+            }
+
+            45% {
+                transform: scale(1);
+            }
+
+            60% {
+                transform: scale(0.97);
+            }
+        }
+
+        /* Smooth horizontal scrolling subtitles */
+        #subtitles {
+            position: fixed;
+            bottom: 100px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0, 0, 0, 0.7);
+            backdrop-filter: blur(20px);
+            padding: 18px 32px;
+            border-radius: 30px;
+            box-shadow: 0 4px 25px rgba(0, 0, 0, 0.4);
+            z-index: 100;
+            overflow: hidden;
+            max-width: 600px;
+        }
+
+        #subtitle-track {
+            display: flex;
+            gap: 16px;
+            align-items: center;
+            transition: transform 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+            will-change: transform;
+        }
+
+        .word {
+            font-size: 28px;
+            font-weight: 600;
+            color: rgba(255, 255, 255, 0.9);
+            white-space: nowrap;
+            transition: opacity 0.5s ease, transform 0.5s ease;
+        }
+
+        .word.current {
+            color: #eaaaff;
+            text-shadow: 0 0 20px rgba(234, 170, 255, 0.7);
+        }
+
+        /* Status indicator (small, top-left) */
+        #status {
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            font-size: 13px;
+            color: rgba(255, 255, 255, 0.6);
+            background: rgba(0, 0, 0, 0.4);
+            backdrop-filter: blur(10px);
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-weight: 600;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+        }
+
+        /* Partial transcript (small, above subtitles) */
+        #partial {
+            position: fixed;
+            bottom: 170px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 18px;
+            color: rgba(255, 255, 255, 0.4);
+            font-style: italic;
+            text-align: center;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="voice-screen">
+        <div id="status">Initializing</div>
+        <div id="partial"></div>
+        <div id="subtitles" style="display: none;">
+            <div id="subtitle-track"></div>
+        </div>
+
+        <div id="blob-container">
+            <div class="ai">
+                <div class="container">
+                    <div class="c c4"></div>
+                    <div class="c c1"></div>
+                    <div class="c c2"></div>
+                    <div class="c c3"></div>
+                    <div class="rings"></div>
+                </div>
+                <div class="glass"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let isListening = false;
+        let isSpeaking = false;
+        let audioContext = null;
+        let mediaStream = null;
+        let workletNode = null;
+        let currentAudio = null;
+        let screenCaptured = false;
+        let capturedImage = null;
+        let currentWordIndex = 0;
+        let words = [];
+        let karaokeInterval = null;
+
+        const statusEl = document.getElementById('status');
+        const partialEl = document.getElementById('partial');
+        const subtitlesEl = document.getElementById('subtitles');
+        const subtitleTrack = document.getElementById('subtitle-track');
+        const blobEl = document.querySelector('.ai');
+
+        // Utility functions
+        function float32ToInt16(float32Array) {
+            const int16Array = new Int16Array(float32Array.length);
+            for (let i = 0; i < float32Array.length; i++) {
+                const s = Math.max(-1, Math.min(1, float32Array[i]));
+                int16Array[i] = s < 0 ? s * 0x8000 : s * 0x7FFF;
+            }
+            return int16Array;
+        }
+
+        function downsample(buffer, fromRate, toRate) {
+            if (fromRate === toRate) return buffer;
+            const ratio = fromRate / toRate;
+            const newLength = Math.round(buffer.length / ratio);
+            const result = new Float32Array(newLength);
+            for (let i = 0; i < newLength; i++) {
+                result[i] = buffer[Math.round(i * ratio)];
+            }
+            return result;
+        }
+
+        // Smooth horizontal scrolling karaoke
+        function startKaraoke(text, duration) {
+            words = text.split(' ').filter(w => w.trim());
+            currentWordIndex = 0;
+
+            if (words.length === 0) return;
+
+            // Clear and setup track
+            subtitleTrack.innerHTML = '';
+            subtitlesEl.style.display = 'block';
+
+            // Add all words to track
+            words.forEach((word, i) => {
+                const span = document.createElement('span');
+                span.className = 'word';
+                span.textContent = word;
+                span.dataset.index = i;
+                subtitleTrack.appendChild(span);
+            });
+
+            const wordElements = subtitleTrack.querySelectorAll('.word');
+            const interval = duration / words.length;
+
+            // Highlight first word
+            wordElements[0].classList.add('current');
+
+            // Calculate word width for smooth scrolling
+            let cumulativeOffset = 0;
+
+            karaokeInterval = setInterval(() => {
+                if (currentWordIndex < words.length - 1) {
+                    // Remove current highlight
+                    wordElements[currentWordIndex].classList.remove('current');
+
+                    // Calculate how much to scroll (word width + gap)
+                    const currentWordEl = wordElements[currentWordIndex];
+                    const wordWidth = currentWordEl.offsetWidth + 16; // 16px gap
+                    cumulativeOffset += wordWidth;
+
+                    currentWordIndex++;
+
+                    // Highlight next word
+                    wordElements[currentWordIndex].classList.add('current');
+
+                    // Smooth scroll to keep current word centered
+                    subtitleTrack.style.transform = `translateX(-${cumulativeOffset}px)`;
+                } else {
+                    clearInterval(karaokeInterval);
+                    setTimeout(() => {
+                        subtitlesEl.style.display = 'none';
+                        subtitleTrack.style.transform = 'translateX(0)';
+                    }, 1000);
+                }
+            }, interval);
+        }
+
+        async function startListening() {
+            try {
+                mediaStream = await navigator.mediaDevices.getUserMedia({
+                    audio: {
+                        channelCount: 1,
+                        echoCancellation: true,
+                        noiseSuppression: true,
+                        autoGainControl: true
+                    }
+                });
+
+                audioContext = new AudioContext({ sampleRate: 48000 });
+                const source = audioContext.createMediaStreamSource(mediaStream);
+
+                try {
+                    await audioContext.audioWorklet.addModule('audio-processor.js');
+                    workletNode = new AudioWorkletNode(audioContext, 'audio-capture-processor');
+
+                    workletNode.port.onmessage = (event) => {
+                        if (!isListening) return;
+                        if (event.data.type === 'audio') {
+                            const downsampled = downsample(event.data.buffer, audioContext.sampleRate, 16000);
+                            const int16Data = float32ToInt16(downsampled);
+                            window.voiceApi.send('audio-data', int16Data.buffer);
+                        }
+                    };
+
+                    source.connect(workletNode);
+                } catch (e) {
+                    const scriptProcessor = audioContext.createScriptProcessor(4096, 1, 1);
+                    scriptProcessor.onaudioprocess = (e) => {
+                        if (!isListening) return;
+                        const inputData = e.inputBuffer.getChannelData(0);
+                        const downsampled = downsample(inputData, audioContext.sampleRate, 16000);
+                        const int16Data = float32ToInt16(downsampled);
+                        window.voiceApi.send('audio-data', int16Data.buffer);
+                    };
+                    source.connect(scriptProcessor);
+                    scriptProcessor.connect(audioContext.destination);
+                }
+
+                isListening = true;
+                blobEl.className = 'ai listening';
+                statusEl.textContent = 'Listening';
+
+                if (!screenCaptured) {
+                    window.voiceApi.send('capture-screen');
+                }
+            } catch (err) {
+                statusEl.textContent = 'Mic Error';
+            }
+        }
+
+        function stopListening() {
+            isListening = false;
+
+            if (workletNode) {
+                try {
+                    workletNode.disconnect();
+                    workletNode = null;
+                } catch (e) { }
+            }
+
+            if (mediaStream) {
+                mediaStream.getTracks().forEach(track => track.stop());
+                mediaStream = null;
+            }
+
+            if (audioContext && audioContext.state !== 'closed') {
+                audioContext.close();
+                audioContext = null;
+            }
+
+            blobEl.className = 'ai';
+        }
+
+        function playAudioResponse(audioDataUrl, responseText) {
+            if (currentAudio) {
+                currentAudio.pause();
+                currentAudio = null;
+            }
+
+            if (karaokeInterval) {
+                clearInterval(karaokeInterval);
+            }
+
+            currentAudio = new Audio(audioDataUrl);
+            isSpeaking = true;
+            blobEl.className = 'ai speaking';
+            statusEl.textContent = 'Speaking';
+
+            currentAudio.onloadedmetadata = () => {
+                const duration = currentAudio.duration * 1000;
+                startKaraoke(responseText, duration);
+            };
+
+            currentAudio.onended = () => {
+                isSpeaking = false;
+                blobEl.className = 'ai';
+                statusEl.textContent = '';
+
+                setTimeout(() => {
+                    window.voiceApi.send('auto-close-voice');
+                }, 1500);
+            };
+
+            currentAudio.onerror = () => {
+                isSpeaking = false;
+                blobEl.className = 'ai';
+                statusEl.textContent = 'Audio Error';
+            };
+
+            currentAudio.play().catch(err => {
+                statusEl.textContent = 'Playback Failed';
+            });
+        }
+
+        // IPC Listeners
+        window.voiceApi.receive('screen-captured', (imageData) => {
+            screenCaptured = true;
+            capturedImage = imageData;
+        });
+
+        window.voiceApi.receive('stt-partial-result', (text) => {
+            if (text) {
+                partialEl.textContent = text;
+            }
+        });
+
+        window.voiceApi.receive('stt-result', (text) => {
+            partialEl.textContent = '';
+            stopListening();
+            statusEl.textContent = 'Processing';
+
+            window.voiceApi.send('voice-query', {
+                query: text,
+                image: capturedImage
+            });
+        });
+
+        window.voiceApi.receive('voice-response', (data) => {
+            if (data.text) {
+                words = data.text.split(' ').filter(w => w.trim()); // Store for karaoke
+                statusEl.textContent = 'Synthesizing';
+                if (data.audio) {
+                    playAudioResponse(data.audio, data.text);
+                }
+            }
+        });
+
+        window.voiceApi.receive('voice-audio-ready', (audioDataUrl) => {
+            if (audioDataUrl && words.length > 0) {
+                const responseText = words.join(' ');
+                playAudioResponse(audioDataUrl, responseText);
+            }
+        });
+
+        window.voiceApi.receive('start-listening', () => {
+            startListening();
+        });
+
+        document.body.addEventListener('click', () => {
+            stopListening();
+            if (currentAudio) {
+                currentAudio.pause();
+                currentAudio = null;
+            }
+            if (karaokeInterval) {
+                clearInterval(karaokeInterval);
+            }
+            window.voiceApi.send('close-voice-window');
+        });
+
+        window.addEventListener('load', () => {
+            window.voiceApi.send('voice-window-ready');
+        });
+
+        window.addEventListener('beforeunload', () => {
+            stopListening();
+            window.voiceApi.send('voice-window-closed');
+        });
+    </script>
+</body>
+
+</html>

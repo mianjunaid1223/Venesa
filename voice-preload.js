@@ -25,7 +25,8 @@ contextBridge.exposeInMainWorld('voiceApi', {
             'focus-voice',
             'play-sound',
             'stt-result',
-            'stt-partial-result'
+            'stt-partial-result',
+            'voice-audio-ready'
         ];
         if (validChannels.includes(channel)) {
             ipcRenderer.on(channel, (event, ...args) => func(...args));

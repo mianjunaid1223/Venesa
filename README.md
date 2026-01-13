@@ -99,7 +99,6 @@ User settings are stored in `~/.spotlight-settings.json`:
 ### Supported Models
 
 - gemini-2.5-flash (default)
-- gemini-2.0-flash
 - gemini-2.5-pro
 - gemini-3-flash-preview
 

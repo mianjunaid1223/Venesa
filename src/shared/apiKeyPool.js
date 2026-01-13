@@ -99,14 +99,8 @@ class APIKeyPool {
             this.initialized = this.keys.length > 0;
 
             if (this.initialized) {
-                console.log(`[APIKeyPool] Loaded ${this.keys.length} API key(s)`);
                 // Pre-select first available key at startup
                 this.currentKey = this._selectNextAvailableKey();
-                if (this.currentKey) {
-                    console.log(`[APIKeyPool] Pre-selected key: ${this._maskKey(this.currentKey)}`);
-                }
-            } else {
-                console.warn('[APIKeyPool] No valid API keys found in .env file');
             }
 
             return this.initialized;
@@ -226,7 +220,6 @@ class APIKeyPool {
         this.currentKey = this._selectNextAvailableKey();
 
         if (this.currentKey) {
-            console.log(`[APIKeyPool] Switched to key: ${this._maskKey(this.currentKey)}`);
             return this.currentKey;
         }
 
@@ -263,7 +256,6 @@ class APIKeyPool {
             stat.successCount++;
             stat.isActive = true;
             stat.cooldownUntil = null; // Clear any cooldown on success
-            console.log(`[APIKeyPool] Success reported for ${this._maskKey(key)}`);
         }
     }
 
@@ -297,13 +289,8 @@ class APIKeyPool {
             stat.isActive = false;
             stat.cooldownUntil = Date.now() + RATE_LIMIT_COOLDOWN_MS;
 
-            console.warn(`[APIKeyPool] Rate limit hit for ${this._maskKey(key)}. Cooldown for 60s`);
-
             // Auto-switch to next available key
             this.currentKey = this._selectNextAvailableKey();
-            if (this.currentKey) {
-                console.log(`[APIKeyPool] Auto-switched to: ${this._maskKey(this.currentKey)}`);
-            }
 
             return {
                 type: 'rate_limit',
@@ -326,13 +313,8 @@ class APIKeyPool {
             stat.isRevoked = true;
             stat.isActive = false;
 
-            console.error(`[APIKeyPool] Key ${this._maskKey(key)} is invalid/revoked. Removed from pool.`);
-
             // Auto-switch to next available key
             this.currentKey = this._selectNextAvailableKey();
-            if (this.currentKey) {
-                console.log(`[APIKeyPool] Auto-switched to: ${this._maskKey(this.currentKey)}`);
-            }
 
             return {
                 type: 'invalid_key',
@@ -343,7 +325,6 @@ class APIKeyPool {
         }
 
         // Other errors - don't modify key status
-        console.warn(`[APIKeyPool] Error for ${this._maskKey(key)}:`, errorMessage);
 
         return {
             type: 'other',
@@ -434,6 +415,96 @@ class APIKeyPool {
     }
 
     /**
+     * Validate a single API key by making a test request
+     * @private
+     * @param {string} key - The API key to validate
+     * @returns {Promise<boolean>} True if key is valid
+     */
+    async _validateKey(key) {
+        try {
+            // Make a minimal request to test the key
+            const { GoogleGenerativeAI } = require('@google/generative-ai');
+            const genAI = new GoogleGenerativeAI(key);
+            const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
+
+            // Simple test query
+            const result = await model.generateContent('Hi');
+            await result.response;
+
+            return true;
+        } catch (error) {
+            console.error(`[APIKeyPool] Validation failed for ${this._maskKey(key)}:`, error.message);
+
+            // Mark as invalid if it's a key-related error
+            const errorCode = error?.status || error?.code;
+            const errorMessage = error?.message || '';
+
+            const isInvalidKey = INVALID_KEY_ERRORS.some(code =>
+                errorCode === code || errorMessage.includes(String(code)) ||
+                errorMessage.toLowerCase().includes('invalid') ||
+                errorMessage.toLowerCase().includes('permission') ||
+                errorMessage.toLowerCase().includes('unauthorized')
+            );
+
+            if (isInvalidKey) {
+                const stat = this.stats.get(key);
+                if (stat) {
+                    stat.isRevoked = true;
+                    stat.isActive = false;
+                }
+            }
+
+            return false;
+        }
+    }
+
+    /**
+     * Validate all keys in the pool at startup
+     * @returns {Promise<Object>} Validation results with valid and invalid keys
+     */
+    async validateAllKeys() {
+        if (!this.initialized || this.keys.length === 0) {
+            return { validCount: 0, invalidCount: 0, validated: false };
+        }
+
+        console.log(`[APIKeyPool] Validating ${this.keys.length} API key(s)...`);
+
+        const validationPromises = this.keys.map(async (key) => {
+            const isValid = await this._validateKey(key);
+            return { key, isValid };
+        });
+
+        const results = await Promise.all(validationPromises);
+
+        const validKeys = results.filter(r => r.isValid);
+        const invalidKeys = results.filter(r => !r.isValid);
+
+        // Remove invalid keys from the pool
+        invalidKeys.forEach(({ key }) => {
+            const index = this.keys.indexOf(key);
+            if (index > -1) {
+                this.keys.splice(index, 1);
+            }
+        });
+
+        console.log(`[APIKeyPool] Validation complete: ${validKeys.length} valid, ${invalidKeys.length} invalid`);
+
+        // Update current key if needed
+        if (validKeys.length > 0) {
+            this.currentKey = validKeys[0].key;
+            console.log(`[APIKeyPool] Pre-selected key: ${this._maskKey(this.currentKey)}`);
+        } else {
+            this.currentKey = null;
+        }
+
+        return {
+            validCount: validKeys.length,
+            invalidCount: invalidKeys.length,
+            validated: true
+        };
+    }
+
+    /**
      * Manually add a key at runtime (not from .env)
      * @param {string} key - The API key to add
      * @returns {boolean} True if key was added successfully
@@ -489,6 +560,7 @@ module.exports = {
     getAvailableKeyCount: () => keyPool.getAvailableKeyCount(),
     addKey: (key) => keyPool.addKey(key),
     removeKey: (key) => keyPool.removeKey(key),
+    validateAllKeys: () => keyPool.validateAllKeys(),
 
     // Export class for testing/custom instances
     APIKeyPool,

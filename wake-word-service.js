@@ -1,4 +1,4 @@
-// Wake Word Detection Service - Low-resource background listening
+// Wake Word Detection Service - Reuses main Vosk worker for background listening
 const { spawn } = require('child_process');
 const path = require('path');
 
@@ -20,8 +20,8 @@ class WakeWordService {
 
         this.onWakeWord = callback;
 
-        // Spawn a lightweight Vosk worker for wake word detection
-        this.worker = spawn('node', [path.join(__dirname, 'wake-word-worker.js')], {
+        // Spawn the unified Vosk worker (same as voice STT)
+        this.worker = spawn('node', [path.join(__dirname, 'vosk-worker.js')], {
             stdio: ['pipe', 'pipe', 'pipe'],
             shell: false
         });
@@ -36,7 +36,6 @@ class WakeWordService {
                     if (msg.type === 'result' && !this.isPaused) {
                         this.checkForWakeWord(msg.text);
                     } else if (msg.type === 'status' && msg.status === 'ready') {
-                        console.log('Wake word detection ready');
                         this.isRunning = true;
                     }
                 } catch (e) {
@@ -77,7 +76,7 @@ class WakeWordService {
         for (const word of WAKE_WORDS) {
             if (lowerText.includes(word)) {
                 this.lastWakeTime = now;
-                console.log(`Wake word detected: "${word}" in "${text}"`);
+                console.log(`[WakeWord] Detected: "${word}"`);
                 if (this.onWakeWord) {
                     this.onWakeWord(word);
                 }
@@ -98,10 +97,8 @@ class WakeWordService {
     }
 
     resume() {
-        // Add small delay before resuming to prevent immediate re-trigger
-        setTimeout(() => {
-            this.isPaused = false;
-        }, 500);
+        // Instant resume - cooldown protection handled by lastWakeTime check
+        this.isPaused = false;
     }
 
     stop() {

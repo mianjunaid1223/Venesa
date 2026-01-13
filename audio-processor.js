@@ -1,4 +1,4 @@
-// AudioWorklet processor for capturing microphone audio
+// Audio Worklet Processor for background audio capture
 class AudioCaptureProcessor extends AudioWorkletProcessor {
     constructor() {
         super();
@@ -9,7 +9,7 @@ class AudioCaptureProcessor extends AudioWorkletProcessor {
 
     process(inputs, outputs, parameters) {
         const input = inputs[0];
-        if (input && input.length > 0) {
+        if (input.length > 0) {
             const channelData = input[0];
 
             for (let i = 0; i < channelData.length; i++) {
@@ -19,13 +19,14 @@ class AudioCaptureProcessor extends AudioWorkletProcessor {
                     // Send buffer to main thread
                     this.port.postMessage({
                         type: 'audio',
-                        buffer: this.buffer.slice()
+                        buffer: this.buffer.slice(0)
                     });
                     this.bufferIndex = 0;
                 }
             }
         }
-        return true;
+
+        return true; // Keep processor alive
     }
 }
 

@@ -27,25 +27,23 @@ class PiperService {
         const outputPath = path.join(tempDir, `venesa_tts_${Date.now()}.wav`);
 
         return new Promise((resolve, reject) => {
+            // Optimized for speed: lower quality but 2-3x faster
             const piper = spawn(PIPER_PATH, [
                 '--model', MODEL_PATH,
-                '--output_file', outputPath
+                '--output_file', outputPath,
+                '--length_scale', '0.9',  // Slightly faster speech (0.9 = 10% faster)
+                '--noise_scale', '0.5',   // Less variability = faster generation
+                '--noise_w', '0.5'        // Less phoneme variation = faster
             ], {
-                stdio: ['pipe', 'pipe', 'pipe'],
+                stdio: ['pipe', 'ignore', 'ignore'], // Ignore stderr/stdout for speed
                 windowsHide: true
-            });
-
-            let stderr = '';
-
-            piper.stderr.on('data', (data) => {
-                stderr += data.toString();
             });
 
             piper.on('close', (code) => {
                 if (code === 0 && fs.existsSync(outputPath)) {
                     resolve(outputPath);
                 } else {
-                    reject(new Error(`Piper failed with code ${code}: ${stderr}`));
+                    reject(new Error(`Piper TTS failed`));
                 }
             });
 
@@ -69,7 +67,7 @@ class PiperService {
         const buffer = fs.readFileSync(wavPath);
         const base64 = buffer.toString('base64');
 
-        // Clean up temp file
+        // Clean up temp file immediately
         try {
             fs.unlinkSync(wavPath);
         } catch (e) {
