@@ -11,7 +11,10 @@ contextBridge.exposeInMainWorld('voiceApi', {
             'capture-screen',
             'capture-region',
             'voice-action',
-            'audio-data'
+            'audio-data',
+            'voice-audio',
+            'open-file',
+            'launch-app'
         ];
         if (validChannels.includes(channel)) {
             ipcRenderer.send(channel, data);
@@ -26,7 +29,8 @@ contextBridge.exposeInMainWorld('voiceApi', {
             'play-sound',
             'stt-result',
             'stt-partial-result',
-            'voice-audio-ready'
+            'voice-audio-ready',
+            'dynamic-ui'
         ];
         if (validChannels.includes(channel)) {
             ipcRenderer.on(channel, (event, ...args) => func(...args));

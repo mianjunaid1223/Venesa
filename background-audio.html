@@ -4,133 +4,347 @@
 <head>
     <meta charset="UTF-8">
     <title>Background Audio</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background: transparent;
+        }
+    </style>
 </head>
 
 <body>
     <script>
+        /**
+         * Background Audio Capture
+         * Hidden window for always-on microphone with wake word detection
+         */
+
+        // Override console to send logs to main process
+        const originalLog = console.log;
+        const originalError = console.error;
+        console.log = (...args) => {
+            originalLog(...args);
+            try { window.backgroundAudioApi.send('console-log', args.map(a => String(a)).join(' ')); } catch (e) { }
+        };
+        console.error = (...args) => {
+            originalError(...args);
+            try { window.backgroundAudioApi.send('console-error', args.map(a => String(a)).join(' ')); } catch (e) { }
+        };
+
+        // Audio processing constants
+        const SAMPLE_RATE = 16000;
+        const CHUNK_SIZE = 1280;  // 80ms at 16kHz - required by openWakeWord
+
+        // State
         let audioContext = null;
         let mediaStream = null;
-        let workletNode = null;
-        let isCapturing = false;
+        let audioWorklet = null;
+        let wakeWordWorker = null;
+        let isListening = false;
+        let audioBuffer = [];  // Buffer to accumulate samples
 
-        // Acknowledgment sounds
-        const acknowledgments = ['hmm?', 'yes?', 'listening'];
-        let currentAck = 0;
-
-        // Convert Float32 to Int16 PCM
-        function float32ToInt16(float32Array) {
-            const int16Array = new Int16Array(float32Array.length);
-            for (let i = 0; i < float32Array.length; i++) {
-                const s = Math.max(-1, Math.min(1, float32Array[i]));
-                int16Array[i] = s < 0 ? s * 0x8000 : s * 0x7FFF;
-            }
-            return int16Array;
-        }
-
-        // Downsample to 16kHz
-        function downsample(buffer, fromRate, toRate) {
-            if (fromRate === toRate) return buffer;
-            const ratio = fromRate / toRate;
-            const newLength = Math.round(buffer.length / ratio);
-            const result = new Float32Array(newLength);
-            for (let i = 0; i < newLength; i++) {
-                result[i] = buffer[Math.round(i * ratio)];
-            }
-            return result;
-        }
-
-        async function startCapture() {
+        /**
+         * Initialize audio capture and wake word detection
+         */
+        async function initialize() {
             try {
+                // Request microphone access
                 mediaStream = await navigator.mediaDevices.getUserMedia({
                     audio: {
                         channelCount: 1,
+                        sampleRate: SAMPLE_RATE,
                         echoCancellation: true,
-                        noiseSuppression: true
+                        noiseSuppression: true,
+                        autoGainControl: true
                     }
                 });
 
-                audioContext = new AudioContext({ sampleRate: 48000 });
-                const source = audioContext.createMediaStreamSource(mediaStream);
+                // Create audio context
+                audioContext = new AudioContext({ sampleRate: SAMPLE_RATE });
 
-                // Try AudioWorklet first
-                try {
-                    await audioContext.audioWorklet.addModule('audio-processor.js');
-                    workletNode = new AudioWorkletNode(audioContext, 'audio-capture-processor');
-
-                    workletNode.port.onmessage = (event) => {
-                        if (!isCapturing) return;
-                        if (event.data.type === 'audio') {
-                            const downsampled = downsample(event.data.buffer, audioContext.sampleRate, 16000);
-                            const int16Data = float32ToInt16(downsampled);
-                            window.backgroundApi.send('background-audio-data', int16Data.buffer);
-                        }
-                    };
-
-                    source.connect(workletNode);
-                    // Don't connect to destination to avoid feedback
-                } catch (e) {
-                    // Fallback to ScriptProcessor
-                    const scriptProcessor = audioContext.createScriptProcessor(4096, 1, 1);
-                    scriptProcessor.onaudioprocess = (e) => {
-                        if (!isCapturing) return;
-                        const inputData = e.inputBuffer.getChannelData(0);
-                        const downsampled = downsample(inputData, audioContext.sampleRate, 16000);
-                        const int16Data = float32ToInt16(downsampled);
-                        window.backgroundApi.send('background-audio-data', int16Data.buffer);
-                    };
-                    source.connect(scriptProcessor);
-                    scriptProcessor.connect(audioContext.destination);
+                // Register audio worklet processor
+                await audioContext.audioWorklet.addModule('data:text/javascript,' + encodeURIComponent(`
+          class AudioProcessor extends AudioWorkletProcessor {
+            constructor() {
+              super();
+              this.buffer = [];
+            }
+            
+            process(inputs, outputs, parameters) {
+              const input = inputs[0];
+              if (input && input[0]) {
+                // Accumulate samples
+                for (let i = 0; i < input[0].length; i++) {
+                  this.buffer.push(input[0][i]);
                 }
+                
+                // Send chunks of 1280 samples (80ms at 16kHz)
+                while (this.buffer.length >= 1280) {
+                  const chunk = this.buffer.splice(0, 1280);
+                  this.port.postMessage({ type: 'audio', data: new Float32Array(chunk) });
+                }
+              }
+              return true;
+            }
+          }
+          registerProcessor('audio-processor', AudioProcessor);
+        `));
 
-                isCapturing = true;
-                window.backgroundApi.send('background-audio-ready');
-            } catch (err) {
-                console.error('Background audio capture failed:', err);
+                // Create audio worklet node
+                audioWorklet = new AudioWorkletNode(audioContext, 'audio-processor');
+
+                // Handle audio chunks from worklet
+                audioWorklet.port.onmessage = (event) => {
+                    if (event.data.type === 'audio' && wakeWordWorker) {
+                        // Convert float32 to int16 PCM
+                        const float32 = event.data.data;
+                        const int16 = new Int16Array(float32.length);
+                        for (let i = 0; i < float32.length; i++) {
+                            const s = Math.max(-1, Math.min(1, float32[i]));
+                            int16[i] = s < 0 ? s * 0x8000 : s * 0x7FFF;
+                        }
+
+                        // Send to wake word worker
+                        wakeWordWorker.postMessage({
+                            type: 'audio',
+                            data: { buffer: int16.buffer }
+                        }, [int16.buffer]);
+                    }
+                };
+
+                // Connect audio graph
+                const source = audioContext.createMediaStreamSource(mediaStream);
+                source.connect(audioWorklet);
+                // Don't connect to destination (silent processing)
+
+                // Initialize wake word worker
+                initializeWakeWordWorker();
+
+                isListening = true;
+                console.log('[BackgroundAudio] Audio capture initialized');
+
+            } catch (error) {
+                console.error('[BackgroundAudio] Initialization failed:', error);
             }
         }
 
-        // Play clean acknowledgment chime (like Siri/Alexa)
-        function playAcknowledgmentChime() {
-            const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        /**
+         * Initialize the wake word detection worker
+         */
+        function initializeWakeWordWorker() {
+            wakeWordWorker = new Worker('wake-word-worker.js');
 
-            // Create a pleasant two-tone chime
-            const now = audioCtx.currentTime;
+            wakeWordWorker.onmessage = (event) => {
+                const { type, score, wakeWord } = event.data;
 
-            // First tone (higher pitch)
-            const osc1 = audioCtx.createOscillator();
-            const gain1 = audioCtx.createGain();
-            osc1.type = 'sine';
-            osc1.frequency.setValueAtTime(880, now); // A5
-            gain1.gain.setValueAtTime(0.3, now);
-            gain1.gain.exponentialRampToValueAtTime(0.01, now + 0.15);
-            osc1.connect(gain1);
-            gain1.connect(audioCtx.destination);
-            osc1.start(now);
-            osc1.stop(now + 0.15);
+                switch (type) {
+                    case 'ready':
+                        console.log('[BackgroundAudio] Wake word worker ready');
+                        window.backgroundAudioApi.send('background-audio-ready');
+                        break;
 
-            // Second tone (slightly higher, creates pleasant chord)
-            const osc2 = audioCtx.createOscillator();
-            const gain2 = audioCtx.createGain();
-            osc2.type = 'sine';
-            osc2.frequency.setValueAtTime(1320, now + 0.08); // E6
-            gain2.gain.setValueAtTime(0, now);
-            gain2.gain.setValueAtTime(0.25, now + 0.08);
-            gain2.gain.exponentialRampToValueAtTime(0.01, now + 0.25);
-            osc2.connect(gain2);
-            gain2.connect(audioCtx.destination);
-            osc2.start(now + 0.08);
-            osc2.stop(now + 0.25);
+                    case 'score':
+                        // Optionally log scores for debugging
+                        // console.log('[BackgroundAudio] Score:', score.toFixed(3));
+                        break;
+
+                    case 'detection':
+                        console.log('[BackgroundAudio] Wake word detected!', wakeWord, score);
+                        window.backgroundAudioApi.send('wake-word-detected', { wakeWord, score });
+                        break;
+
+                    case 'error':
+                        console.error('[BackgroundAudio] Worker error:', event.data.error);
+                        break;
+                }
+            };
+
+            wakeWordWorker.onerror = (error) => {
+                console.error('[BackgroundAudio] Worker error:', error);
+            };
+
+            // Get model buffers from main process and initialize
+            window.backgroundAudioApi.receive('model-buffers', (buffers) => {
+                console.log('[BackgroundAudio] Received model buffers');
+
+                // Convert arrays back to ArrayBuffers
+                const modelBuffers = {
+                    melspectrogram: new Uint8Array(buffers.melspectrogram).buffer,
+                    embedding: new Uint8Array(buffers.embedding).buffer,
+                    wakeword: new Uint8Array(buffers.wakeword).buffer
+                };
+
+                wakeWordWorker.postMessage({
+                    type: 'init',
+                    data: { modelBuffers: modelBuffers }
+                });
+            });
+
+            // Request model buffers
+            window.backgroundAudioApi.send('get-model-paths');
         }
 
-        // Listen for acknowledgment request
-        window.backgroundApi.receive('play-acknowledgment', () => {
-            playAcknowledgmentChime();
+        /**
+         * Play wake word acknowledgment sound
+         */
+        function playAcknowledgment() {
+            // Create a short beep sound
+            const ctx = new AudioContext();
+            const oscillator = ctx.createOscillator();
+            const gainNode = ctx.createGain();
+
+            oscillator.connect(gainNode);
+            gainNode.connect(ctx.destination);
+
+            oscillator.frequency.value = 880;  // A5 note
+            oscillator.type = 'sine';
+
+            gainNode.gain.setValueAtTime(0.3, ctx.currentTime);
+            gainNode.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.15);
+
+            oscillator.start(ctx.currentTime);
+            oscillator.stop(ctx.currentTime + 0.15);
+        }
+
+        // Listen for acknowledgment signal
+        window.backgroundAudioApi && window.backgroundAudioApi.receive('play-acknowledgment', () => {
+            playAcknowledgment();
+            // Release microphone when wake word is detected (voice window will use it)
+            pauseDetection();
         });
 
-        // Start capture on load
-        window.addEventListener('load', () => {
-            startCapture();
+        // Listen for pause detection (release mic for voice window)
+        window.backgroundAudioApi && window.backgroundAudioApi.receive('pause-detection', () => {
+            pauseDetection();
         });
+
+        // Listen for resume detection (re-acquire mic after voice window closes)
+        window.backgroundAudioApi && window.backgroundAudioApi.receive('resume-detection', () => {
+            resumeDetection();
+        });
+
+        /**
+         * Pause detection - release microphone
+         */
+        function pauseDetection() {
+            isListening = false;
+
+            // Stop microphone stream
+            if (mediaStream) {
+                mediaStream.getTracks().forEach(track => track.stop());
+                mediaStream = null;
+            }
+
+            // Close audio context
+            if (audioContext && audioContext.state !== 'closed') {
+                audioContext.close();
+                audioContext = null;
+            }
+
+            // Reset worker buffers
+            if (wakeWordWorker) {
+                wakeWordWorker.postMessage({ type: 'reset' });
+            }
+
+            console.log('[BackgroundAudio] Paused - mic released');
+
+            // Notify main process that mic is released
+            window.backgroundAudioApi.send('mic-released');
+        }
+
+        /**
+         * Resume detection - re-acquire microphone
+         */
+        async function resumeDetection(retryCount = 0) {
+            if (isListening) return;
+
+            console.log(`[BackgroundAudio] Resuming detection (attempt ${retryCount + 1})...`);
+
+            // Small delay to ensure previous window released mic
+            await new Promise(r => setTimeout(r, 500));
+
+            try {
+                // Request microphone access again
+                mediaStream = await navigator.mediaDevices.getUserMedia({
+                    audio: {
+                        channelCount: 1,
+                        sampleRate: SAMPLE_RATE,
+                        echoCancellation: true,
+                        noiseSuppression: true,
+                        autoGainControl: true
+                    }
+                });
+
+                // Create new audio context
+                audioContext = new AudioContext({ sampleRate: SAMPLE_RATE });
+
+                // Re-register audio worklet processor
+                await audioContext.audioWorklet.addModule('data:text/javascript,' + encodeURIComponent(`
+                    class AudioProcessor extends AudioWorkletProcessor {
+                        constructor() {
+                            super();
+                            this.buffer = [];
+                        }
+                        
+                        process(inputs, outputs, parameters) {
+                            const input = inputs[0];
+                            if (input && input[0]) {
+                                for (let i = 0; i < input[0].length; i++) {
+                                    this.buffer.push(input[0][i]);
+                                }
+                                
+                                while (this.buffer.length >= 1280) {
+                                    const chunk = this.buffer.splice(0, 1280);
+                                    this.port.postMessage({ type: 'audio', data: new Float32Array(chunk) });
+                                }
+                            }
+                            return true;
+                        }
+                    }
+                    registerProcessor('audio-processor', AudioProcessor);
+                `));
+
+                // Create audio worklet node
+                audioWorklet = new AudioWorkletNode(audioContext, 'audio-processor');
+
+                // Handle audio chunks
+                audioWorklet.port.onmessage = (event) => {
+                    if (event.data.type === 'audio' && wakeWordWorker) {
+                        const float32 = event.data.data;
+                        const int16 = new Int16Array(float32.length);
+                        for (let i = 0; i < float32.length; i++) {
+                            const s = Math.max(-1, Math.min(1, float32[i]));
+                            int16[i] = s < 0 ? s * 0x8000 : s * 0x7FFF;
+                        }
+
+                        wakeWordWorker.postMessage({
+                            type: 'audio',
+                            data: { buffer: int16.buffer }
+                        }, [int16.buffer]);
+                    }
+                };
+
+                // Connect audio graph
+                const source = audioContext.createMediaStreamSource(mediaStream);
+                source.connect(audioWorklet);
+
+                isListening = true;
+                console.log('[BackgroundAudio] Resumed - mic re-acquired');
+
+            } catch (error) {
+                console.error('[BackgroundAudio] Resume failed:', error);
+
+                // Retry logic if mic is busy
+                if (retryCount < 3) {
+                    console.log('[BackgroundAudio] Retrying in 1s...');
+                    setTimeout(() => resumeDetection(retryCount + 1), 1000);
+                }
+            }
+        }
+
+        // Initialize on load
+        document.addEventListener('DOMContentLoaded', initialize);
     </script>
 </body>
 

@@ -614,9 +614,9 @@
                 blobEl.className = 'ai listening';
                 statusEl.textContent = 'Listening';
 
-                if (!screenCaptured) {
-                    window.voiceApi.send('capture-screen');
-                }
+                // Always request fresh screen capture
+                screenCaptured = false;
+                window.voiceApi.send('capture-screen');
             } catch (err) {
                 statusEl.textContent = 'Mic Error';
             }

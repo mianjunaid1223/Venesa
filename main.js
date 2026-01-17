@@ -1,3 +1,6 @@
+// Load environment variables first
+require('dotenv').config();
+
 const {
   app,
   BrowserWindow,
@@ -9,11 +12,11 @@ const {
 } = require("electron");
 const path = require("path");
 const os = require("os");
-const gemini = require("./gemini-api.js");
-const taskExecutor = require("./task-executor.js");
-const voskService = require("./vosk-service.js");
-const piperService = require("./piper-service.js");
-const wakeWordService = require("./wake-word-service.js");
+const gemini = require("./services/llm-service.js");
+const taskExecutor = require("./services/task-service.js");
+const sttService = require("./services/stt-service.js");
+const ttsService = require("./services/elevenlabs-service.js");
+const wakeWordService = require("./services/wake-word-service.js");
 
 let mainWindow;
 let setupWindow;
@@ -128,12 +131,27 @@ app.whenReady().then(async () => {
   } else {
     createWindow();
 
-    // Initialize Vosk worker at startup (so it's ready immediately)
-    voskService.initialize();
+    // Initialize STT service
+    sttService.initialize();
 
     // Start background wake word detection
     startBackgroundWakeWordDetection();
   }
+
+  // Auto-grant permissions (microphone)
+  const { session } = require('electron');
+  session.defaultSession.setPermissionRequestHandler((webContents, permission, callback) => {
+    const url = webContents.getURL();
+    if (permission === 'media') {
+      // Approve microphone access
+      return callback(true);
+    }
+    // Verify specific permissions if needed
+    if (permission === 'notifications' || permission === 'fullscreen') {
+      return callback(true);
+    }
+    callback(false);
+  });
 
   globalShortcut.register("Alt+Space", () => {
     if (gemini.needsSetup()) {
@@ -382,24 +400,15 @@ app.whenReady().then(async () => {
     if (mainWindow && !mainWindow.isDestroyed() && mainWindow.isVisible()) {
       mainWindow.hide();
     }
-    if (voiceWindow && !voiceWindow.isDestroyed() && voiceWindow.isVisible()) {
-      voiceWindow.hide();
-    }
-    // Setup window usually stays until done, but if strictly one feature:
-    // setupWindow is special, we leave it alone if it's strictly for setup.
   }
 
   // === VOICE WINDOW ===
-  const VOICE_WINDOW_SIZE = 380;
-
   function createVoiceWindow() {
-    const cursorPoint = screen.getCursorScreenPoint();
-    const currentDisplay = screen.getDisplayNearestPoint(cursorPoint);
-    const { x, y, width, height } = currentDisplay.workArea;
+    if (voiceWindow && !voiceWindow.isDestroyed()) return;
+
+    const { width, height } = screen.getPrimaryDisplay().workAreaSize;
 
     voiceWindow = new BrowserWindow({
-      x: x,
-      y: y,
       width: width,
       height: height,
       frame: false,
@@ -420,20 +429,14 @@ app.whenReady().then(async () => {
 
     voiceWindow.loadFile("voice.html");
 
-    voiceWindow.once("ready-to-show", () => {
-      closeAllFeatureWindows(); // Policy: Only one window open
-      voiceWindow.show();
-      voiceWindow.focus();
-    });
-
-    // Clicking outside (blur) closes the window
+    // Clicking outside (blur) or Esc hides the window
     voiceWindow.on("blur", () => {
-      if (voiceWindow && !voiceWindow.isDestroyed()) {
-        voskService.pause(); // Pause but keep worker alive
-        voiceWindow.destroy();
-        voiceWindow = null;
-        wakeWordService.resume();
-      }
+      // Small delay to prevent accidental closure on activation
+      setTimeout(() => {
+        if (voiceWindow && !voiceWindow.isDestroyed() && voiceWindow.isVisible()) {
+          hideVoiceWindow();
+        }
+      }, 500);
     });
 
     voiceWindow.on("closed", () => {
@@ -442,75 +445,60 @@ app.whenReady().then(async () => {
   }
 
   function showVoiceWindow() {
-    // Always destroy and recreate for a clean reset
-    if (voiceWindow && !voiceWindow.isDestroyed()) {
-      voskService.pause(); // Pause but keep worker alive
-      voiceWindow.removeAllListeners();
-      voiceWindow.destroy();
-      voiceWindow = null;
-    }
+    if (!voiceWindow) createVoiceWindow();
 
-    // Always create a fresh window
-    createVoiceWindow();
+    closeAllFeatureWindows();
+    voiceWindow.show();
+    voiceWindow.focus();
+
+    // Start STT service
+    sttService.start((type, text) => {
+      if (voiceWindow && !voiceWindow.isDestroyed()) {
+        if (type === 'text') {
+          voiceWindow.webContents.send('stt-result', text);
+        } else if (type === 'partial') {
+          voiceWindow.webContents.send('stt-partial-result', text);
+        } else if (type === 'ready') {
+          voiceWindow.webContents.send('start-listening');
+        }
+      }
+    });
+
+    // Tell renderer to start mic
+    voiceWindow.webContents.send('start-listening');
   }
+
+  function hideVoiceWindow() {
+    if (voiceWindow && !voiceWindow.isDestroyed()) {
+      voiceWindow.hide();
+      sttService.stop();
+      wakeWordService.resume();
+      // Resume background audio mic
+      if (backgroundAudioWindow && !backgroundAudioWindow.isDestroyed()) {
+        backgroundAudioWindow.webContents.send("resume-detection");
+      }
+    }
+  }
+
+  // IPC Handlers
+  ipcMain.on("close-voice-window", () => { hideVoiceWindow(); });
+  ipcMain.on("auto-close-voice", () => { hideVoiceWindow(); });
+  ipcMain.on("open-voice-window", () => { showVoiceWindow(); });
+
+  // Warm up the window at startup
+  createVoiceWindow();
+
 
   // Cache for screen capture
   let cachedScreenCapture = null;
 
   // Capture screen BEFORE showing voice window
-  async function captureScreenForVoice() {
-    try {
-      const sources = await desktopCapturer.getSources({
-        types: ['screen'],
-        thumbnailSize: { width: 1920, height: 1080 }
-      });
 
-      if (sources.length > 0) {
-        const thumbnail = sources[0].thumbnail;
-        cachedScreenCapture = thumbnail.toDataURL();
-      }
-    } catch (error) {
-      cachedScreenCapture = null;
-    }
-  }
-
-  // Voice window IPC handlers
-  ipcMain.on("close-voice-window", () => {
-    if (voiceWindow && !voiceWindow.isDestroyed()) {
-      voskService.pause(); // Pause but keep worker alive
-      voiceWindow.destroy();
-      voiceWindow = null;
-      // Resume wake word detection when voice window is closed
-      wakeWordService.resume();
-    }
-  });
-
-  ipcMain.on("open-voice-window", () => {
-    if (gemini.needsSetup()) return;
-    showVoiceWindow();
-  });
 
   ipcMain.on("voice-window-ready", () => {
-    if (voiceWindow && !voiceWindow.isDestroyed()) {
-      // Start Vosk service (worker already initialized at startup)
-      voskService.start((type, text) => {
-        if (voiceWindow && !voiceWindow.isDestroyed()) {
-          if (type === 'text') {
-            voiceWindow.webContents.send('stt-result', text);
-          } else if (type === 'partial') {
-            voiceWindow.webContents.send('stt-partial-result', text);
-          } else if (type === 'ready') {
-            // Only sent during initial worker initialization
-            voiceWindow.webContents.send('start-listening');
-          }
-        }
-      });
-
-      // If worker is already ready (normal case), tell renderer to start immediately
-      if (voskService.isWorkerReady) {
-        voiceWindow.webContents.send('start-listening');
-      }
-    }
+    // This IPC handler is now largely redundant as STT starts with showVoiceWindow
+    // but can be kept for any other 'ready' signals if needed.
+    // The actual STT start logic is now in showVoiceWindow().
   });
 
   // Helper: Determine if query needs visual context
@@ -553,8 +541,8 @@ app.whenReady().then(async () => {
       });
 
       // Synthesize TTS in parallel - send when ready
-      if (piperService.isAvailable() && cleanResponse.length > 0) {
-        piperService.synthesizeToDataURL(cleanResponse)
+      if (ttsService.isAvailable() && cleanResponse.length > 0) {
+        ttsService.synthesizeToDataURL(cleanResponse)
           .then(audioDataUrl => {
             // Check if sender still exists before sending audio
             if (!event.sender.isDestroyed()) {
@@ -572,28 +560,35 @@ app.whenReady().then(async () => {
 
   // Handle audio data from renderer (Web Audio API)
   ipcMain.on("audio-data", (event, audioBuffer) => {
-    if (voskService && voskService.isListening) {
+    if (sttService && sttService.isListening) {
       // audioBuffer is an ArrayBuffer of Int16 PCM data
-      voskService.feedAudio(Buffer.from(audioBuffer));
+      sttService.feedAudio(Buffer.from(audioBuffer));
     }
   });
 
-  const handleCapture = async (event) => {
+  // Handle voice audio from voice window for ElevenLabs STT
+  ipcMain.on("voice-audio", async (event, data) => {
     try {
-      // Use cached capture if available
-      if (cachedScreenCapture) {
-        // Check if sender still exists before sending
-        if (!event.sender.isDestroyed()) {
-          event.sender.send("screen-captured", cachedScreenCapture);
-        }
-      }
-    } catch (error) {
-      // Silent fail
-    }
-  };
+      const { buffer, mimeType } = data;
+      const audioBuffer = Buffer.from(buffer);
 
-  // Handle capture-screen from voice window
-  ipcMain.on("capture-screen", handleCapture);
+      // ttsService is already required at the top as require("./services/elevenlabs-service.js")
+
+      const transcribedText = await ttsService.transcribe(audioBuffer, {
+        filename: 'audio.webm',
+        contentType: mimeType || 'audio/webm'
+      });
+
+      console.log('[Main] STT result:', transcribedText);
+      event.sender.send('stt-result', transcribedText);
+
+    } catch (error) {
+      console.error('[Main] Voice audio processing error:', error);
+      event.sender.send('stt-result', '');
+    }
+  });
+
+
 
   ipcMain.on("capture-region", async (event, rect) => {
     try {
@@ -622,12 +617,7 @@ app.whenReady().then(async () => {
 
   // Escape to close voice window
   globalShortcut.register("Escape", () => {
-    if (voiceWindow && !voiceWindow.isDestroyed()) {
-      voskService.pause(); // Pause but keep worker alive
-      voiceWindow.destroy();
-      voiceWindow = null;
-      wakeWordService.resume();
-    }
+    hideVoiceWindow();
   });
 
   // === WAKE WORD DETECTION ===
@@ -654,51 +644,114 @@ app.whenReady().then(async () => {
   }
 
   function startBackgroundWakeWordDetection() {
+    // Initialize wake word service first
+    if (!wakeWordService.initialize()) {
+      console.error('[Main] Wake word models not found, skipping wake word detection');
+      return;
+    }
+
     createBackgroundAudioWindow();
 
-    // Handle background audio data for wake word detection
-    ipcMain.on("background-audio-data", (event, audioBuffer) => {
-      wakeWordService.feedAudio(Buffer.from(audioBuffer));
+    // Handle model buffers request from renderer
+    ipcMain.on("get-model-paths", async (event) => {
+      try {
+        const paths = wakeWordService.getModelPaths();
+        const fsBody = require('fs');
+
+        const [melspecBuffer, embeddingBuffer, wakewordBuffer] = await Promise.all([
+          fsBody.promises.readFile(paths.melspectrogram),
+          fsBody.promises.readFile(paths.embedding),
+          fsBody.promises.readFile(paths.wakeword)
+        ]);
+
+        event.sender.send("model-buffers", {
+          melspectrogram: Array.from(melspecBuffer),
+          embedding: Array.from(embeddingBuffer),
+          wakeword: Array.from(wakewordBuffer)
+        });
+
+        console.log('[Main] Sent model buffers to renderer');
+      } catch (error) {
+        console.error('[Main] Failed to load model files:', error);
+      }
     });
 
-    ipcMain.on("background-audio-ready", () => {
-      wakeWordService.start((wakeWord) => {
+    // Handle wake word detection from renderer (Web Worker)
+    ipcMain.on("wake-word-detected", (event, data) => {
+      const { wakeWord, score } = data;
+      wakeWordService.handleDetection(wakeWord, score);
+    });
 
-        // Pause wake word detection while voice window is active
-        wakeWordService.pause();
+    // Start the wake word service with callback
+    wakeWordService.start((wakeWord) => {
+      // Parallelize capture and mic switch
+      console.log('[Main] Wake word triggered, preparing window...');
 
-        // Play acknowledgment and show voice window
-        if (backgroundAudioWindow && !backgroundAudioWindow.isDestroyed()) {
-          backgroundAudioWindow.webContents.send("play-acknowledgment");
-        }
+      captureScreenForVoice(); // Parallel
 
-        // Capture screen BEFORE showing voice window (to avoid capturing the UI)
-        captureScreenForVoice().then(() => {
-          // Show voice window after screen capture
-          setTimeout(() => {
-            showVoiceWindow();
-          }, 100); // Small delay for acknowledgment sound
-        });
+      // Wait for mic to be released then show
+      ipcMain.once("mic-released", () => {
+        showVoiceWindow();
       });
+
+      if (backgroundAudioWindow && !backgroundAudioWindow.isDestroyed()) {
+        backgroundAudioWindow.webContents.send("play-acknowledgment");
+      }
+    });
+
+    // Handle background audio ready signal
+    ipcMain.on("background-audio-ready", () => {
+      console.log('[Main] Background audio window ready');
+    });
+
+    ipcMain.on("console-log", (event, msg) => {
+      console.log(`[BackgroundAudio] ${msg}`);
+    });
+
+    ipcMain.on("console-error", (event, msg) => {
+      console.error(`[BackgroundAudio] ${msg}`);
     });
   }
 
-  // Resume wake word detection when voice window closes
-  ipcMain.on("voice-window-closed", () => {
-    wakeWordService.resume();
-  });
+  // Capture screen helper
+  async function captureScreenForVoice() {
+    try {
+      const sources = await desktopCapturer.getSources({
+        types: ['screen'],
+        thumbnailSize: { width: 1280, height: 720 } // Slightly smaller for speed
+      });
 
-  // Handle auto-close signal from voice window
-  ipcMain.on("auto-close-voice", () => {
-    if (voiceWindow && !voiceWindow.isDestroyed()) {
-      voskService.pause(); // Pause but keep worker alive
-      voiceWindow.destroy();
-      voiceWindow = null;
-      wakeWordService.resume();
+      if (sources.length > 0) {
+        cachedScreenCapture = sources[0].thumbnail.toDataURL();
+      }
+    } catch (error) {
+      cachedScreenCapture = null;
+      console.error('[Main] Screen capture failed:', error);
     }
-  });
+  }
+
+  const handleCapture = async (event) => {
+    try {
+      // Ensure we have a capture
+      if (!cachedScreenCapture) {
+        await captureScreenForVoice();
+      }
+
+      // Use cached capture if available
+      if (cachedScreenCapture) {
+        // Check if sender still exists before sending
+        if (!event.sender.isDestroyed()) {
+          event.sender.send("screen-captured", cachedScreenCapture);
+        }
+      }
+    } catch (error) {
+      console.error("[Main] Handle capture error:", error);
+    }
+  };
+
+  // Handle capture-screen from voice window
+  ipcMain.on("capture-screen", handleCapture);
+
+  // Global window reference for exported function
+  module.exports = { startBackgroundWakeWordDetection: () => { } };
 });
-
-// Export for external use
-module.exports = { startBackgroundWakeWordDetection: () => { } };
-

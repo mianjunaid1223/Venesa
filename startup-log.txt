@@ -1,0 +1,8 @@
+
+> venesa@1.0.0 start C:\Users\mianj\Venesa
+> electron .
+
+
+[ElevenLabs] Service initialized with API key
+[WakeWordService] Initializing with onnxruntime-node...
+[WakeWordService] All models loaded successfully
