@@ -225,8 +225,26 @@ app.whenReady().then(async () => {
 
   ipcMain.on("send-to-gemini", async (event, query) => {
     try {
-      const response = await gemini.sendQuery(query);
-      event.sender.send("gemini-response", response);
+      const rawResponse = await gemini.sendQuery(query);
+
+      // Process response centrally (executes actions)
+      const { cleanResponse, results } = await taskExecutor.processResponse(rawResponse);
+
+      // Send the clean text response to renderer
+      event.sender.send("gemini-response", cleanResponse);
+
+      // Send execution results back to renderer
+      if (results && results.length > 0) {
+        // Send each result individually or as batch? Renderer expects individual 'action-result' usually
+        // but let's send them one by one to match existing flow
+        for (const res of results) {
+          if (res.result) {
+            event.sender.send("action-result", res.result);
+          } else if (res.error) {
+            event.sender.send("action-result", `Error: ${res.error}`);
+          }
+        }
+      }
     } catch (error) {
       event.sender.send("gemini-response", `Error: ${error}`);
     }
@@ -240,41 +258,7 @@ app.whenReady().then(async () => {
       } else if (action.actionName === "openFile") {
         result = await taskExecutor.openFile(action.params.filePath);
       } else if (action.actionName === "searchFiles") {
-        const [apps, filesJson, foldersJson] = await Promise.all([
-          taskExecutor.searchApplications(action.params.query),
-          taskExecutor.searchFiles(action.params.query),
-          taskExecutor.searchFolders(action.params.query),
-        ]);
-
-        let files = [];
-        let folders = [];
-        try {
-          files = JSON.parse(filesJson);
-        } catch (e) {
-          files = [];
-        }
-        try {
-          folders = JSON.parse(foldersJson);
-        } catch (e) {
-          folders = [];
-        }
-
-        if (
-          (!apps || apps.length === 0) &&
-          (!files || files.length === 0) &&
-          (!folders || folders.length === 0)
-        ) {
-          result = JSON.stringify({
-            notFound: true,
-            query: action.params.query,
-          });
-        } else {
-          result = JSON.stringify({
-            apps: apps || [],
-            files: files || [],
-            folders: folders || [],
-          });
-        }
+        result = await taskExecutor.performSearch(action.params.query);
       }
       event.sender.send("action-result", result);
     } catch (error) {
@@ -488,12 +472,8 @@ app.whenReady().then(async () => {
   // Warm up the window at startup
   createVoiceWindow();
 
-
   // Cache for screen capture
   let cachedScreenCapture = null;
-
-  // Capture screen BEFORE showing voice window
-
 
   ipcMain.on("voice-window-ready", () => {
     // This IPC handler is now largely redundant as STT starts with showVoiceWindow
@@ -519,39 +499,66 @@ app.whenReady().then(async () => {
   ipcMain.on("voice-query", async (event, payload) => {
     try {
       // OPTIMIZATION: Only send image if query suggests visual context is needed
-      // This saves 8-10 seconds for simple queries like "what time is it"
       let imageToSend = null;
 
       if (needsVisualContext(payload.query)) {
-        // Visual query detected - use cached screen or provided image
         imageToSend = payload.image || cachedScreenCapture;
       }
-      // else: Simple query, no image needed - Gemini text-only is 5-10x faster
 
-      // Single Gemini request (with or without image) - mode='voice'
-      const response = await gemini.sendQuery(payload.query, imageToSend, 'voice');
+      // Single Gemini request
+      const rawResponse = await gemini.sendQuery(payload.query, imageToSend, 'voice');
 
-      // Clean up any [NEED_SCREEN] tags
-      const cleanResponse = response.replace(/\[NEED_SCREEN\]/g, '').trim();
+      // Process response centrally (executes actions)
+      // This is the key fix: Voice mode now executes tasks same as text mode
+      const { cleanResponse, results } = await taskExecutor.processResponse(rawResponse);
 
-      // Send text response IMMEDIATELY - don't wait for TTS
+      // Clean up any [NEED_SCREEN] tags from cleanResponse
+      const finalResponse = cleanResponse.replace(/\[NEED_SCREEN\]/g, '').trim();
+
+      // Send text response IMMEDIATELY
       event.sender.send("voice-response", {
-        text: cleanResponse,
+        text: finalResponse,
         audio: null // Will be sent separately
       });
 
+      // Handle execution results for Voice
+      if (results && results.length > 0) {
+        for (const res of results) {
+          if (res.actionName === 'searchFiles' && res.result) {
+            // For search results in voice mode, we should ideally show them in the main window
+            // because voice window has no list view.
+            if (mainWindow && !mainWindow.isDestroyed()) {
+              // Populate main window with results
+              mainWindow.webContents.send("action-result", res.result);
+
+              // Show main window if hidden
+              if (!mainWindow.isVisible()) {
+                const cursorPoint = screen.getCursorScreenPoint();
+                const currentDisplay = screen.getDisplayNearestPoint(cursorPoint);
+                const { x, y, width, height } = currentDisplay.workArea;
+                mainWindow.setBounds({
+                  x: Math.round(x + (width - WINDOW_WIDTH) / 2),
+                  y: Math.round(y + height * 0.2),
+                  width: WINDOW_WIDTH,
+                  height: MIN_HEIGHT
+                });
+                mainWindow.show();
+              }
+              mainWindow.focus();
+            }
+          }
+        }
+      }
+
       // Synthesize TTS in parallel - send when ready
-      if (ttsService.isAvailable() && cleanResponse.length > 0) {
-        ttsService.synthesizeToDataURL(cleanResponse)
+      if (ttsService.isAvailable() && finalResponse.length > 0) {
+        ttsService.synthesizeToDataURL(finalResponse)
           .then(audioDataUrl => {
-            // Check if sender still exists before sending audio
             if (!event.sender.isDestroyed()) {
               event.sender.send("voice-audio-ready", audioDataUrl);
             }
           })
-          .catch(ttsError => {
-            // Silent fail - TTS is not critical
-          });
+          .catch(ttsError => { });
       }
     } catch (error) {
       event.sender.send("voice-response", { text: `Error: ${error}`, audio: null });
@@ -561,7 +568,6 @@ app.whenReady().then(async () => {
   // Handle audio data from renderer (Web Audio API)
   ipcMain.on("audio-data", (event, audioBuffer) => {
     if (sttService && sttService.isListening) {
-      // audioBuffer is an ArrayBuffer of Int16 PCM data
       sttService.feedAudio(Buffer.from(audioBuffer));
     }
   });
@@ -571,8 +577,6 @@ app.whenReady().then(async () => {
     try {
       const { buffer, mimeType } = data;
       const audioBuffer = Buffer.from(buffer);
-
-      // ttsService is already required at the top as require("./services/elevenlabs-service.js")
 
       const transcribedText = await ttsService.transcribe(audioBuffer, {
         filename: 'audio.webm',

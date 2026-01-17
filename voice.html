@@ -645,6 +645,13 @@
             blobEl.className = 'ai';
         }
 
+        let shouldListenAgain = false;
+
+        window.voiceApi.receive('continue-listening', () => {
+            shouldListenAgain = true;
+            console.log('Follow-up requested. Will listen again after audio.');
+        });
+
         function playAudioResponse(audioDataUrl, responseText) {
             if (currentAudio) {
                 currentAudio.pause();
@@ -670,9 +677,15 @@
                 blobEl.className = 'ai';
                 statusEl.textContent = '';
 
-                setTimeout(() => {
-                    window.voiceApi.send('auto-close-voice');
-                }, 1500);
+                if (shouldListenAgain) {
+                    shouldListenAgain = false;
+                    statusEl.innerText = "Listening Again...";
+                    setTimeout(() => startListening(), 200);
+                } else {
+                    setTimeout(() => {
+                        window.voiceApi.send('auto-close-voice');
+                    }, 1500);
+                }
             };
 
             currentAudio.onerror = () => {

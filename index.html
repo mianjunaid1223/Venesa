@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html>
 
 <head>
@@ -666,6 +666,21 @@
       background: rgba(255, 255, 255, 0);
       backdrop-filter: blur(20px);
       transition: all 0.3s;
+      animation: blur-in 0.5s ease-in-out;
+    }
+
+    @keyframes blur-in {
+      from {
+        backdrop-filter: blur(20px);
+        opacity: 0;
+        scale: 1.2;
+      }
+
+      to {
+        backdrop-filter: blur(0px);
+        scale: 1;
+        opacity: 1;
+      }
     }
 
     #googleWebview::before {
@@ -846,7 +861,7 @@
         searchIcon.classList.remove("ai-active");
         searchSvg.style.display = "block";
         aiSvg.style.display = "none";
-        searchInput.placeholder = "Search files or type / for AI...";
+        searchInput.placeholder = "Search files, type / for AI or type // for Google...";
       }
     };
 
@@ -963,7 +978,7 @@
       searchIcon.classList.remove("ai-active");
       searchSvg.style.display = "block";
       aiSvg.style.display = "none";
-      searchInput.placeholder = "Search files or type / for AI...";
+      searchInput.placeholder = "Search files, type / for AI or type // for Google...";
 
       searchInput.value = "";
 
@@ -1515,36 +1530,8 @@
       loader.classList.remove("visible");
       loader.style.display = "none";
 
-      const actionRegex = /\[action:\s*(\w+)(?:,\s*|\s*,\s*)([^\]]+)\]/gi;
-      let match;
-      let cleanResponse = response;
-      let actionsExecuted = false;
-
-      while ((match = actionRegex.exec(response)) !== null) {
-        actionsExecuted = true;
-        cleanResponse = cleanResponse.replace(match[0], "").trim();
-
-        const actionName = match[1].trim();
-        const paramsStr = match[2].trim();
-        const params = {};
-
-        const paramPairs = paramsStr.split(/,\s*/);
-        paramPairs.forEach((pair) => {
-          const colonIdx = pair.indexOf(":");
-          if (colonIdx > 0) {
-            const key = pair.substring(0, colonIdx).trim();
-            const value = pair.substring(colonIdx + 1).trim();
-            params[key] = value;
-          }
-        });
-
-        isGeminiAction = true;
-        showLoader();
-        window.api.send("perform-action", { actionName, params });
-      }
-
-      if (cleanResponse) {
-        showAIResponse(cleanResponse);
+      if (response) {
+        showAIResponse(response);
       }
     });
 
@@ -1649,6 +1636,37 @@
         setTimeout(() => {
           hideSettingsPanel();
         }, 1500);
+      }
+    });
+
+    window.api.receive("set-input", (data) => {
+      // data can be a string (query) or object {query, triggerSearch}
+      const text = typeof data === 'string' ? data : data.query;
+      const shouldTrigger = typeof data === 'string' ? true : data.trigger; // Default to triggering search
+
+      if (text) {
+        searchInput.value = text;
+        searchInput.focus();
+
+        if (text.startsWith("/")) {
+          setAIMode(true);
+          setGoogleMode(false);
+          searchInput.style.color = "var(--primary)";
+        } else if (text.startsWith("//")) {
+          setGoogleMode(true);
+          setAIMode(false);
+          searchInput.style.color = "var(--primary)";
+        } else {
+          setAIMode(false);
+          setGoogleMode(false);
+          searchInput.style.color = "var(--text-primary)";
+        }
+
+        if (shouldTrigger) {
+          // Manually trigger the 'input' event to run the debounced search logic
+          const event = new Event('input', { bubbles: true });
+          searchInput.dispatchEvent(event);
+        }
       }
     });
 

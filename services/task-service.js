@@ -2,7 +2,6 @@ const { exec, spawn } = require("child_process");
 const { shell } = require("electron");
 const os = require("os");
 const path = require("path");
-const fs = require("fs");
 
 function runPowerShell(script) {
   return new Promise((resolve, reject) => {
@@ -38,14 +37,25 @@ function runPowerShell(script) {
   });
 }
 
-async function searchApplications(query) {
+/**
+ * Unified search for Apps, Files, and Folders
+ */
+async function performSearch(query) {
   const escapedQuery = query.replace(/'/g, "''").replace(/`/g, "``");
 
+  // Unified PowerShell script to search Apps, Files, and Folders in one go
   const psScript = `
+$ErrorActionPreference = 'SilentlyContinue'
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
-$results = @()
+$query = "${escapedQuery}"
 
-# Search Start Menu shortcuts (most reliable - same as Windows Search)
+$resultObj = @{
+    apps = @()
+    files = @()
+    folders = @()
+}
+
+# --- 1. APPLICATIONS ---
 $startMenuPaths = @(
     "$env:ProgramData\\Microsoft\\Windows\\Start Menu\\Programs",
     "$env:APPDATA\\Microsoft\\Windows\\Start Menu\\Programs"
@@ -53,10 +63,10 @@ $startMenuPaths = @(
 
 foreach ($menuPath in $startMenuPaths) {
     if (Test-Path $menuPath) {
-        Get-ChildItem -Path $menuPath -Filter "*.lnk" -Recurse -ErrorAction SilentlyContinue |
-            Where-Object { $_.BaseName -like "*${escapedQuery}*" } |
+        Get-ChildItem -Path $menuPath -Filter "*$query*.lnk" -Recurse -File |
+            Select-Object -First 10 |
             ForEach-Object {
-                $results += [PSCustomObject]@{
+                $resultObj.apps += @{
                     name = $_.BaseName
                     path = $_.FullName
                     type = "shortcut"
@@ -65,81 +75,96 @@ foreach ($menuPath in $startMenuPaths) {
     }
 }
 
-# Check App Paths registry
+# --- 2. FILES & FOLDERS (Windows Search Index) ---
 try {
-    $appPaths = Get-ChildItem "HKLM:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\App Paths" -ErrorAction SilentlyContinue
-    foreach ($app in $appPaths) {
-        $appName = $app.PSChildName -replace '\\.exe$', ''
-        if ($appName -like "*${escapedQuery}*") {
-            $exePath = (Get-ItemProperty $app.PSPath -ErrorAction SilentlyContinue).'(default)'
-            if ($exePath -and (Test-Path $exePath -ErrorAction SilentlyContinue)) {
-                $results += [PSCustomObject]@{
-                    name = $appName
-                    path = $exePath
-                    type = "exe"
+    $connection = New-Object -ComObject ADODB.Connection
+    $recordset = New-Object -ComObject ADODB.Recordset
+    $connection.Open("Provider=Search.CollatorDSO;Extended Properties='Application=Windows';")
+    
+    # Query for Files AND Folders in one pass
+    $sql = "SELECT TOP 30 System.ItemPathDisplay, System.ItemType FROM SystemIndex " +
+           "WHERE SCOPE='file:\\$env:USERPROFILE' " +
+           "AND System.FileName LIKE '%$query%' " +
+           "ORDER BY System.DateModified DESC"
+           
+    $recordset.Open($sql, $connection)
+    
+    $homePath = $env:USERPROFILE
+    
+    while (-not $recordset.EOF) {
+        $path = $recordset.Fields.Item("System.ItemPathDisplay").Value
+        $type = $recordset.Fields.Item("System.ItemType").Value
+        
+        if ($path) {
+            $displayPath = $path
+            if ($path.StartsWith($homePath)) {
+                $displayPath = $path.Substring($homePath.Length + 1)
+            }
+            
+            if ($type -eq 'Directory') {
+                if ($resultObj.folders.Count -lt 10) {
+                    $resultObj.folders += $displayPath
+                }
+            } else {
+                if ($resultObj.files.Count -lt 10) {
+                    $resultObj.files += $displayPath
                 }
             }
         }
+        $recordset.MoveNext()
     }
-} catch {}
-
-$unique = $results | Sort-Object { $_.name.ToLower() } -Unique | Select-Object -First 20
-if ($unique.Count -eq 0) {
-    Write-Output "[]"
-} elseif ($unique.Count -eq 1) {
-    Write-Output ("[" + ($unique | ConvertTo-Json -Compress) + "]")
-} else {
-    Write-Output ($unique | ConvertTo-Json -Compress)
+    
+    $recordset.Close()
+    $connection.Close()
+} catch {
+    # Fallback to simple directory search if Indexer fails
+    $searchRoot = "$env:USERPROFILE\\Documents"
+    if (Test-Path $searchRoot) {
+        Get-ChildItem -Path $searchRoot -Filter "*$query*" -Recurse -Depth 2 | Select-Object -First 20 | ForEach-Object {
+             $homePath = $env:USERPROFILE
+             $relPath = if ($_.FullName.StartsWith($homePath)) { $_.FullName.Substring($homePath.Length + 1) } else { $_.FullName }
+             
+             if ($_.PSIsContainer) {
+                 $resultObj.folders += $relPath
+             } else {
+                 $resultObj.files += $relPath
+             }
+        }
+    }
 }
+
+Write-Output ($resultObj | ConvertTo-Json -Depth 3 -Compress)
 `;
 
   try {
     const output = await runPowerShell(psScript);
-    const results = output ? JSON.parse(output) : [];
-    return Array.isArray(results) ? results : results ? [results] : [];
+    if (!output) return JSON.stringify({ notFound: true, query });
+    return output;
   } catch (error) {
-    return [];
+    console.error("Search error:", error);
+    return JSON.stringify({ notFound: true, query, error: error.toString() });
   }
 }
 
 async function launchApplication(appName) {
-  const apps = await searchApplications(appName);
-
-  if (apps.length > 0) {
-    const app = apps[0];
-    return new Promise((resolve, reject) => {
-      shell.openPath(app.path).then((error) => {
-        if (error) {
-          reject(`Could not launch "${appName}".`);
-        } else {
-          resolve(`Launched ${app.name}.`);
-        }
-      });
-    });
-  }
-
-  const escapedName = appName.replace(/'/g, "''");
-  const psScript = `
-$ErrorActionPreference = 'Stop'
-try {
-    Start-Process '${escapedName}'
-    exit 0
-} catch {
-    exit 1
-}
-`;
-
   try {
-    await runPowerShell(psScript);
-    return `Launched ${appName}.`;
-  } catch (error) {
-    throw `Could not launch "${appName}".`;
+    const { exec } = require('child_process');
+    // Use 'start' command on Windows to launch apps vaguely matching name if detailed path unknown
+    // But ideally we use the path found from search. 
+    // For direct voice command "Open Notepad", this simple start is effective.
+    exec(`start "" "${appName}"`);
+    return `Launching ${appName}`;
+  } catch (e) {
+    return `Failed to launch ${appName}`;
   }
 }
 
 function openFile(filePath) {
   return new Promise((resolve, reject) => {
-    const fullPath = path.join(os.homedir(), filePath);
+    let fullPath = filePath;
+    if (!path.isAbsolute(filePath)) {
+      fullPath = path.join(os.homedir(), filePath);
+    }
     shell.openPath(fullPath).then((err) => {
       if (err) {
         reject(`Could not open file: ${filePath}`);
@@ -150,176 +175,70 @@ function openFile(filePath) {
   });
 }
 
-async function searchFolders(query) {
-  const escapedQuery = query.replace(/'/g, "''").replace(/`/g, "``");
+/**
+ * Processes a response string, extracts actions, executes them, and returns a clean response + execution results.
+ * @param {string} response - The raw response from the LLM.
+ * @returns {Promise<{ cleanResponse: string, results: Array<{actionName: string, result: any, error: any}> }>}
+ */
+async function processResponse(response) {
+  const actionRegex = /\[action:\s*(\w+)(?:,\s*|\s*,\s*)([^\]]+)\]/gi;
+  let match;
+  let cleanResponse = response;
+  const executionPromises = [];
 
-  const psScript = `
-[Console]::OutputEncoding = [System.Text.Encoding]::UTF8
-$query = "${escapedQuery}"
+  // Extract all actions
+  console.log('[TaskService] Processing response for actions:', response);
+  while ((match = actionRegex.exec(response)) !== null) {
+    cleanResponse = cleanResponse.replace(match[0], "").trim();
 
-try {
-    $connection = New-Object -ComObject ADODB.Connection
-    $recordset = New-Object -ComObject ADODB.Recordset
-    
-    $connection.Open("Provider=Search.CollatorDSO;Extended Properties='Application=Windows';")
-    $sql = "SELECT TOP 20 System.ItemPathDisplay FROM SystemIndex WHERE SCOPE='file:\\$env:USERPROFILE' AND System.FileName LIKE '%$query%' AND System.ItemType = 'Directory'"
-    $recordset.Open($sql, $connection)
-    
-    $results = @()
-    while (-not $recordset.EOF) {
-        $path = $recordset.Fields.Item("System.ItemPathDisplay").Value
-        if ($path) {
-            $homePath = $env:USERPROFILE
-            if ($path.StartsWith($homePath)) {
-                $relativePath = $path.Substring($homePath.Length + 1)
-                $results += $relativePath
-            } else {
-                $results += $path
-            }
+    const actionName = match[1].trim();
+    console.log('[TaskService] Found action:', actionName);
+    const paramsStr = match[2].trim();
+    const params = {};
+
+    const paramPairs = paramsStr.split(/,\s*/);
+    paramPairs.forEach((pair) => {
+      const colonIdx = pair.indexOf(":");
+      if (colonIdx > 0) {
+        const key = pair.substring(0, colonIdx).trim();
+        let value = pair.substring(colonIdx + 1).trim();
+        // Strip quotes if present
+        if ((value.startsWith('"') && value.endsWith('"')) || (value.startsWith("'") && value.endsWith("'"))) {
+          value = value.slice(1, -1);
         }
-        $recordset.MoveNext()
-    }
-    
-    $recordset.Close()
-    $connection.Close()
-    
-    if ($results.Count -eq 0) {
-        Write-Output "[]"
-    } elseif ($results.Count -eq 1) {
-        Write-Output ('[' + ($results | ConvertTo-Json -Compress) + ']')
-    } else {
-        Write-Output ($results | ConvertTo-Json -Compress)
-    }
-} catch {
-    $results = @()
-    $searchPaths = @(
-        "$env:USERPROFILE\\Desktop",
-        "$env:USERPROFILE\\Documents",
-        "$env:USERPROFILE\\Downloads"
-    )
-    
-    foreach ($searchPath in $searchPaths) {
-        if (Test-Path $searchPath) {
-            Get-ChildItem -Path $searchPath -Filter "*$query*" -Directory -Recurse -Depth 3 -ErrorAction SilentlyContinue |
-                Select-Object -First 20 |
-                ForEach-Object {
-                    $homePath = $env:USERPROFILE
-                    if ($_.FullName.StartsWith($homePath)) {
-                        $results += $_.FullName.Substring($homePath.Length + 1)
-                    } else {
-                        $results += $_.FullName
-                    }
-                }
-        }
-    }
-    
-    $unique = $results | Select-Object -Unique -First 20
-    if ($unique.Count -eq 0) {
-        Write-Output "[]"
-    } elseif ($unique.Count -eq 1) {
-        Write-Output ('[' + ($unique | ConvertTo-Json -Compress) + ']')
-    } else {
-        Write-Output ($unique | ConvertTo-Json -Compress)
-    }
-}
-`;
+        params[key] = value;
+      }
+    });
 
-  try {
-    const output = await runPowerShell(psScript);
-    return output || "[]";
-  } catch (error) {
-    return "[]";
+    // Execute action
+    executionPromises.push(
+      (async () => {
+        try {
+          let result;
+          if (actionName === "launchApplication") {
+            result = await launchApplication(params.appName);
+          } else if (actionName === "openFile") {
+            result = await openFile(params.filePath);
+          } else if (actionName === "searchFiles") {
+            result = await performSearch(params.query);
+          } else if (actionName === "listen") {
+            result = "Listening mode requested.";
+          }
+          return { actionName, result, error: null };
+        } catch (error) {
+          return { actionName, result: null, error: error.toString() };
+        }
+      })()
+    );
   }
-}
 
-async function searchFiles(query) {
-  const escapedQuery = query.replace(/'/g, "''").replace(/`/g, "``");
-
-  const psScript = `
-[Console]::OutputEncoding = [System.Text.Encoding]::UTF8
-$query = "${escapedQuery}"
-
-try {
-    $connection = New-Object -ComObject ADODB.Connection
-    $recordset = New-Object -ComObject ADODB.Recordset
-    
-    $connection.Open("Provider=Search.CollatorDSO;Extended Properties='Application=Windows';")
-    
-    $sql = "SELECT TOP 20 System.ItemPathDisplay FROM SystemIndex WHERE SCOPE='file:\$env:USERPROFILE' AND System.FileName LIKE '%$query%' AND System.ItemType <> 'Directory'"
-    
-    $recordset.Open($sql, $connection)
-    
-    $results = @()
-    while (-not $recordset.EOF) {
-        $path = $recordset.Fields.Item("System.ItemPathDisplay").Value
-        if ($path) {
-            $homePath = $env:USERPROFILE
-            if ($path.StartsWith($homePath)) {
-                $relativePath = $path.Substring($homePath.Length + 1)
-                $results += $relativePath
-            } else {
-                $results += $path
-            }
-        }
-        $recordset.MoveNext()
-    }
-    
-    $recordset.Close()
-    $connection.Close()
-    
-    if ($results.Count -eq 0) {
-        Write-Output "[]"
-    } elseif ($results.Count -eq 1) {
-        Write-Output ('[' + ($results | ConvertTo-Json -Compress) + ']')
-    } else {
-        Write-Output ($results | ConvertTo-Json -Compress)
-    }
-} catch {
-    $results = @()
-    $searchPaths = @(
-        "$env:USERPROFILE\\Desktop",
-        "$env:USERPROFILE\\Documents",
-        "$env:USERPROFILE\\Downloads"
-    )
-    
-    foreach ($searchPath in $searchPaths) {
-        if (Test-Path $searchPath) {
-            Get-ChildItem -Path $searchPath -Filter "*$query*" -File -Recurse -Depth 3 -ErrorAction SilentlyContinue |
-                Select-Object -First 20 |
-                ForEach-Object {
-                    $homePath = $env:USERPROFILE
-                    if ($_.FullName.StartsWith($homePath)) {
-                        $results += $_.FullName.Substring($homePath.Length + 1)
-                    } else {
-                        $results += $_.FullName
-                    }
-                }
-        }
-    }
-    
-    $unique = $results | Select-Object -Unique -First 20
-    if ($unique.Count -eq 0) {
-        Write-Output "[]"
-    } elseif ($unique.Count -eq 1) {
-        Write-Output ('[' + ($unique | ConvertTo-Json -Compress) + ']')
-    } else {
-        Write-Output ($unique | ConvertTo-Json -Compress)
-    }
-}
-`;
-
-  try {
-    const output = await runPowerShell(psScript);
-    return output || "[]";
-  } catch (error) {
-    return "[]";
-  }
+  const results = await Promise.all(executionPromises);
+  return { cleanResponse, results };
 }
 
 module.exports = {
   launchApplication,
-  searchApplications,
+  performSearch,
   openFile,
-  searchFiles,
-  searchFolders,
+  processResponse,
 };
