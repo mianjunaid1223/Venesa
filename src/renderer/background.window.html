@@ -42,7 +42,6 @@
         let audioWorklet = null;
         let wakeWordWorker = null;
         let isListening = false;
-        let audioBuffer = [];  // Buffer to accumulate samples
 
         /**
          * Initialize audio capture and wake word detection
@@ -126,6 +125,10 @@
 
             } catch (error) {
                 console.error('[BackgroundAudio] Initialization failed:', error);
+                // Notify main process about initialization failure
+                try {
+                    window.backgroundAudioApi.send('console-error', `Initialization failed: ${error.message || error}`);
+                } catch (e) { /* ignore IPC errors during init failure */ }
             }
         }
 
@@ -133,7 +136,7 @@
          * Initialize the wake word detection worker
          */
         function initializeWakeWordWorker() {
-            wakeWordWorker = new Worker('wake-word-worker.js');
+            wakeWordWorker = new Worker('workers/wake-word.worker.js');
 
             wakeWordWorker.onmessage = (event) => {
                 const { type, score, wakeWord } = event.data;
@@ -205,6 +208,9 @@
 
             oscillator.start(ctx.currentTime);
             oscillator.stop(ctx.currentTime + 0.15);
+
+            // Close context after sound completes to prevent resource leak
+            oscillator.onended = () => ctx.close();
         }
 
         // Listen for acknowledgment signal
@@ -257,12 +263,15 @@
          * Resume detection - re-acquire microphone
          */
         async function resumeDetection(retryCount = 0) {
-            if (isListening) return;
+            if (isListening) {
+                console.log('[BackgroundAudio] Already listening, skipping resume');
+                return;
+            }
 
             console.log(`[BackgroundAudio] Resuming detection (attempt ${retryCount + 1})...`);
 
-            // Small delay to ensure previous window released mic
-            await new Promise(r => setTimeout(r, 500));
+            // Small delay to ensure voice window released mic (main.js already has 100ms delay)
+            await new Promise(r => setTimeout(r, 300));
 
             try {
                 // Request microphone access again
@@ -310,7 +319,7 @@
 
                 // Handle audio chunks
                 audioWorklet.port.onmessage = (event) => {
-                    if (event.data.type === 'audio' && wakeWordWorker) {
+                    if (event.data.type === 'audio' && wakeWordWorker && isListening) {
                         const float32 = event.data.data;
                         const int16 = new Int16Array(float32.length);
                         for (let i = 0; i < float32.length; i++) {
@@ -333,12 +342,27 @@
                 console.log('[BackgroundAudio] Resumed - mic re-acquired');
 
             } catch (error) {
-                console.error('[BackgroundAudio] Resume failed:', error);
+                console.error('[BackgroundAudio] Resume failed:', error.message || error);
 
-                // Retry logic if mic is busy
-                if (retryCount < 3) {
-                    console.log('[BackgroundAudio] Retrying in 1s...');
-                    setTimeout(() => resumeDetection(retryCount + 1), 1000);
+                // Cleanup any partially acquired resources
+                if (mediaStream) {
+                    mediaStream.getTracks().forEach(track => track.stop());
+                    mediaStream = null;
+                }
+                if (audioContext && audioContext.state !== 'closed') {
+                    audioContext.close();
+                    audioContext = null;
+                }
+
+                // Retry logic if mic is busy - increase retries for reliability
+                if (retryCount < 5) {
+                    const delay = 500 * (retryCount + 1); // Increase delay with each retry
+                    console.log(`[BackgroundAudio] Retrying in ${delay}ms...`);
+                    setTimeout(() => resumeDetection(retryCount + 1), delay);
+                } else {
+                    console.error('[BackgroundAudio] Failed to resume after 5 attempts');
+                    // Notify main process that wake word detection is inactive
+                    window.backgroundAudioApi.send('resume-failed');
                 }
             }
         }

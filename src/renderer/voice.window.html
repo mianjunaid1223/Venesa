@@ -479,6 +479,7 @@
         let audioContext = null;
         let mediaStream = null;
         let workletNode = null;
+        let scriptProcessor = null;
         let currentAudio = null;
         let screenCaptured = false;
         let capturedImage = null;
@@ -534,6 +535,17 @@
             });
 
             const wordElements = subtitleTrack.querySelectorAll('.word');
+
+            // Handle single-word case - no interval needed
+            if (words.length <= 1) {
+                wordElements[0].classList.add('current');
+                setTimeout(() => {
+                    subtitlesEl.style.display = 'none';
+                    subtitleTrack.style.transform = 'translateX(0)';
+                }, duration + 1000);
+                return;
+            }
+
             const interval = duration / words.length;
 
             // Highlight first word
@@ -561,6 +573,7 @@
                     subtitleTrack.style.transform = `translateX(-${cumulativeOffset}px)`;
                 } else {
                     clearInterval(karaokeInterval);
+                    karaokeInterval = null;
                     setTimeout(() => {
                         subtitlesEl.style.display = 'none';
                         subtitleTrack.style.transform = 'translateX(0)';
@@ -584,7 +597,7 @@
                 const source = audioContext.createMediaStreamSource(mediaStream);
 
                 try {
-                    await audioContext.audioWorklet.addModule('audio-processor.js');
+                    await audioContext.audioWorklet.addModule('workers/audio.processor.js');
                     workletNode = new AudioWorkletNode(audioContext, 'audio-capture-processor');
 
                     workletNode.port.onmessage = (event) => {
@@ -598,7 +611,8 @@
 
                     source.connect(workletNode);
                 } catch (e) {
-                    const scriptProcessor = audioContext.createScriptProcessor(4096, 1, 1);
+                    // Fallback to ScriptProcessor for older browsers
+                    scriptProcessor = audioContext.createScriptProcessor(4096, 1, 1);
                     scriptProcessor.onaudioprocess = (e) => {
                         if (!isListening) return;
                         const inputData = e.inputBuffer.getChannelData(0);
@@ -619,6 +633,10 @@
                 window.voiceApi.send('capture-screen');
             } catch (err) {
                 statusEl.textContent = 'Mic Error';
+                // Notify main process about mic error
+                try {
+                    window.voiceApi.send('close-voice-window');
+                } catch (ipcErr) { /* ignore */ }
             }
         }
 
@@ -741,6 +759,10 @@
 
         window.voiceApi.receive('start-listening', () => {
             startListening();
+        });
+
+        window.voiceApi.receive('stop-listening', () => {
+            stopListening();
         });
 
         document.body.addEventListener('click', () => {

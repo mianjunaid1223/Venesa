@@ -23,6 +23,8 @@ contextBridge.exposeInMainWorld('voiceApi', {
     receive: (channel, func) => {
         const validChannels = [
             'start-listening',
+            'stop-listening',
+            'continue-listening',
             'voice-response',
             'screen-captured',
             'focus-voice',
@@ -33,7 +35,18 @@ contextBridge.exposeInMainWorld('voiceApi', {
             'dynamic-ui'
         ];
         if (validChannels.includes(channel)) {
-            ipcRenderer.on(channel, (event, ...args) => func(...args));
+            // Verify func is a function before registering
+            if (typeof func !== 'function') {
+                console.warn(`[VoicePreload] receive: callback for '${channel}' is not a function`);
+                return () => { };
+            }
+            const handler = (event, ...args) => func(...args);
+            ipcRenderer.on(channel, handler);
+            // Return unsubscribe function
+            return () => {
+                ipcRenderer.removeListener(channel, handler);
+            };
         }
+        return () => { }; // Return no-op if invalid channel
     }
 });

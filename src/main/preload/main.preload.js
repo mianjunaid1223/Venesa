@@ -37,7 +37,13 @@ contextBridge.exposeInMainWorld('api', {
       'screen-captured'
     ];
     if (validChannels.includes(channel)) {
-      ipcRenderer.on(channel, (event, ...args) => func(...args));
+      const handler = (event, ...args) => func(...args);
+      ipcRenderer.on(channel, handler);
+      // Return unsubscribe function
+      return () => {
+        ipcRenderer.removeListener(channel, handler);
+      };
     }
+    return () => { }; // Return no-op if invalid channel
   }
 });

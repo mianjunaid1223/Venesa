@@ -4,7 +4,7 @@ const fs = require("fs");
 const os = require("os");
 
 // Import the API Key Pool Manager
-const keyPool = require("../src/shared/apiKeyPool");
+const keyPool = require("./apiKeyPool");
 
 const SETTINGS_PATH = path.join(os.homedir(), ".venesa-settings.json");
 
@@ -55,8 +55,6 @@ function getSettings() {
 }
 
 let currentSettings = null;
-let currentKey = null;
-let currentChat = null;
 
 /**
  * Get or create a chat instance for a specific API key
@@ -329,9 +327,25 @@ async function sendQuery(query, image = null, mode = 'text') {
       let result;
 
       if (image) {
-        // Image provided - extract base64
-        const base64Data = image.split(',')[1];
-        const mimeType = image.split(':')[1].split(';')[0];
+        // Validate image is a proper data URL
+        if (!image.startsWith('data:') || !image.includes(';base64,')) {
+          console.error('[LLM] Invalid image data URL format');
+          throw new Error('Invalid image format - must be a data URL');
+        }
+
+        // Extract base64 data and mime type safely
+        const commaIndex = image.indexOf(',');
+        if (commaIndex === -1) {
+          throw new Error('Invalid image format - missing base64 data');
+        }
+
+        const base64Data = image.substring(commaIndex + 1);
+        const mimeMatch = image.match(/^data:([^;]+);base64,/);
+        const mimeType = mimeMatch ? mimeMatch[1] : 'image/png';
+
+        if (!base64Data) {
+          throw new Error('Invalid image format - empty base64 data');
+        }
 
         const imagePart = {
           inlineData: {

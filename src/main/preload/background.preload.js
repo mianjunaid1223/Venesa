@@ -13,6 +13,7 @@ contextBridge.exposeInMainWorld('backgroundAudioApi', {
             'wake-word-detected',
             'get-model-paths',
             'mic-released',
+            'resume-failed',
             'console-log',
             'console-error'
         ];
@@ -29,7 +30,13 @@ contextBridge.exposeInMainWorld('backgroundAudioApi', {
             'resume-detection'
         ];
         if (validChannels.includes(channel)) {
-            ipcRenderer.on(channel, (event, ...args) => func(...args));
+            const handler = (event, ...args) => func(...args);
+            ipcRenderer.on(channel, handler);
+            // Return unsubscribe function
+            return () => {
+                ipcRenderer.removeListener(channel, handler);
+            };
         }
+        return () => { }; // Return no-op if invalid channel
     }
 });

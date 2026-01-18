@@ -12,11 +12,12 @@ const {
 } = require("electron");
 const path = require("path");
 const os = require("os");
-const gemini = require("./services/llm-service.js");
-const taskExecutor = require("./services/task-service.js");
-const sttService = require("./services/stt-service.js");
-const ttsService = require("./services/elevenlabs-service.js");
-const wakeWordService = require("./services/wake-word-service.js");
+const fs = require("fs");
+const gemini = require("../core/llm-service.js");
+const taskExecutor = require("../core/task-service.js");
+const sttService = require("../core/stt-service.js");
+const ttsService = require("../core/elevenlabs-service.js");
+const wakeWordService = require("../core/wake-word-service.js");
 
 let mainWindow;
 let setupWindow;
@@ -42,13 +43,13 @@ function createSetupWindow() {
     alwaysOnTop: true,
     show: false,
     webPreferences: {
-      preload: path.join(__dirname, "preload.js"),
+      preload: path.join(__dirname, "preload/main.preload.js"),
       contextIsolation: true,
       nodeIntegration: false,
     },
   });
 
-  setupWindow.loadFile("setup.html");
+  setupWindow.loadFile(path.join(__dirname, "../renderer/setup.window.html"));
   setupWindow.center();
 
   setupWindow.once("ready-to-show", () => {
@@ -83,14 +84,14 @@ function createWindow() {
     skipTaskbar: true,
     show: false,
     webPreferences: {
-      preload: path.join(__dirname, "preload.js"),
+      preload: path.join(__dirname, "preload/main.preload.js"),
       contextIsolation: true,
       nodeIntegration: false,
       webviewTag: true,
     },
   });
 
-  mainWindow.loadFile("index.html");
+  mainWindow.loadFile(path.join(__dirname, "../renderer/main.window.html"));
   mainWindow.center();
 
   mainWindow.once("ready-to-show", () => {
@@ -117,11 +118,27 @@ function createWindow() {
 }
 
 app.whenReady().then(async () => {
-  app.setLoginItemSettings({
-    openAtLogin: true,
-    path: app.getPath("exe"),
-    args: ["--hidden"],
-  });
+  // Only enable auto-start if user preference allows
+  // Check for settings file or environment variable
+  const settingsPath = path.join(os.homedir(), '.venesa-settings.json');
+  let autoStartEnabled = false;
+  try {
+    if (fs.existsSync(settingsPath)) {
+      const settings = JSON.parse(fs.readFileSync(settingsPath, 'utf8'));
+      autoStartEnabled = settings.openAtLogin !== false; // Default true if not specified
+    }
+  } catch (e) {
+    // Default to true on error
+    autoStartEnabled = true;
+  }
+
+  if (autoStartEnabled) {
+    app.setLoginItemSettings({
+      openAtLogin: true,
+      path: app.getPath("exe"),
+      args: ["--hidden"],
+    });
+  }
 
   // Initialize API key pool at startup (no validation - validate lazily on first use)
   gemini.initializeAPI();
@@ -138,18 +155,14 @@ app.whenReady().then(async () => {
     startBackgroundWakeWordDetection();
   }
 
-  // Auto-grant permissions (microphone)
+  // Auto-grant permissions (microphone only from trusted origins)
   const { session } = require('electron');
   session.defaultSession.setPermissionRequestHandler((webContents, permission, callback) => {
-    const url = webContents.getURL();
+    // Only auto-approve microphone access (required for voice features)
     if (permission === 'media') {
-      // Approve microphone access
       return callback(true);
     }
-    // Verify specific permissions if needed
-    if (permission === 'notifications' || permission === 'fullscreen') {
-      return callback(true);
-    }
+    // Deny other permissions - user must explicitly approve
     callback(false);
   });
 
@@ -225,19 +238,32 @@ app.whenReady().then(async () => {
 
   ipcMain.on("send-to-gemini", async (event, query) => {
     try {
+      // Check if sender is valid before proceeding
+      if (!event.sender || event.sender.isDestroyed()) {
+        console.warn('[Main] send-to-gemini: Sender destroyed before processing');
+        return;
+      }
+
       const rawResponse = await gemini.sendQuery(query);
+
+      // Check sender again after async operation
+      if (!event.sender || event.sender.isDestroyed()) {
+        console.warn('[Main] send-to-gemini: Sender destroyed after query');
+        return;
+      }
 
       // Process response centrally (executes actions)
       const { cleanResponse, results } = await taskExecutor.processResponse(rawResponse);
 
       // Send the clean text response to renderer
-      event.sender.send("gemini-response", cleanResponse);
+      if (!event.sender.isDestroyed()) {
+        event.sender.send("gemini-response", cleanResponse);
+      }
 
       // Send execution results back to renderer
       if (results && results.length > 0) {
-        // Send each result individually or as batch? Renderer expects individual 'action-result' usually
-        // but let's send them one by one to match existing flow
         for (const res of results) {
+          if (event.sender.isDestroyed()) break;
           if (res.result) {
             event.sender.send("action-result", res.result);
           } else if (res.error) {
@@ -246,6 +272,7 @@ app.whenReady().then(async () => {
         }
       }
     } catch (error) {
+      if (!event.sender || event.sender.isDestroyed()) return;
       event.sender.send("gemini-response", `Error: ${error}`);
     }
   });
@@ -271,8 +298,16 @@ app.whenReady().then(async () => {
       if (appInfo.type === "shortcut" && appInfo.path) {
         await shell.openPath(appInfo.path);
       } else if (appInfo.appId) {
-        const { exec } = require("child_process");
-        exec(`explorer.exe shell:AppsFolder\\${appInfo.appId}`, {
+        // Validate appId to prevent command injection
+        // AppUserModelId should only contain safe characters: letters, numbers, dots, underscores
+        const safeAppIdPattern = /^[a-zA-Z0-9._!\-]+$/;
+        if (!safeAppIdPattern.test(appInfo.appId)) {
+          console.error("Invalid appId format:", appInfo.appId);
+          return;
+        }
+        const { execFile } = require("child_process");
+        // Use execFile with args array to prevent shell injection
+        execFile("explorer.exe", [`shell:AppsFolder\\${appInfo.appId}`], {
           windowsHide: true,
         });
       } else {
@@ -324,9 +359,19 @@ app.whenReady().then(async () => {
   const easeOutCubic = (t) => 1 - Math.pow(1 - t, 3);
 
   const animateWindowHeight = (fromHeight, toHeight) => {
+    // Prevent concurrent animations
+    if (animationInProgress) {
+      return;
+    }
+
     if (animationTimeout) {
       clearTimeout(animationTimeout);
       animationTimeout = null;
+    }
+
+    // Guard: ensure mainWindow exists and is not destroyed
+    if (!mainWindow || mainWindow.isDestroyed()) {
+      return;
     }
 
     const bounds = mainWindow.getBounds();
@@ -335,6 +380,13 @@ app.whenReady().then(async () => {
     let currentStep = 0;
 
     const animate = () => {
+      // Check if window still exists
+      if (!mainWindow || mainWindow.isDestroyed()) {
+        if (animationTimeout) clearTimeout(animationTimeout);
+        animationInProgress = false;
+        return;
+      }
+
       currentStep++;
       const progress = currentStep / ANIMATION_STEPS;
       const easedProgress = easeOutCubic(progress);
@@ -347,16 +399,18 @@ app.whenReady().then(async () => {
         height: newHeight,
       });
 
-      if (currentStep < ANIMATION_STEPS && mainWindow) {
+      if (currentStep < ANIMATION_STEPS && mainWindow && !mainWindow.isDestroyed()) {
         animationTimeout = setTimeout(animate, stepDuration);
       } else {
         animationInProgress = false;
-        mainWindow.setBounds({
-          x: bounds.x,
-          y: bounds.y,
-          width: WINDOW_WIDTH,
-          height: toHeight,
-        });
+        if (mainWindow && !mainWindow.isDestroyed()) {
+          mainWindow.setBounds({
+            x: bounds.x,
+            y: bounds.y,
+            width: WINDOW_WIDTH,
+            height: toHeight,
+          });
+        }
       }
     };
 
@@ -405,19 +459,33 @@ app.whenReady().then(async () => {
       skipTaskbar: true,
       show: false,
       webPreferences: {
-        preload: path.join(__dirname, "voice-preload.js"),
+        preload: path.join(__dirname, "preload/voice.preload.js"),
         contextIsolation: true,
         nodeIntegration: false,
       },
     });
 
-    voiceWindow.loadFile("voice.html");
+    voiceWindow.loadFile(path.join(__dirname, "../renderer/voice.window.html"));
+
+    // Handle renderer crashes
+    voiceWindow.webContents.on('render-process-gone', (event, details) => {
+      console.error('[VoiceWindow] Renderer crashed:', details.reason);
+      // Recreate the window on crash
+      voiceWindow = null;
+    });
+
+    voiceWindow.webContents.on('crashed', (event, killed) => {
+      console.error('[VoiceWindow] WebContents crashed, killed:', killed);
+      voiceWindow = null;
+    });
 
     // Clicking outside (blur) or Esc hides the window
     voiceWindow.on("blur", () => {
       // Small delay to prevent accidental closure on activation
       setTimeout(() => {
+        // Double check window still exists and is valid
         if (voiceWindow && !voiceWindow.isDestroyed() && voiceWindow.isVisible()) {
+          console.log('[Main] hideVoiceWindow triggered by: blur event');
           hideVoiceWindow();
         }
       }, 500);
@@ -429,44 +497,102 @@ app.whenReady().then(async () => {
   }
 
   function showVoiceWindow() {
-    if (!voiceWindow) createVoiceWindow();
+    // If window doesn't exist or was destroyed, recreate it
+    if (!voiceWindow || voiceWindow.isDestroyed()) {
+      createVoiceWindow();
+    }
 
     closeAllFeatureWindows();
-    voiceWindow.show();
-    voiceWindow.focus();
 
-    // Start STT service
-    sttService.start((type, text) => {
-      if (voiceWindow && !voiceWindow.isDestroyed()) {
-        if (type === 'text') {
-          voiceWindow.webContents.send('stt-result', text);
-        } else if (type === 'partial') {
-          voiceWindow.webContents.send('stt-partial-result', text);
-        } else if (type === 'ready') {
-          voiceWindow.webContents.send('start-listening');
+    // Guard to ensure start-listening is only sent once
+    let startListeningSent = false;
+
+    // Helper to safely send IPC only when webContents is ready
+    const safeSend = (channel, data) => {
+      try {
+        if (voiceWindow && !voiceWindow.isDestroyed() && voiceWindow.webContents && !voiceWindow.webContents.isDestroyed()) {
+          voiceWindow.webContents.send(channel, data);
         }
+      } catch (err) {
+        // Silently ignore - "Render frame was disposed" errors are expected during window transitions
       }
+    };
+
+    // Start STT service - only handle text and partial results here
+    // start-listening is handled separately with proper window ready check
+    sttService.start((type, text) => {
+      if (type === 'text') {
+        safeSend('stt-result', text);
+      } else if (type === 'partial') {
+        safeSend('stt-partial-result', text);
+      }
+      // 'ready' type is intentionally not handled here to avoid double-send
     });
 
-    // Tell renderer to start mic
-    voiceWindow.webContents.send('start-listening');
+    // Wait for window to be ready before sending IPC
+    const sendStartListening = () => {
+      if (!startListeningSent) {
+        startListeningSent = true;
+        safeSend('start-listening');
+      }
+    };
+
+    // Check if webContents is already loaded
+    if (voiceWindow.webContents.isLoading()) {
+      voiceWindow.webContents.once('did-finish-load', sendStartListening);
+    } else {
+      // Small delay to ensure renderer IPC handlers are registered
+      setTimeout(sendStartListening, 50);
+    }
+
+    voiceWindow.show();
+    voiceWindow.focus();
   }
 
   function hideVoiceWindow() {
+    // Helper to safely send IPC without crashing
+    const safeSendToVoice = (channel, data) => {
+      try {
+        if (voiceWindow && !voiceWindow.isDestroyed() &&
+          voiceWindow.webContents && !voiceWindow.webContents.isDestroyed()) {
+          voiceWindow.webContents.send(channel, data);
+        }
+      } catch (e) {
+        // Silently ignore - "Render frame was disposed" errors are expected during window close
+      }
+    };
+
     if (voiceWindow && !voiceWindow.isDestroyed()) {
       voiceWindow.hide();
       sttService.stop();
-      wakeWordService.resume();
-      // Resume background audio mic
-      if (backgroundAudioWindow && !backgroundAudioWindow.isDestroyed()) {
-        backgroundAudioWindow.webContents.send("resume-detection");
-      }
+
+      // Send stop-listening to voice window to ensure mic is released
+      safeSendToVoice('stop-listening');
+
+      // Resume wake word detection with a small delay to ensure voice window mic is released
+      setTimeout(() => {
+        wakeWordService.resume();
+        // Resume background audio mic
+        if (backgroundAudioWindow && !backgroundAudioWindow.isDestroyed()) {
+          try {
+            if (backgroundAudioWindow.webContents && !backgroundAudioWindow.webContents.isDestroyed()) {
+              backgroundAudioWindow.webContents.send("resume-detection");
+            }
+          } catch (e) { /* ignore */ }
+        }
+      }, 100);
     }
   }
 
   // IPC Handlers
-  ipcMain.on("close-voice-window", () => { hideVoiceWindow(); });
-  ipcMain.on("auto-close-voice", () => { hideVoiceWindow(); });
+  ipcMain.on("close-voice-window", () => {
+    console.log('[Main] hideVoiceWindow triggered by: close-voice-window IPC');
+    hideVoiceWindow();
+  });
+  ipcMain.on("auto-close-voice", () => {
+    console.log('[Main] hideVoiceWindow triggered by: auto-close-voice IPC');
+    hideVoiceWindow();
+  });
   ipcMain.on("open-voice-window", () => { showVoiceWindow(); });
 
   // Warm up the window at startup
@@ -619,9 +745,13 @@ app.whenReady().then(async () => {
     showVoiceWindow();
   });
 
-  // Escape to close voice window
+  // Escape to close voice window - only when voice window is visible
   globalShortcut.register("Escape", () => {
-    hideVoiceWindow();
+    // Only act on Escape when voice window is visible
+    if (voiceWindow && !voiceWindow.isDestroyed() && voiceWindow.isVisible()) {
+      console.log('[Main] hideVoiceWindow triggered by: Escape key');
+      hideVoiceWindow();
+    }
   });
 
   // === WAKE WORD DETECTION ===
@@ -634,13 +764,13 @@ app.whenReady().then(async () => {
       show: false,
       skipTaskbar: true,
       webPreferences: {
-        preload: path.join(__dirname, "background-audio-preload.js"),
+        preload: path.join(__dirname, "preload/background.preload.js"),
         contextIsolation: true,
         nodeIntegration: false,
       },
     });
 
-    backgroundAudioWindow.loadFile("background-audio.html");
+    backgroundAudioWindow.loadFile(path.join(__dirname, "../renderer/background.window.html"));
 
     backgroundAudioWindow.on("closed", () => {
       backgroundAudioWindow = null;
@@ -657,15 +787,16 @@ app.whenReady().then(async () => {
     createBackgroundAudioWindow();
 
     // Handle model buffers request from renderer
+    // Remove any existing listener to prevent duplicates if function called multiple times
+    ipcMain.removeAllListeners("get-model-paths");
     ipcMain.on("get-model-paths", async (event) => {
       try {
         const paths = wakeWordService.getModelPaths();
-        const fsBody = require('fs');
 
         const [melspecBuffer, embeddingBuffer, wakewordBuffer] = await Promise.all([
-          fsBody.promises.readFile(paths.melspectrogram),
-          fsBody.promises.readFile(paths.embedding),
-          fsBody.promises.readFile(paths.wakeword)
+          fs.promises.readFile(paths.melspectrogram),
+          fs.promises.readFile(paths.embedding),
+          fs.promises.readFile(paths.wakeword)
         ]);
 
         event.sender.send("model-buffers", {
@@ -688,15 +819,35 @@ app.whenReady().then(async () => {
 
     // Start the wake word service with callback
     wakeWordService.start((wakeWord) => {
-      // Parallelize capture and mic switch
       console.log('[Main] Wake word triggered, preparing window...');
 
       captureScreenForVoice(); // Parallel
 
-      // Wait for mic to be released then show
-      ipcMain.once("mic-released", () => {
+      // Wait for mic to be released with timeout fallback
+      const MIC_RELEASE_TIMEOUT = 3000; // 3 seconds max wait
+      let micReleaseHandler = null;
+      let timeoutId = null;
+
+      const showWindowAndCleanup = () => {
+        if (timeoutId) clearTimeout(timeoutId);
+        if (micReleaseHandler) {
+          ipcMain.removeListener("mic-released", micReleaseHandler);
+        }
         showVoiceWindow();
-      });
+      };
+
+      micReleaseHandler = () => {
+        showWindowAndCleanup();
+      };
+
+      ipcMain.once("mic-released", micReleaseHandler);
+
+      // Timeout fallback in case mic-released never fires
+      timeoutId = setTimeout(() => {
+        console.log('[Main] mic-released timeout, showing voice window anyway');
+        ipcMain.removeListener("mic-released", micReleaseHandler);
+        showVoiceWindow();
+      }, MIC_RELEASE_TIMEOUT);
 
       if (backgroundAudioWindow && !backgroundAudioWindow.isDestroyed()) {
         backgroundAudioWindow.webContents.send("play-acknowledgment");
@@ -714,6 +865,11 @@ app.whenReady().then(async () => {
 
     ipcMain.on("console-error", (event, msg) => {
       console.error(`[BackgroundAudio] ${msg}`);
+    });
+
+    ipcMain.on("resume-failed", () => {
+      console.error('[Main] Wake word detection failed to resume - mic may be in use');
+      // Optionally could show a notification to user or attempt recovery
     });
   }
 
@@ -755,7 +911,16 @@ app.whenReady().then(async () => {
 
   // Handle capture-screen from voice window
   ipcMain.on("capture-screen", handleCapture);
-
-  // Global window reference for exported function
-  module.exports = { startBackgroundWakeWordDetection: () => { } };
 });
+
+// Export the wake word function at module level
+// Note: The actual function is defined inside app.whenReady() but we export a reference
+let _startBackgroundWakeWordDetection = null;
+
+module.exports = {
+  startBackgroundWakeWordDetection: () => {
+    if (_startBackgroundWakeWordDetection) {
+      _startBackgroundWakeWordDetection();
+    }
+  }
+};

@@ -1,5 +1,5 @@
 /**
- * ElevenLabs API Key Pool Manager
+ * Gemini API Key Pool Manager
  * 
  * Features:
  * - Round-robin key rotation between multiple keys
@@ -7,6 +7,12 @@
  * - 60-second cooldown for rate-limited keys
  * - Automatic removal of invalid/revoked keys
  * - Usage statistics tracking per key
+ * 
+ * Color Scheme Reference (Blob Identity):
+ * - Primary: #8B5CF6 (Vibrant Purple)
+ * - Secondary: #06B6D4 (Electric Cyan)
+ * - Tertiary: #EC4899 (Hot Pink)
+ * - Accent: #A855F7 (Bright Violet)
  */
 
 const fs = require('fs');
@@ -14,10 +20,34 @@ const path = require('path');
 
 // Constants
 const RATE_LIMIT_COOLDOWN_MS = 60 * 1000; // 60 seconds cooldown
-const INVALID_KEY_ERRORS = [401, 403, 'xi-api-key_invalid', 'permission_denied'];
-const RATE_LIMIT_ERRORS = [429, 'quota_exceeded', 'rate_limit_exceeded'];
+const INVALID_KEY_ERRORS = [401, 403, 'API_KEY_INVALID', 'PERMISSION_DENIED'];
+const RATE_LIMIT_ERRORS = [429, 'RESOURCE_EXHAUSTED', 'RATE_LIMIT_EXCEEDED'];
 
-class ElevenLabsKeyPool {
+/**
+ * @typedef {Object} KeyStats
+ * @property {string} key - Masked API key (first 8 chars + ***)
+ * @property {number} successCount - Number of successful requests
+ * @property {number} errorCount - Number of failed requests
+ * @property {number} rateLimitHits - Number of rate limit errors
+ * @property {boolean} isActive - Whether the key is currently usable
+ * @property {boolean} isRevoked - Whether the key has been permanently removed
+ * @property {number|null} cooldownUntil - Timestamp when cooldown ends
+ * @property {Date} lastUsed - Last time this key was used
+ */
+
+/**
+ * @typedef {Object} PoolStats
+ * @property {number} totalKeys - Total number of keys in the pool
+ * @property {number} activeKeys - Number of currently usable keys
+ * @property {number} coolingDownKeys - Number of keys in cooldown
+ * @property {number} revokedKeys - Number of permanently removed keys
+ * @property {number} totalRequests - Total requests across all keys
+ * @property {number} totalSuccesses - Total successful requests
+ * @property {number} totalErrors - Total failed requests
+ * @property {KeyStats[]} keys - Stats for each key
+ */
+
+class APIKeyPool {
     constructor() {
         this.keys = [];
         this.currentIndex = 0;
@@ -39,7 +69,7 @@ class ElevenLabsKeyPool {
         const envPath = path.join(process.cwd(), '.env');
 
         if (!fs.existsSync(envPath)) {
-            console.warn('[ElevenLabsKeyPool] No .env file found at:', envPath);
+            console.warn('[APIKeyPool] No .env file found at:', envPath);
             this.initialized = false;
             return false;
         }
@@ -54,8 +84,8 @@ class ElevenLabsKeyPool {
                 // Skip comments and empty lines
                 if (!trimmedLine || trimmedLine.startsWith('#')) continue;
 
-                // Match ELEVENLABS_API_KEY or ELEVENLABS_API_KEY_1, ELEVENLABS_API_KEY_2, etc.
-                const match = trimmedLine.match(/^ELEVENLABS_API_KEY(?:_\d+)?=(.+)$/);
+                // Match GEMINI_API_KEY or GEMINI_API_KEY_1, GEMINI_API_KEY_2, etc.
+                const match = trimmedLine.match(/^GEMINI_API_KEY(?:_\d+)?=(.+)$/);
 
                 if (match) {
                     const key = match[1].trim().replace(/["']/g, ''); // Remove quotes
@@ -76,7 +106,7 @@ class ElevenLabsKeyPool {
             return this.initialized;
 
         } catch (error) {
-            console.error('[ElevenLabsKeyPool] Error reading .env file:', error.message);
+            console.error('[APIKeyPool] Error reading .env file:', error.message);
             this.initialized = false;
             return false;
         }
@@ -89,7 +119,7 @@ class ElevenLabsKeyPool {
      */
     _addKey(key) {
         if (this.keys.includes(key)) {
-            console.warn('[ElevenLabsKeyPool] Duplicate key ignored');
+            console.warn('[APIKeyPool] Duplicate key ignored');
             return;
         }
 
@@ -177,7 +207,7 @@ class ElevenLabsKeyPool {
      */
     getNextKey() {
         if (!this.initialized || this.keys.length === 0) {
-            console.error('[ElevenLabsKeyPool] Pool not initialized or empty');
+            console.error('[APIKeyPool] Pool not initialized or empty');
             return null;
         }
 
@@ -208,9 +238,9 @@ class ElevenLabsKeyPool {
 
             const stat = this.stats.get(soonestKey);
             const waitTime = Math.ceil((stat.cooldownUntil - Date.now()) / 1000);
-            console.warn(`[ElevenLabsKeyPool] All keys in cooldown. Soonest available in ${waitTime}s`);
+            console.warn(`[APIKeyPool] All keys in cooldown. Soonest available in ${waitTime}s`);
         } else {
-            console.error('[ElevenLabsKeyPool] All keys are either revoked or unavailable');
+            console.error('[APIKeyPool] All keys are either revoked or unavailable');
         }
 
         return null;
@@ -244,15 +274,12 @@ class ElevenLabsKeyPool {
         stat.errorCount++;
 
         // Extract error code/status
-        const errorCode = error?.status || error?.code || 0;
-        const errorMessage = error?.message || '';
+        const errorCode = error?.status || error?.code || error?.error?.code;
+        const errorMessage = error?.message || error?.error?.message || '';
 
-        // Check for rate limit errors
-        const isRateLimited = RATE_LIMIT_ERRORS.some(code =>
-            errorCode === code || errorMessage.includes(String(code)) ||
-            errorMessage.toLowerCase().includes('rate list') ||
-            errorMessage.toLowerCase().includes('quota')
-        );
+        // Check for rate limit errors - prioritize explicit codes, then use strict regex
+        const isRateLimited = RATE_LIMIT_ERRORS.some(code => errorCode === code) ||
+            /\brate\s*limit\b|\bquota\s*exceeded\b|\bresource\s*exhausted\b/i.test(errorMessage);
 
         if (isRateLimited) {
             stat.rateLimitHits++;
@@ -271,12 +298,10 @@ class ElevenLabsKeyPool {
             };
         }
 
-        // Check for invalid/revoked key errors
-        const isInvalidKey = INVALID_KEY_ERRORS.some(code =>
-            errorCode === code || errorMessage.includes(String(code)) ||
-            errorMessage.toLowerCase().includes('invalid') ||
-            errorMessage.toLowerCase().includes('unauthorized')
-        );
+        // Check for invalid/revoked key errors - mutually exclusive from rate limit
+        // Prioritize explicit codes, then use strict regex patterns
+        const isInvalidKey = INVALID_KEY_ERRORS.some(code => errorCode === code) ||
+            /\binvalid\s*key\b|\bpermission\s*denied\b|\bunauthorized\b|\bapi_key_invalid\b/i.test(errorMessage);
 
         if (isInvalidKey) {
             stat.isRevoked = true;
@@ -293,6 +318,8 @@ class ElevenLabsKeyPool {
             };
         }
 
+        // Other errors - don't modify key status
+
         return {
             type: 'other',
             keyHandled: false,
@@ -302,7 +329,7 @@ class ElevenLabsKeyPool {
 
     /**
      * Get comprehensive statistics for the key pool
-     * @returns {Object} Statistics object with all pool and key-level stats
+     * @returns {PoolStats} Statistics object with all pool and key-level stats
      */
     getStats() {
         const keyStats = [];
@@ -361,7 +388,7 @@ class ElevenLabsKeyPool {
      * @returns {boolean} True if refresh was successful
      */
     refresh() {
-        console.log('[ElevenLabsKeyPool] Refreshing key pool...');
+        console.log('[APIKeyPool] Refreshing key pool...');
         return this.initialize();
     }
 
@@ -389,23 +416,38 @@ class ElevenLabsKeyPool {
      */
     async _validateKey(key) {
         try {
-            const response = await fetch('https://api.elevenlabs.io/v1/user', {
-                headers: { 'xi-api-key': key }
-            });
+            // Make a minimal request to test the key
+            const { GoogleGenerativeAI } = require('@google/generative-ai');
+            const genAI = new GoogleGenerativeAI(key);
+            const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
 
-            if (!response.ok) {
-                if (response.status === 401 || response.status === 403) {
-                    const stat = this.stats.get(key);
-                    if (stat) {
-                        stat.isRevoked = true;
-                        stat.isActive = false;
-                    }
-                }
-                return false;
-            }
+            // Simple test query
+            const result = await model.generateContent('Hi');
+            await result.response;
+
             return true;
         } catch (error) {
-            console.error(`[ElevenLabsKeyPool] Validation failed for ${this._maskKey(key)}:`, error.message);
+            console.error(`[APIKeyPool] Validation failed for ${this._maskKey(key)}:`, error.message);
+
+            // Mark as invalid if it's a key-related error
+            const errorCode = error?.status || error?.code;
+            const errorMessage = error?.message || '';
+
+            const isInvalidKey = INVALID_KEY_ERRORS.some(code =>
+                errorCode === code || errorMessage.includes(String(code)) ||
+                errorMessage.toLowerCase().includes('invalid') ||
+                errorMessage.toLowerCase().includes('permission') ||
+                errorMessage.toLowerCase().includes('unauthorized')
+            );
+
+            if (isInvalidKey) {
+                const stat = this.stats.get(key);
+                if (stat) {
+                    stat.isRevoked = true;
+                    stat.isActive = false;
+                }
+            }
+
             return false;
         }
     }
@@ -419,25 +461,38 @@ class ElevenLabsKeyPool {
             return { validCount: 0, invalidCount: 0, validated: false };
         }
 
-        console.log(`[ElevenLabsKeyPool] Validating ${this.keys.length} API key(s)...`);
+        console.log(`[APIKeyPool] Validating ${this.keys.length} API key(s)...`);
 
-        const validationPromises = this.keys.map(async (key) => {
+        // Sequential validation to avoid rate limits
+        const results = [];
+        for (const key of this.keys) {
             const isValid = await this._validateKey(key);
-            return { key, isValid };
-        });
-
-        const results = await Promise.all(validationPromises);
+            results.push({ key, isValid });
+            // Small delay between validations to avoid rate limits
+            if (this.keys.indexOf(key) < this.keys.length - 1) {
+                await new Promise(resolve => setTimeout(resolve, 100));
+            }
+        }
 
         const validKeys = results.filter(r => r.isValid);
         const invalidKeys = results.filter(r => !r.isValid);
 
-        // Remove invalid keys from the pool ? 
-        // For now we just mark them revoked in _validateKey
+        // Remove invalid keys from the pool
+        invalidKeys.forEach(({ key }) => {
+            const index = this.keys.indexOf(key);
+            if (index > -1) {
+                this.keys.splice(index, 1);
+            }
+        });
 
-        console.log(`[ElevenLabsKeyPool] Validation complete: ${validKeys.length} valid, ${invalidKeys.length} invalid`);
+        console.log(`[APIKeyPool] Validation complete: ${validKeys.length} valid, ${invalidKeys.length} invalid`);
 
+        // Update current key if needed
         if (validKeys.length > 0) {
             this.currentKey = validKeys[0].key;
+            console.log(`[APIKeyPool] Pre-selected key: ${this._maskKey(this.currentKey)}`);
+        } else {
+            this.currentKey = null;
         }
 
         return {
@@ -446,22 +501,73 @@ class ElevenLabsKeyPool {
             validated: true
         };
     }
+
+    /**
+     * Manually add a key at runtime (not from .env)
+     * @param {string} key - The API key to add
+     * @returns {boolean} True if key was added successfully
+     */
+    addKey(key) {
+        if (!key || typeof key !== 'string' || key.length < 10) {
+            console.error('[APIKeyPool] Invalid key provided');
+            return false;
+        }
+
+        this._addKey(key);
+        this.initialized = true;
+        console.log(`[APIKeyPool] Key ${this._maskKey(key)} added manually`);
+        return true;
+    }
+
+    /**
+     * Remove a key from the pool
+     * @param {string} key - The API key to remove
+     * @returns {boolean} True if key was removed
+     */
+    removeKey(key) {
+        const index = this.keys.indexOf(key);
+        if (index === -1) return false;
+
+        this.keys.splice(index, 1);
+        this.stats.delete(key);
+
+        // Clear currentKey if it was the removed key
+        if (this.currentKey === key) {
+            this.currentKey = null;
+        }
+
+        // Adjust current index if needed
+        if (this.currentIndex >= this.keys.length) {
+            this.currentIndex = 0;
+        } else if (index < this.currentIndex) {
+            // Shift index down if removed key was before current
+            this.currentIndex = Math.max(0, this.currentIndex - 1);
+        }
+
+        console.log(`[APIKeyPool] Key ${this._maskKey(key)} removed from pool`);
+        return true;
+    }
 }
 
 // Singleton instance
-const elevenLabsKeyPool = new ElevenLabsKeyPool();
+const keyPool = new APIKeyPool();
 
 module.exports = {
     // Main API methods
-    initialize: () => elevenLabsKeyPool.initialize(),
-    getNextKey: () => elevenLabsKeyPool.getNextKey(),
-    reportSuccess: (key) => elevenLabsKeyPool.reportSuccess(key),
-    reportError: (key, error) => elevenLabsKeyPool.reportError(key, error),
-    getStats: () => elevenLabsKeyPool.getStats(),
+    initialize: () => keyPool.initialize(),
+    getNextKey: () => keyPool.getNextKey(),
+    reportSuccess: (key) => keyPool.reportSuccess(key),
+    reportError: (key, error) => keyPool.reportError(key, error),
+    getStats: () => keyPool.getStats(),
 
     // Additional utility methods
-    refresh: () => elevenLabsKeyPool.refresh(),
-    isHealthy: () => elevenLabsKeyPool.isHealthy(),
-    getAvailableKeyCount: () => elevenLabsKeyPool.getAvailableKeyCount(),
-    validateAllKeys: () => elevenLabsKeyPool.validateAllKeys(),
+    refresh: () => keyPool.refresh(),
+    isHealthy: () => keyPool.isHealthy(),
+    getAvailableKeyCount: () => keyPool.getAvailableKeyCount(),
+    addKey: (key) => keyPool.addKey(key),
+    removeKey: (key) => keyPool.removeKey(key),
+    validateAllKeys: () => keyPool.validateAllKeys(),
+
+    // Export class for testing/custom instances
+    APIKeyPool,
 };

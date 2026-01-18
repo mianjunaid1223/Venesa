@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html>
 
 <head>
@@ -108,7 +108,7 @@
       height: 24px;
       opacity: 0.5;
       flex-shrink: 0;
-      transition: all 0.5s var(--ease-smooth),
+      transition: all 0.5s var(--ease-smooth);
     }
 
     .search-icon.ai-active {
@@ -733,7 +733,7 @@
           <path d="M21 21l-4.35-4.35"></path>
         </svg>
 
-        <img src="logo.svg" width="35px" height="35px" id="aiSvg" style="display: none" />
+        <img src="../assets/logo.svg" width="35px" height="35px" id="aiSvg" style="display: none" />
       </div>
       <input type="text" id="searchInput" placeholder="Search files, type / for AI or type // for Google..." autofocus
         spellcheck="false" />
@@ -773,6 +773,22 @@
           <label for="settingsUserName">Your Name</label>
           <input type="text" id="settingsUserName" placeholder="Enter your name" />
           <p class="hint">The AI will address you by this name</p>
+        </div>
+
+        <div class="form-group">
+          <label for="settingsApiKey">API Key (Optional)</label>
+          <input type="password" id="settingsApiKey" placeholder="Uses .env file keys by default" />
+          <p class="hint">Override default API key from .env</p>
+        </div>
+
+        <div class="form-group">
+          <label for="settingsModelName">Model Name</label>
+          <select id="settingsModelName">
+            <option value="gemini-2.5-flash">Gemini 2.5 Flash</option>
+            <option value="gemini-2.5-flash-lite">Gemini 2.5 Flash Lite</option>
+            <option value="gemini-2.0-flash">Gemini 2.0 Flash</option>
+          </select>
+          <p class="hint">Select the AI model to use</p>
         </div>
 
         <div class="settings-buttons">
@@ -902,11 +918,20 @@
     });
 
     googleWebview.addEventListener("will-navigate", (e) => {
-      // Allow Google navigation, but open other domains externally
-      if (!e.url.includes("google.com")) {
-        e.preventDefault();
-        window.api.send("open-external-url", e.url);
+      // Validate URL using proper URL parsing
+      try {
+        const url = new URL(e.url);
+        const hostname = url.hostname;
+        // Only allow google.com domains
+        if (hostname === "google.com" || hostname.endsWith(".google.com")) {
+          return; // Allow navigation
+        }
+      } catch (parseError) {
+        // Invalid URL, block navigation
       }
+      // Block non-Google URLs and open externally
+      e.preventDefault();
+      window.api.send("open-external-url", e.url);
     });
 
     const HEIGHTS = {
@@ -1270,6 +1295,14 @@
       return '<svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"></rect><rect x="14" y="3" width="7" height="7" rx="1"></rect><rect x="3" y="14" width="7" height="7" rx="1"></rect><rect x="14" y="14" width="7" height="7" rx="1"></rect></svg>';
     };
 
+    // XSS prevention helper - escape HTML special characters
+    const escapeHtml = (text) => {
+      if (!text) return '';
+      const div = document.createElement('div');
+      div.textContent = text;
+      return div.innerHTML;
+    };
+
     window.api.receive("action-result", (result) => {
       loader.classList.remove("visible");
       loader.style.display = "none";
@@ -1352,7 +1385,7 @@
               '<div class="file-icon app-icon">' +
               getAppIcon() +
               '</div><div class="result-content"><div class="result-name">' +
-              app.name +
+              escapeHtml(app.name) +
               '</div><div class="result-path">Application</div></div>' +
               '<div class="result-hints"><span class="hint">Enter to launch</span></div>';
 
@@ -1384,9 +1417,9 @@
               '<div class="file-icon folder-icon">' +
               getFolderIcon() +
               '</div><div class="result-content"><div class="result-name">' +
-              folderName +
+              escapeHtml(folderName) +
               '</div><div class="result-path">' +
-              parentPath +
+              escapeHtml(parentPath) +
               "</div></div>" +
               '<div class="result-hints"><span class="hint">Click open</span><span class="hint">Right-click location</span></div>';
 
@@ -1426,9 +1459,9 @@
               '">' +
               fileIconData.icon +
               '</div><div class="result-content"><div class="result-name">' +
-              fileName +
+              escapeHtml(fileName) +
               '</div><div class="result-path">' +
-              dirPath +
+              escapeHtml(dirPath) +
               "</div></div>" +
               '<div class="result-hints"><span class="hint">Click open</span><span class="hint">Right-click location</span></div>';
 
@@ -1648,13 +1681,14 @@
         searchInput.value = text;
         searchInput.focus();
 
-        if (text.startsWith("/")) {
-          setAIMode(true);
-          setGoogleMode(false);
-          searchInput.style.color = "var(--primary)";
-        } else if (text.startsWith("//")) {
+        // Check for Google mode first (// prefix) to avoid matching single slash
+        if (text.startsWith("//")) {
           setGoogleMode(true);
           setAIMode(false);
+          searchInput.style.color = "var(--primary)";
+        } else if (text.startsWith("/")) {
+          setAIMode(true);
+          setGoogleMode(false);
           searchInput.style.color = "var(--primary)";
         } else {
           setAIMode(false);

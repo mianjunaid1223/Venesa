@@ -41,7 +41,12 @@ function runPowerShell(script) {
  * Unified search for Apps, Files, and Folders
  */
 async function performSearch(query) {
-  const escapedQuery = query.replace(/'/g, "''").replace(/`/g, "``");
+  // Escape single quotes, backticks, dollar signs, and double quotes for PowerShell
+  const escapedQuery = query
+    .replace(/'/g, "''")
+    .replace(/`/g, "``")
+    .replace(/\$/g, "`$")
+    .replace(/"/g, "`\"");
 
   // Unified PowerShell script to search Apps, Files, and Folders in one go
   const psScript = `
@@ -142,7 +147,8 @@ Write-Output ($resultObj | ConvertTo-Json -Depth 3 -Compress)
     return output;
   } catch (error) {
     console.error("Search error:", error);
-    return JSON.stringify({ notFound: true, query, error: error.toString() });
+    // Return sanitized error to avoid leaking sensitive info
+    return JSON.stringify({ notFound: true, query, error: "internal_error" });
   }
 }
 
@@ -161,11 +167,23 @@ async function launchApplication(appName) {
 
 function openFile(filePath) {
   return new Promise((resolve, reject) => {
+    const baseDir = os.homedir();
     let fullPath = filePath;
     if (!path.isAbsolute(filePath)) {
-      fullPath = path.join(os.homedir(), filePath);
+      fullPath = path.join(baseDir, filePath);
     }
-    shell.openPath(fullPath).then((err) => {
+
+    // Resolve to absolute path and check for path traversal
+    const resolvedPath = path.resolve(fullPath);
+    const normalizedBase = path.resolve(baseDir) + path.sep;
+
+    // Ensure resolved path is within allowed base directory
+    if (!resolvedPath.startsWith(normalizedBase) && resolvedPath !== path.resolve(baseDir)) {
+      reject(`Security error: Path escapes allowed directory`);
+      return;
+    }
+
+    shell.openPath(resolvedPath).then((err) => {
       if (err) {
         reject(`Could not open file: ${filePath}`);
       } else {
@@ -196,7 +214,37 @@ async function processResponse(response) {
     const paramsStr = match[2].trim();
     const params = {};
 
-    const paramPairs = paramsStr.split(/,\s*/);
+    // Quote-aware tokenizer to handle commas inside quoted values
+    const paramPairs = [];
+    let currentPair = '';
+    let inQuotes = false;
+    let quoteChar = null;
+
+    for (let i = 0; i < paramsStr.length; i++) {
+      const char = paramsStr[i];
+
+      if (!inQuotes && (char === '"' || char === "'")) {
+        inQuotes = true;
+        quoteChar = char;
+        currentPair += char;
+      } else if (inQuotes && char === quoteChar) {
+        inQuotes = false;
+        quoteChar = null;
+        currentPair += char;
+      } else if (!inQuotes && char === ',') {
+        if (currentPair.trim()) {
+          paramPairs.push(currentPair.trim());
+        }
+        currentPair = '';
+      } else {
+        currentPair += char;
+      }
+    }
+    // Push final pair
+    if (currentPair.trim()) {
+      paramPairs.push(currentPair.trim());
+    }
+
     paramPairs.forEach((pair) => {
       const colonIdx = pair.indexOf(":");
       if (colonIdx > 0) {
