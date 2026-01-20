@@ -14,6 +14,7 @@ contextBridge.exposeInMainWorld('voiceApi', {
             'audio-data',
             'voice-audio',
             'open-file',
+            'open-folder',
             'launch-app'
         ];
         if (validChannels.includes(channel)) {
@@ -26,13 +27,13 @@ contextBridge.exposeInMainWorld('voiceApi', {
             'stop-listening',
             'continue-listening',
             'voice-response',
+            'voice-search-results',
             'screen-captured',
             'focus-voice',
             'play-sound',
             'stt-result',
             'stt-partial-result',
-            'voice-audio-ready',
-            'dynamic-ui'
+            'voice-audio-ready'
         ];
         if (validChannels.includes(channel)) {
             // Verify func is a function before registering

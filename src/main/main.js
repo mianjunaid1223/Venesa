@@ -593,6 +593,10 @@ app.whenReady().then(async () => {
     console.log('[Main] hideVoiceWindow triggered by: auto-close-voice IPC');
     hideVoiceWindow();
   });
+
+  // Duplicate handlers for launch-app, open-folder, open-file removed
+  // Original handlers with full validation exist at lines 296-343
+
   ipcMain.on("open-voice-window", () => { showVoiceWindow(); });
 
   // Warm up the window at startup
@@ -631,49 +635,134 @@ app.whenReady().then(async () => {
         imageToSend = payload.image || cachedScreenCapture;
       }
 
-      // Single Gemini request
+      // Single Gemini request - AI decides intent and announces actions naturally
       const rawResponse = await gemini.sendQuery(payload.query, imageToSend, 'voice');
 
       // Process response centrally (executes actions)
-      // This is the key fix: Voice mode now executes tasks same as text mode
       const { cleanResponse, results } = await taskExecutor.processResponse(rawResponse);
 
       // Clean up any [NEED_SCREEN] tags from cleanResponse
-      const finalResponse = cleanResponse.replace(/\[NEED_SCREEN\]/g, '').trim();
+      let finalResponse = cleanResponse.replace(/\[NEED_SCREEN\]/g, '').trim();
 
-      // Send text response IMMEDIATELY
-      event.sender.send("voice-response", {
-        text: finalResponse,
-        audio: null // Will be sent separately
-      });
+      // Track state for search results and listen action
+      let hasSearchResults = false;
+      let searchResultData = null;
+      let shouldListenAgain = false;
 
-      // Handle execution results for Voice
+      // Process results and aggregate feedback
+      let feedback = [];
       if (results && results.length > 0) {
         for (const res of results) {
           if (res.actionName === 'searchFiles' && res.result) {
-            // For search results in voice mode, we should ideally show them in the main window
-            // because voice window has no list view.
-            if (mainWindow && !mainWindow.isDestroyed()) {
-              // Populate main window with results
-              mainWindow.webContents.send("action-result", res.result);
-
-              // Show main window if hidden
-              if (!mainWindow.isVisible()) {
-                const cursorPoint = screen.getCursorScreenPoint();
-                const currentDisplay = screen.getDisplayNearestPoint(cursorPoint);
-                const { x, y, width, height } = currentDisplay.workArea;
-                mainWindow.setBounds({
-                  x: Math.round(x + (width - WINDOW_WIDTH) / 2),
-                  y: Math.round(y + height * 0.2),
-                  width: WINDOW_WIDTH,
-                  height: MIN_HEIGHT
-                });
-                mainWindow.show();
-              }
-              mainWindow.focus();
+            try {
+              searchResultData = typeof res.result === 'string' ? JSON.parse(res.result) : res.result;
+              const hasItems = (searchResultData.apps?.length || 0) + (searchResultData.files?.length || 0) + (searchResultData.folders?.length || 0) > 0;
+              if (hasItems) hasSearchResults = true;
+              else feedback.push("I couldn't find any matching files or apps.");
+            } catch (e) {
+              console.error('[Main] Search parse error:', e);
             }
+          } else if (res.actionName === 'getSystemInfo' && res.result) {
+            try {
+              const info = typeof res.result === 'string' ? JSON.parse(res.result) : res.result;
+              if (info && !info.error) {
+                feedback.push(`CPU is at ${info.cpuUsage}, RAM is ${info.ramUsed} of ${info.ramTotal}GB, battery is at ${info.battery}, and uptime is ${info.uptime}.`);
+              }
+            } catch (e) { }
+          } else if (res.actionName === 'systemControl' && res.result) {
+            if (res.result.toLowerCase().includes('error')) feedback.push(`System control failed: ${res.result}`);
+          } else if (res.actionName === 'listen') {
+            shouldListenAgain = true;
           }
         }
+      }
+
+      // Append all feedback to the natural language response
+      if (feedback.length > 0) {
+        finalResponse = (finalResponse + " " + feedback.join(" ")).trim();
+      }
+
+      // Handle search results with smart responses
+      if (hasSearchResults && searchResultData) {
+        const apps = searchResultData.apps || [];
+        const files = searchResultData.files || [];
+        const folders = searchResultData.folders || [];
+        const totalCount = apps.length + files.length + folders.length;
+
+        if (totalCount === 1) {
+          // Single result - auto-open with confirmation
+          let itemName = '';
+          let itemType = '';
+
+          if (apps.length === 1) {
+            const app = apps[0];
+            itemName = app.name;
+            itemType = 'app';
+            if (app.path) {
+              shell.openPath(app.path);
+            }
+          } else if (folders.length === 1) {
+            const folderPath = path.isAbsolute(folders[0]) ? folders[0] : path.join(os.homedir(), folders[0]);
+            itemName = path.basename(folders[0]);
+            itemType = 'folder';
+            shell.openPath(folderPath);
+          } else if (files.length === 1) {
+            const filePath = path.isAbsolute(files[0]) ? files[0] : path.join(os.homedir(), files[0]);
+            itemName = path.basename(files[0]);
+            itemType = 'file';
+            shell.openPath(filePath);
+          }
+
+          finalResponse = `Opening ${itemName}.`;
+
+        } else if (totalCount > 1) {
+          // Multiple results - list them and ask user to choose
+          const allResults = [];
+
+          apps.forEach(app => allResults.push({ name: app.name, type: 'app', data: app }));
+          folders.forEach(folder => allResults.push({ name: path.basename(folder), type: 'folder', data: folder }));
+          files.forEach(file => allResults.push({ name: path.basename(file), type: 'file', data: file }));
+
+          // Limit to first 5 for voice selection
+          const displayResults = allResults.slice(0, 5);
+
+          // Build spoken list
+          let listText = `I found ${totalCount} result${totalCount > 1 ? 's' : ''}. `;
+          displayResults.forEach((item, i) => {
+            listText += `${i + 1}, ${item.name}. `;
+          });
+          listText += "Which one do you want?";
+
+          finalResponse = listText;
+          shouldListenAgain = true;
+
+          // Store results for selection (attach to voice window)
+          if (!event.sender.isDestroyed()) {
+            event.sender.send("voice-search-results", {
+              results: displayResults,
+              totalCount,
+              waitingForSelection: true
+            });
+          }
+        }
+      }
+
+      // Ensure we have some response
+      if (!finalResponse || finalResponse.trim() === '') {
+        finalResponse = 'Done.';
+      }
+
+      // Send text response IMMEDIATELY
+      if (!event.sender.isDestroyed()) {
+        event.sender.send("voice-response", {
+          text: finalResponse,
+          audio: null // Will be sent separately
+        });
+      }
+
+      // Handle listen action - signal voice window to continue listening
+      if (shouldListenAgain && !event.sender.isDestroyed()) {
+        event.sender.send("continue-listening");
       }
 
       // Synthesize TTS in parallel - send when ready
@@ -687,7 +776,9 @@ app.whenReady().then(async () => {
           .catch(ttsError => { });
       }
     } catch (error) {
-      event.sender.send("voice-response", { text: `Error: ${error}`, audio: null });
+      if (!event.sender.isDestroyed()) {
+        event.sender.send("voice-response", { text: `Error: ${error}`, audio: null });
+      }
     }
   });
 

@@ -448,6 +448,125 @@
             font-style: italic;
             text-align: center;
         }
+
+        /* Results panel for voice mode - reuses main window styling */
+        #voice-results {
+            position: fixed;
+            top: 80px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 90%;
+            max-width: 600px;
+            max-height: 60vh;
+            background: rgba(20, 20, 30, 0.85);
+            backdrop-filter: blur(20px);
+            border-radius: 16px;
+            padding: 12px;
+            overflow-y: auto;
+            display: none;
+            z-index: 50;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+        }
+
+        #voice-results.visible {
+            display: block;
+            animation: fadeSlideIn 0.3s ease-out forwards;
+        }
+
+        @keyframes fadeSlideIn {
+            from {
+                opacity: 0;
+                transform: translateX(-50%) translateY(-10px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateX(-50%) translateY(0);
+            }
+        }
+
+        #voice-results .result-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px 14px;
+            margin: 4px 0;
+            border-radius: 10px;
+            cursor: pointer;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            transition: all 0.15s ease;
+        }
+
+        #voice-results .result-item:hover,
+        #voice-results .result-item.selected {
+            background: rgba(234, 170, 255, 0.15);
+            border-color: rgba(234, 170, 255, 0.3);
+        }
+
+        #voice-results .result-icon {
+            width: 36px;
+            height: 36px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 8px;
+            background: rgba(255, 255, 255, 0.08);
+            flex-shrink: 0;
+        }
+
+        #voice-results .result-icon svg {
+            width: 18px;
+            height: 18px;
+            stroke: rgba(255, 255, 255, 0.7);
+            stroke-width: 1.5;
+            fill: none;
+        }
+
+        #voice-results .result-icon.app-icon svg {
+            stroke: #88c0ff;
+        }
+
+        #voice-results .result-icon.folder-icon svg {
+            stroke: #f5c542;
+        }
+
+        #voice-results .result-content {
+            flex: 1;
+            min-width: 0;
+        }
+
+        #voice-results .result-name {
+            font-size: 14px;
+            font-weight: 500;
+            color: rgba(255, 255, 255, 0.9);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        #voice-results .result-path {
+            font-size: 12px;
+            color: rgba(255, 255, 255, 0.4);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        #voice-results .result-index {
+            font-size: 12px;
+            color: rgba(234, 170, 255, 0.8);
+            font-weight: 600;
+            min-width: 20px;
+        }
+
+        #voice-results-header {
+            padding: 8px 14px;
+            font-size: 13px;
+            color: rgba(255, 255, 255, 0.5);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            margin-bottom: 8px;
+        }
     </style>
 </head>
 
@@ -455,6 +574,13 @@
     <div id="voice-screen">
         <div id="status">Initializing</div>
         <div id="partial"></div>
+
+        <!-- Results panel for search results in voice mode -->
+        <div id="voice-results">
+            <div id="voice-results-header">Say a number to select, or say "cancel"</div>
+            <div id="voice-results-list"></div>
+        </div>
+
         <div id="subtitles" style="display: none;">
             <div id="subtitle-track"></div>
         </div>
@@ -474,6 +600,17 @@
     </div>
 
     <script>
+        // === STATE MANAGEMENT ===
+        const VoiceState = {
+            IDLE: 'idle',
+            LISTENING: 'listening',
+            PROCESSING: 'processing',
+            SHOWING_RESULTS: 'showing_results',
+            AWAITING_SELECTION: 'awaiting_selection',
+            SPEAKING: 'speaking'
+        };
+
+        let currentState = VoiceState.IDLE;
         let isListening = false;
         let isSpeaking = false;
         let audioContext = null;
@@ -487,11 +624,63 @@
         let words = [];
         let karaokeInterval = null;
 
+        // Consecutive listen counter - limit to 3 without explicit user trigger
+        const MAX_CONSECUTIVE_LISTENS = 3;
+        let consecutiveListenCount = 0;
+
+        // Current search results for voice selection
+        let currentVoiceResults = [];
+
         const statusEl = document.getElementById('status');
         const partialEl = document.getElementById('partial');
         const subtitlesEl = document.getElementById('subtitles');
         const subtitleTrack = document.getElementById('subtitle-track');
         const blobEl = document.querySelector('.ai');
+        const voiceResultsEl = document.getElementById('voice-results');
+        const voiceResultsListEl = document.getElementById('voice-results-list');
+
+        // State transition function
+        function setState(newState) {
+            console.log(`[VoiceWindow] State: ${currentState} -> ${newState}`);
+            currentState = newState;
+
+            switch (newState) {
+                case VoiceState.IDLE:
+                    blobEl.className = 'ai';
+                    statusEl.textContent = '';
+                    break;
+                case VoiceState.LISTENING:
+                    blobEl.className = 'ai listening';
+                    statusEl.textContent = 'Listening';
+                    break;
+                case VoiceState.PROCESSING:
+                    blobEl.className = 'ai';
+                    statusEl.textContent = 'Processing';
+                    break;
+                case VoiceState.SHOWING_RESULTS:
+                    blobEl.className = 'ai';
+                    statusEl.textContent = 'Select an item';
+                    break;
+                case VoiceState.AWAITING_SELECTION:
+                    blobEl.className = 'ai listening';
+                    statusEl.textContent = 'Listening for selection';
+                    break;
+                case VoiceState.SPEAKING:
+                    blobEl.className = 'ai speaking';
+                    statusEl.textContent = 'Speaking';
+                    break;
+            }
+        }
+
+        // Reset consecutive listen counter on explicit user activation
+        function resetListenCounter() {
+            consecutiveListenCount = 0;
+        }
+
+        // Check if we can auto-listen again
+        function canAutoListen() {
+            return consecutiveListenCount < MAX_CONSECUTIVE_LISTENS;
+        }
 
         // Utility functions
         function float32ToInt16(float32Array) {
@@ -512,6 +701,142 @@
                 result[i] = buffer[Math.round(i * ratio)];
             }
             return result;
+        }
+
+        // Icon helpers for result display
+        function getAppIcon() {
+            return '<svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"></rect><rect x="14" y="3" width="7" height="7" rx="1"></rect><rect x="3" y="14" width="7" height="7" rx="1"></rect><rect x="14" y="14" width="7" height="7" rx="1"></rect></svg>';
+        }
+
+        function getFolderIcon() {
+            return '<svg viewBox="0 0 24 24"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>';
+        }
+
+        function getFileIcon() {
+            return '<svg viewBox="0 0 24 24"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"></path><polyline points="13 2 13 9 20 9"></polyline></svg>';
+        }
+
+        // Display search results in voice mode
+        function displayVoiceResults(results) {
+            currentVoiceResults = [];
+            voiceResultsListEl.innerHTML = '';
+
+            const apps = results.apps || [];
+            const files = results.files || [];
+            const folders = results.folders || [];
+
+            let index = 1;
+
+            // Add apps
+            apps.slice(0, 3).forEach(app => {
+                currentVoiceResults.push({ type: 'app', data: app });
+                const item = createResultItem(index++, app.name, 'Application', 'app-icon', getAppIcon());
+                voiceResultsListEl.appendChild(item);
+            });
+
+            // Add folders
+            folders.slice(0, 3).forEach(folderPath => {
+                const folderName = folderPath.split(/[\\/]/).pop();
+                currentVoiceResults.push({ type: 'folder', data: folderPath });
+                const item = createResultItem(index++, folderName, 'Folder', 'folder-icon', getFolderIcon());
+                voiceResultsListEl.appendChild(item);
+            });
+
+            // Add files
+            files.slice(0, 4).forEach(filePath => {
+                const fileName = filePath.split(/[\\/]/).pop();
+                currentVoiceResults.push({ type: 'file', data: filePath });
+                const item = createResultItem(index++, fileName, 'File', '', getFileIcon());
+                voiceResultsListEl.appendChild(item);
+            });
+
+            if (currentVoiceResults.length > 0) {
+                voiceResultsEl.classList.add('visible');
+                setState(VoiceState.SHOWING_RESULTS);
+            }
+        }
+
+        function createResultItem(index, name, type, iconClass, iconSvg) {
+            const item = document.createElement('div');
+            item.className = 'result-item';
+            item.dataset.index = index;
+            item.innerHTML = `
+                <span class="result-index">${index}</span>
+                <div class="result-icon ${iconClass}">${iconSvg}</div>
+                <div class="result-content">
+                    <div class="result-name">${escapeHtml(name)}</div>
+                    <div class="result-path">${type}</div>
+                </div>
+            `;
+            item.addEventListener('click', () => selectResult(index));
+            return item;
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        // Handle result selection
+        function selectResult(index) {
+            if (index < 1 || index > currentVoiceResults.length) return;
+
+            const selected = currentVoiceResults[index - 1];
+            hideVoiceResults();
+
+            // Handle different data formats
+            const data = selected.data;
+
+            if (selected.type === 'app') {
+                // App data can be an object with path, or just a path string
+                if (typeof data === 'object' && data.path) {
+                    window.voiceApi.send('launch-app', data);
+                } else if (typeof data === 'object' && data.name) {
+                    window.voiceApi.send('launch-app', { name: data.name, path: data.path || '' });
+                } else {
+                    window.voiceApi.send('launch-app', { name: String(data), path: typeof data === 'string' ? data : '' });
+                }
+            } else if (selected.type === 'folder') {
+                const folderPath = typeof data === 'string' ? data : (data.path || data.name || '');
+                window.voiceApi.send('open-folder', folderPath);
+            } else if (selected.type === 'file') {
+                const filePath = typeof data === 'string' ? data : (data.path || data.name || '');
+                window.voiceApi.send('open-file', filePath);
+            }
+
+            // Close after selection
+            setTimeout(() => {
+                window.voiceApi.send('auto-close-voice');
+            }, 500);
+        }
+
+        function hideVoiceResults() {
+            voiceResultsEl.classList.remove('visible');
+            currentVoiceResults = [];
+        }
+
+        // Parse voice input for result selection
+        function parseSelectionFromVoice(text) {
+            if (!text) return null;
+            const lower = text.toLowerCase().trim();
+
+            // Check for cancel
+            if (lower.includes('cancel') || lower.includes('close') || lower.includes('never mind')) {
+                return 'cancel';
+            }
+
+            // Check for number (1-9)
+            const numMatch = lower.match(/\b(one|two|three|four|five|six|seven|eight|nine|ten|\d)\b/);
+            if (numMatch) {
+                const wordToNum = { one: 1, two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, eight: 8, nine: 9, ten: 10 };
+                const num = wordToNum[numMatch[1]] || parseInt(numMatch[1]);
+                if (num >= 1 && num <= currentVoiceResults.length) {
+                    return num;
+                }
+            }
+
+            return null;
         }
 
         // Smooth horizontal scrolling karaoke
@@ -625,8 +950,7 @@
                 }
 
                 isListening = true;
-                blobEl.className = 'ai listening';
-                statusEl.textContent = 'Listening';
+                setState(currentVoiceResults.length > 0 ? VoiceState.AWAITING_SELECTION : VoiceState.LISTENING);
 
                 // Always request fresh screen capture
                 screenCaptured = false;
@@ -660,14 +984,23 @@
                 audioContext = null;
             }
 
-            blobEl.className = 'ai';
+            if (currentState === VoiceState.LISTENING || currentState === VoiceState.AWAITING_SELECTION) {
+                setState(VoiceState.PROCESSING);
+            }
         }
 
         let shouldListenAgain = false;
 
         window.voiceApi.receive('continue-listening', () => {
-            shouldListenAgain = true;
-            console.log('Follow-up requested. Will listen again after audio.');
+            // Only continue if within auto-listen limit
+            if (canAutoListen()) {
+                shouldListenAgain = true;
+                consecutiveListenCount++;
+                console.log(`Follow-up requested. Listen count: ${consecutiveListenCount}/${MAX_CONSECUTIVE_LISTENS}`);
+            } else {
+                console.log('Max consecutive listens reached. Waiting for explicit user trigger.');
+                shouldListenAgain = false;
+            }
         });
 
         function playAudioResponse(audioDataUrl, responseText) {
@@ -682,8 +1015,7 @@
 
             currentAudio = new Audio(audioDataUrl);
             isSpeaking = true;
-            blobEl.className = 'ai speaking';
-            statusEl.textContent = 'Speaking';
+            setState(VoiceState.SPEAKING);
 
             currentAudio.onloadedmetadata = () => {
                 const duration = currentAudio.duration * 1000;
@@ -692,23 +1024,32 @@
 
             currentAudio.onended = () => {
                 isSpeaking = false;
-                blobEl.className = 'ai';
-                statusEl.textContent = '';
 
-                if (shouldListenAgain) {
+                // Check if we need to continue for selection or follow-up
+                if (currentVoiceResults.length > 0) {
+                    // Results are showing, wait for selection - don't close
+                    setState(VoiceState.SHOWING_RESULTS);
+                    // Start listening for selection
+                    setTimeout(() => startListening(), 300);
+                } else if (shouldListenAgain) {
                     shouldListenAgain = false;
-                    statusEl.innerText = "Listening Again...";
+                    // consecutiveListenCount is already incremented in continue-listening handler
+                    setState(VoiceState.LISTENING);
                     setTimeout(() => startListening(), 200);
                 } else {
+                    setState(VoiceState.IDLE);
                     setTimeout(() => {
-                        window.voiceApi.send('auto-close-voice');
+                        // Only auto-close if no results are showing
+                        if (currentVoiceResults.length === 0) {
+                            window.voiceApi.send('auto-close-voice');
+                        }
                     }, 1500);
                 }
             };
 
             currentAudio.onerror = () => {
                 isSpeaking = false;
-                blobEl.className = 'ai';
+                setState(VoiceState.IDLE);
                 statusEl.textContent = 'Audio Error';
             };
 
@@ -731,8 +1072,25 @@
 
         window.voiceApi.receive('stt-result', (text) => {
             partialEl.textContent = '';
+
+            // Check if we're awaiting a selection
+            if (currentState === VoiceState.AWAITING_SELECTION && currentVoiceResults.length > 0) {
+                stopListening();
+                const selection = parseSelectionFromVoice(text);
+
+                if (selection === 'cancel') {
+                    hideVoiceResults();
+                    window.voiceApi.send('auto-close-voice');
+                    return;
+                } else if (typeof selection === 'number') {
+                    selectResult(selection);
+                    return;
+                }
+                // If no valid selection, treat as new query
+            }
+
             stopListening();
-            statusEl.textContent = 'Processing';
+            setState(VoiceState.PROCESSING);
 
             window.voiceApi.send('voice-query', {
                 query: text,
@@ -757,7 +1115,60 @@
             }
         });
 
+        // Handle search results display in voice mode
+        window.voiceApi.receive('voice-search-results', (results) => {
+            try {
+                const data = typeof results === 'string' ? JSON.parse(results) : results;
+
+                // New format with pre-formatted results array
+                if (data.results && Array.isArray(data.results)) {
+                    // Normalize items to expected shape { type, data }
+                    currentVoiceResults = data.results.map(item => ({
+                        type: item.type,
+                        data: item.data !== undefined ? item.data : item
+                    }));
+                    voiceResultsListEl.innerHTML = '';
+
+                    data.results.forEach((item, i) => {
+                        let iconSvg, iconClass;
+                        if (item.type === 'app') {
+                            iconSvg = getAppIcon();
+                            iconClass = 'app-icon';
+                        } else if (item.type === 'folder') {
+                            iconSvg = getFolderIcon();
+                            iconClass = 'folder-icon';
+                        } else {
+                            iconSvg = getFileIcon();
+                            iconClass = '';
+                        }
+
+                        const resultItem = createResultItem(i + 1, item.name, item.type, iconClass, iconSvg);
+                        voiceResultsListEl.appendChild(resultItem);
+                    });
+
+                    if (currentVoiceResults.length > 0) {
+                        voiceResultsEl.classList.add('visible');
+                        setState(VoiceState.SHOWING_RESULTS);
+                    }
+                } else {
+                    // Old format with apps/files/folders
+                    displayVoiceResults(data);
+                }
+
+                // After showing results, start listening for selection
+                if (data.waitingForSelection) {
+                    setTimeout(() => {
+                        startListening();
+                    }, 500);
+                }
+            } catch (e) {
+                console.error('[VoiceWindow] Failed to parse search results:', e);
+            }
+        });
+
         window.voiceApi.receive('start-listening', () => {
+            // Explicit user trigger resets the consecutive listen counter
+            resetListenCounter();
             startListening();
         });
 
@@ -765,8 +1176,17 @@
             stopListening();
         });
 
-        document.body.addEventListener('click', () => {
+        // Prevent accidental close when clicking on results
+        document.getElementById('voice-results').addEventListener('click', (e) => {
+            e.stopPropagation();
+        });
+
+        document.body.addEventListener('click', (e) => {
+            // Don't close if clicking on results panel
+            if (e.target.closest('#voice-results')) return;
+
             stopListening();
+            hideVoiceResults();
             if (currentAudio) {
                 currentAudio.pause();
                 currentAudio = null;
@@ -774,6 +1194,7 @@
             if (karaokeInterval) {
                 clearInterval(karaokeInterval);
             }
+            setState(VoiceState.IDLE);
             window.voiceApi.send('close-voice-window');
         });
 
@@ -783,6 +1204,7 @@
 
         window.addEventListener('beforeunload', () => {
             stopListening();
+            hideVoiceResults();
             window.voiceApi.send('voice-window-closed');
         });
     </script>
