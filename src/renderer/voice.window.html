@@ -908,6 +908,7 @@
         }
 
         async function startListening() {
+            console.log('[VoiceWindow] startListening() called, current state:', currentState);
             try {
                 mediaStream = await navigator.mediaDevices.getUserMedia({
                     audio: {
@@ -996,7 +997,7 @@
             if (canAutoListen()) {
                 shouldListenAgain = true;
                 consecutiveListenCount++;
-                console.log(`Follow-up requested. Listen count: ${consecutiveListenCount}/${MAX_CONSECUTIVE_LISTENS}`);
+                console.log(`[VoiceWindow] continue-listening received. shouldListenAgain set to true. Listen count: ${consecutiveListenCount}/${MAX_CONSECUTIVE_LISTENS}`);
             } else {
                 console.log('Max consecutive listens reached. Waiting for explicit user trigger.');
                 shouldListenAgain = false;
@@ -1032,6 +1033,7 @@
                     // Start listening for selection
                     setTimeout(() => startListening(), 300);
                 } else if (shouldListenAgain) {
+                    console.log('[VoiceWindow] Audio ended, shouldListenAgain is TRUE, calling startListening()');
                     shouldListenAgain = false;
                     // consecutiveListenCount is already incremented in continue-listening handler
                     setState(VoiceState.LISTENING);
@@ -1112,6 +1114,12 @@
             if (audioDataUrl && words.length > 0) {
                 const responseText = words.join(' ');
                 playAudioResponse(audioDataUrl, responseText);
+            } else if (shouldListenAgain) {
+                // Audio synthesis failed or no words, but we need to listen again
+                console.log('[VoiceWindow] Audio failed, but shouldListenAgain is true - starting listening');
+                shouldListenAgain = false;
+                setState(VoiceState.LISTENING);
+                setTimeout(() => startListening(), 200);
             }
         });
 

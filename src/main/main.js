@@ -666,7 +666,7 @@ app.whenReady().then(async () => {
             try {
               const info = typeof res.result === 'string' ? JSON.parse(res.result) : res.result;
               if (info && !info.error) {
-                feedback.push(`CPU is at ${info.cpuUsage}, RAM is ${info.ramUsed} of ${info.ramTotal}GB, battery is at ${info.battery}, and uptime is ${info.uptime}.`);
+                feedback.push(`CPU is at ${info.cpu}, RAM is ${info.ramUsed} of ${info.ramTotal}GB, battery is at ${info.battery}, and uptime is ${info.uptime}.`);
               }
             } catch (e) { }
           } else if (res.actionName === 'systemControl' && res.result) {

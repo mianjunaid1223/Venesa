@@ -158,59 +158,83 @@ function escapeSqlQuery(query) {
     .replace(/_/g, "[_]");
 }
 
-async function searchFilesAndFolders(query, maxResults = 30) {
+async function searchFilesAndFolders(query, maxResults = 20) {
   const folders = [];
   const files = [];
 
-  const escapedQuery = escapeSqlQuery(query.replace(/"/g, '""'));
   const escapedPsQuery = escapePowerShellQuery(query);
-  const homeEscaped = HOME_DIR.replace(/\\/g, '/');
 
+  // Fast direct search - limited depth, focused on common user folders
   const psScript = `
 $ErrorActionPreference = 'SilentlyContinue'
-$searchTerm = '${escapedQuery}'
-$HOME_ESCAPED = '${homeEscaped}'
-$psSearchTerm = '${escapedPsQuery}'
+$searchTerm = '${escapedPsQuery}'
+$results = @()
 
-try {
-    $connector = New-Object -ComObject ADODB.Connection
-    $connector.Open("Provider=Search.CollatorDSO;Extended Properties='Application=Windows';")
-    $recordset = New-Object -ComObject ADODB.Recordset
-    $sql = "SELECT System.ItemName, System.ItemPathDisplay, System.FileAttributes FROM SystemIndex WHERE SCOPE='file:" + $HOME_ESCAPED + "' AND (System.ItemName LIKE '%" + $searchTerm + "%' OR System.ItemPathDisplay LIKE '%" + $searchTerm + "%')"
-    $recordset.Open($sql, $connector)
+# Search in common user folders with depth limit for speed
+$searchPaths = @(
+    "$env:USERPROFILE\\Desktop",
+    "$env:USERPROFILE\\Documents",
+    "$env:USERPROFILE\\Downloads",
+    "$env:USERPROFILE\\Pictures",
+    "$env:USERPROFILE\\Videos",
+    "$env:USERPROFILE\\Music",
+    "$env:USERPROFILE\\OneDrive\\Desktop",
+    "$env:USERPROFILE\\OneDrive\\Documents",
+    "$env:USERPROFILE\\OneDrive"
+)
 
-    $results = @()
-    while (!$recordset.EOF -and $results.Count -lt ${maxResults}) {
-        $results += @{
-            name = $recordset.Fields.Item("System.ItemName").Value
-            path = $recordset.Fields.Item("System.ItemPathDisplay").Value
-            attr = $recordset.Fields.Item("System.FileAttributes").Value
+$maxCount = ${maxResults}
+
+foreach ($sp in $searchPaths) {
+    if ((Test-Path $sp) -and ($results.Count -lt $maxCount)) {
+        $remaining = $maxCount - $results.Count
+        # First search top level (fast)
+        $found = Get-ChildItem -Path $sp -ErrorAction SilentlyContinue |
+            Where-Object { $_.Name -like "*$searchTerm*" } |
+            Select-Object -First $remaining
+        foreach ($f in $found) {
+            $results += @{ name = $f.Name; path = $f.FullName; isDir = $f.PSIsContainer }
         }
-        $recordset.MoveNext()
+        
+        # Then search two levels deep if we need more
+        if ($results.Count -lt $maxCount) {
+            $remaining = $maxCount - $results.Count
+            $found = Get-ChildItem -Path $sp -Recurse -Depth 4 -ErrorAction SilentlyContinue |
+                Where-Object { $_.Name -like "*$searchTerm*" } |
+                Select-Object -First $remaining
+            foreach ($f in $found) {
+                $results += @{ name = $f.Name; path = $f.FullName; isDir = $f.PSIsContainer }
+            }
+        }
     }
+}
+
+if ($results.Count -eq 0) {
+    Write-Output "[]"
+} else {
     $results | ConvertTo-Json -Compress
-} catch {
-    # Fast manual fallback with escaped query
-    Get-ChildItem -Path '${HOME_DIR}' -ErrorAction SilentlyContinue | 
-        Where-Object { $_.Name -like "*$psSearchTerm*" } |
-        Select-Object -First ${maxResults} | 
-        ForEach-Object { @{ name = $_.Name; path = $_.FullName; isDir = $_.PSIsContainer } } | 
-        ConvertTo-Json -Compress
 }
 `;
 
   try {
-    const output = await runPowerShell(psScript);
-    if (output && output !== "null") {
+    console.log('[TaskService] Searching for:', query);
+    const output = await runPowerShell(psScript, 8000); // 8 second timeout for search
+    console.log('[TaskService] Search output length:', output ? output.length : 0);
+    if (output && output !== "null" && output !== "[]") {
       const parsed = JSON.parse(output);
       const items = Array.isArray(parsed) ? parsed : [parsed];
       items.forEach(item => {
-        const isFolder = item.isDir || (item.attr & 0x10); // 0x10 is Directory attribute
-        if (isFolder) folders.push(getRelativePath(item.path));
-        else files.push(getRelativePath(item.path));
+        if (item && item.path) {
+          const isFolder = item.isDir === true || item.isDir === "True";
+          if (isFolder) folders.push(getRelativePath(item.path));
+          else files.push(getRelativePath(item.path));
+        }
       });
     }
-  } catch (e) { }
+    console.log(`[TaskService] Search complete: ${files.length} files, ${folders.length} folders`);
+  } catch (e) {
+    console.error('[TaskService] File search error:', e.message);
+  }
   return { files, folders };
 }
 
