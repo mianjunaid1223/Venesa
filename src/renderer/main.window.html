@@ -1313,8 +1313,8 @@
 
             document.body.classList.remove("gemini-mode", "google-mode");
             searchIcon.classList.remove("ai-active");
-            searchSvg.style.display = "block";
-            aiSvg.style.display = "none";
+            // Note: Icon visibility is controlled by CSS via body.gemini-mode class
+            // Do NOT set style.display directly as it conflicts with CSS transitions
             searchInput.placeholder = "Search, / for AI, // for Google";
 
             searchInput.value = "";
@@ -1588,6 +1588,7 @@
                         if (aiQuery) {
                             showLoader();
                             searchStartTime = performance.now();
+                            isGeminiAction = true; // Flag to preserve action-result handling
                             window.api.send("send-to-gemini", aiQuery);
                         }
                     } else if (!isAIMode && !isGoogleMode && resultItems.length > 0) {

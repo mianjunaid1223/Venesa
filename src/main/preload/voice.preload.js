@@ -15,7 +15,8 @@ contextBridge.exposeInMainWorld('voiceApi', {
             'voice-audio',
             'open-file',
             'open-folder',
-            'launch-app'
+            'launch-app',
+            'restart-stt'
         ];
         if (validChannels.includes(channel)) {
             ipcRenderer.send(channel, data);

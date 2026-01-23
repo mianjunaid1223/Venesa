@@ -788,6 +788,27 @@ app.whenReady().then(async () => {
     }
   });
 
+  // Handle restart STT request from voice window (for continue-listening)
+  ipcMain.on("restart-stt", (event) => {
+    console.log('[Main] Restarting STT service for continued listening');
+
+    const safeSend = (channel, data) => {
+      try {
+        if (voiceWindow && !voiceWindow.isDestroyed() && voiceWindow.webContents && !voiceWindow.webContents.isDestroyed()) {
+          voiceWindow.webContents.send(channel, data);
+        }
+      } catch (err) { /* ignore */ }
+    };
+
+    sttService.start((type, text) => {
+      if (type === 'text') {
+        safeSend('stt-result', text);
+      } else if (type === 'partial') {
+        safeSend('stt-partial-result', text);
+      }
+    });
+  });
+
   // Handle voice audio from voice window for ElevenLabs STT
   ipcMain.on("voice-audio", async (event, data) => {
     try {

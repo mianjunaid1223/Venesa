@@ -13,7 +13,7 @@
         }
 
         body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', Roboto, sans-serif;
             background: transparent;
             overflow: hidden;
             width: 100vw;
@@ -22,12 +22,11 @@
             color: white;
         }
 
-        /* Transparent overlay */
         #voice-screen {
             width: 100%;
             height: 100%;
             background: rgba(0, 0, 0, 0.15);
-            backdrop-filter: blur(10px);
+            backdrop-filter: blur(12px);
             position: relative;
         }
 
@@ -39,7 +38,6 @@
             z-index: 10;
         }
 
-        /* Smaller blob */
         .ai {
             --s: 180px;
             --p: calc(var(--s) / 4);
@@ -278,9 +276,7 @@
                 0 0 30px rgba(255, 255, 255, 0.3),
                 0 30px 40px rgba(0, 0, 0, 0.2),
                 0 0 20px rgba(255, 255, 255, 1);
-            background: radial-gradient(50px at 70% 30%,
-                    rgba(255, 255, 255, 0.7),
-                    transparent);
+            background: radial-gradient(50px at 70% 30%, rgba(255, 255, 255, 0.7), transparent);
         }
 
         .rings {
@@ -296,12 +292,9 @@
                 content: "";
                 position: absolute;
                 inset: 0;
-                background: rgba(255, 0, 0, 1);
                 border-radius: 50%;
                 border: 4px solid transparent;
-                mask:
-                    linear-gradient(#fff 0 0) padding-box,
-                    linear-gradient(#fff 0 0);
+                mask: linear-gradient(#fff 0 0) padding-box, linear-gradient(#fff 0 0);
                 background: linear-gradient(white, blue, magenta, rgb(255, 7, 7), lightyellow) border-box;
                 mask-composite: exclude;
             }
@@ -384,72 +377,126 @@
             }
         }
 
-        /* Smooth horizontal scrolling subtitles */
-        #subtitles {
+        /* ===== SMOOTH MAC-INSPIRED SUBTITLES ===== */
+        #subtitles-container {
             position: fixed;
             bottom: 100px;
             left: 50%;
             transform: translateX(-50%);
-            background: rgba(0, 0, 0, 0.7);
-            backdrop-filter: blur(20px);
-            padding: 18px 32px;
-            border-radius: 30px;
-            box-shadow: 0 4px 25px rgba(0, 0, 0, 0.4);
             z-index: 100;
-            overflow: hidden;
-            max-width: 600px;
+            pointer-events: none;
         }
 
-        #subtitle-track {
-            display: flex;
-            gap: 16px;
-            align-items: center;
-            transition: transform 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94);
-            will-change: transform;
+        #subtitle-bubble {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            padding: 16px 28px;
+            border-radius: 28px;
+            box-shadow:
+                0 4px 30px rgba(0, 0, 0, 0.15),
+                0 1px 3px rgba(0, 0, 0, 0.08),
+                inset 0 1px 0 rgba(255, 255, 255, 0.8);
+            display: none;
+            max-width: 650px;
+            will-change: transform, opacity;
         }
 
-        .word {
-            font-size: 28px;
+        #subtitle-bubble.visible {
+            display: block;
+            animation: bubbleIn 0.35s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+        }
+
+        #subtitle-bubble.hiding {
+            animation: bubbleOut 0.25s ease-out forwards;
+        }
+
+        @keyframes bubbleIn {
+            0% {
+                opacity: 0;
+                transform: scale(0.8) translateY(20px);
+            }
+
+            100% {
+                opacity: 1;
+                transform: scale(1) translateY(0);
+            }
+        }
+
+        @keyframes bubbleOut {
+            0% {
+                opacity: 1;
+                transform: scale(1) translateY(0);
+            }
+
+            100% {
+                opacity: 0;
+                transform: scale(0.9) translateY(-10px);
+            }
+        }
+
+        #subtitle-text {
+            font-size: 26px;
             font-weight: 600;
-            color: rgba(255, 255, 255, 0.9);
-            white-space: nowrap;
-            transition: opacity 0.5s ease, transform 0.5s ease;
+            color: #1a1a1a;
+            letter-spacing: -0.3px;
+            line-height: 1.3;
+            text-align: center;
+            word-wrap: break-word;
         }
 
-        .word.current {
-            color: #eaaaff;
-            text-shadow: 0 0 20px rgba(234, 170, 255, 0.7);
+        /* Highlighted word styling */
+        .word-span {
+            display: inline;
+            transition: color 0.15s ease, text-shadow 0.15s ease;
         }
 
-        /* Status indicator (small, top-left) */
+        .word-span.past {
+            color: #999;
+        }
+
+        .word-span.current {
+            color: #8b5cf6;
+            text-shadow: 0 0 20px rgba(139, 92, 246, 0.4);
+        }
+
+        .word-span.future {
+            color: #1a1a1a;
+        }
+
+        /* Status indicator */
         #status {
             position: fixed;
-            top: 20px;
-            left: 20px;
-            font-size: 13px;
-            color: rgba(255, 255, 255, 0.6);
-            background: rgba(0, 0, 0, 0.4);
-            backdrop-filter: blur(10px);
-            padding: 8px 16px;
-            border-radius: 20px;
+            top: 24px;
+            left: 24px;
+            font-size: 12px;
+            color: rgba(255, 255, 255, 0.7);
+            background: rgba(0, 0, 0, 0.35);
+            backdrop-filter: blur(20px);
+            padding: 10px 18px;
+            border-radius: 24px;
             font-weight: 600;
-            letter-spacing: 1px;
+            letter-spacing: 1.5px;
             text-transform: uppercase;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
         }
 
-        /* Partial transcript (small, above subtitles) */
+        /* Partial transcript */
         #partial {
             position: fixed;
-            bottom: 170px;
+            bottom: 180px;
             left: 50%;
             transform: translateX(-50%);
-            font-size: 18px;
-            color: rgba(255, 255, 255, 0.4);
+            font-size: 16px;
+            color: rgba(255, 255, 255, 0.5);
             font-style: italic;
             text-align: center;
+            font-weight: 400;
+            max-width: 80%;
         }
 
-        /* Results panel for voice mode - reuses main window styling */
+        /* Results panel */
         #voice-results {
             position: fixed;
             top: 80px;
@@ -575,14 +622,16 @@
         <div id="status">Initializing</div>
         <div id="partial"></div>
 
-        <!-- Results panel for search results in voice mode -->
         <div id="voice-results">
             <div id="voice-results-header">Say a number to select, or say "cancel"</div>
             <div id="voice-results-list"></div>
         </div>
 
-        <div id="subtitles" style="display: none;">
-            <div id="subtitle-track"></div>
+        <!-- Clean Mac-style subtitle bubble -->
+        <div id="subtitles-container">
+            <div id="subtitle-bubble">
+                <div id="subtitle-text"></div>
+            </div>
         </div>
 
         <div id="blob-container">
@@ -600,7 +649,6 @@
     </div>
 
     <script>
-        // === STATE MANAGEMENT ===
         const VoiceState = {
             IDLE: 'idle',
             LISTENING: 'listening',
@@ -623,23 +671,22 @@
         let currentWordIndex = 0;
         let words = [];
         let karaokeInterval = null;
+        let wordSpans = [];
+        let awaitingAudio = false; // Flag to track if we're waiting for TTS audio
 
-        // Consecutive listen counter - limit to 3 without explicit user trigger
         const MAX_CONSECUTIVE_LISTENS = 3;
         let consecutiveListenCount = 0;
-
-        // Current search results for voice selection
         let currentVoiceResults = [];
+
 
         const statusEl = document.getElementById('status');
         const partialEl = document.getElementById('partial');
-        const subtitlesEl = document.getElementById('subtitles');
-        const subtitleTrack = document.getElementById('subtitle-track');
+        const subtitleBubble = document.getElementById('subtitle-bubble');
+        const subtitleText = document.getElementById('subtitle-text');
         const blobEl = document.querySelector('.ai');
         const voiceResultsEl = document.getElementById('voice-results');
         const voiceResultsListEl = document.getElementById('voice-results-list');
 
-        // State transition function
         function setState(newState) {
             console.log(`[VoiceWindow] State: ${currentState} -> ${newState}`);
             currentState = newState;
@@ -672,17 +719,9 @@
             }
         }
 
-        // Reset consecutive listen counter on explicit user activation
-        function resetListenCounter() {
-            consecutiveListenCount = 0;
-        }
+        function resetListenCounter() { consecutiveListenCount = 0; }
+        function canAutoListen() { return consecutiveListenCount < MAX_CONSECUTIVE_LISTENS; }
 
-        // Check if we can auto-listen again
-        function canAutoListen() {
-            return consecutiveListenCount < MAX_CONSECUTIVE_LISTENS;
-        }
-
-        // Utility functions
         function float32ToInt16(float32Array) {
             const int16Array = new Int16Array(float32Array.length);
             for (let i = 0; i < float32Array.length; i++) {
@@ -703,7 +742,6 @@
             return result;
         }
 
-        // Icon helpers for result display
         function getAppIcon() {
             return '<svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"></rect><rect x="14" y="3" width="7" height="7" rx="1"></rect><rect x="3" y="14" width="7" height="7" rx="1"></rect><rect x="14" y="14" width="7" height="7" rx="1"></rect></svg>';
         }
@@ -716,7 +754,6 @@
             return '<svg viewBox="0 0 24 24"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"></path><polyline points="13 2 13 9 20 9"></polyline></svg>';
         }
 
-        // Display search results in voice mode
         function displayVoiceResults(results) {
             currentVoiceResults = [];
             voiceResultsListEl.innerHTML = '';
@@ -724,30 +761,23 @@
             const apps = results.apps || [];
             const files = results.files || [];
             const folders = results.folders || [];
-
             let index = 1;
 
-            // Add apps
             apps.slice(0, 3).forEach(app => {
                 currentVoiceResults.push({ type: 'app', data: app });
-                const item = createResultItem(index++, app.name, 'Application', 'app-icon', getAppIcon());
-                voiceResultsListEl.appendChild(item);
+                voiceResultsListEl.appendChild(createResultItem(index++, app.name, 'Application', 'app-icon', getAppIcon()));
             });
 
-            // Add folders
             folders.slice(0, 3).forEach(folderPath => {
                 const folderName = folderPath.split(/[\\/]/).pop();
                 currentVoiceResults.push({ type: 'folder', data: folderPath });
-                const item = createResultItem(index++, folderName, 'Folder', 'folder-icon', getFolderIcon());
-                voiceResultsListEl.appendChild(item);
+                voiceResultsListEl.appendChild(createResultItem(index++, folderName, 'Folder', 'folder-icon', getFolderIcon()));
             });
 
-            // Add files
             files.slice(0, 4).forEach(filePath => {
                 const fileName = filePath.split(/[\\/]/).pop();
                 currentVoiceResults.push({ type: 'file', data: filePath });
-                const item = createResultItem(index++, fileName, 'File', '', getFileIcon());
-                voiceResultsListEl.appendChild(item);
+                voiceResultsListEl.appendChild(createResultItem(index++, fileName, 'File', '', getFileIcon()));
             });
 
             if (currentVoiceResults.length > 0) {
@@ -778,18 +808,13 @@
             return div.innerHTML;
         }
 
-        // Handle result selection
         function selectResult(index) {
             if (index < 1 || index > currentVoiceResults.length) return;
-
             const selected = currentVoiceResults[index - 1];
             hideVoiceResults();
-
-            // Handle different data formats
             const data = selected.data;
 
             if (selected.type === 'app') {
-                // App data can be an object with path, or just a path string
                 if (typeof data === 'object' && data.path) {
                     window.voiceApi.send('launch-app', data);
                 } else if (typeof data === 'object' && data.name) {
@@ -798,17 +823,12 @@
                     window.voiceApi.send('launch-app', { name: String(data), path: typeof data === 'string' ? data : '' });
                 }
             } else if (selected.type === 'folder') {
-                const folderPath = typeof data === 'string' ? data : (data.path || data.name || '');
-                window.voiceApi.send('open-folder', folderPath);
+                window.voiceApi.send('open-folder', typeof data === 'string' ? data : (data.path || data.name || ''));
             } else if (selected.type === 'file') {
-                const filePath = typeof data === 'string' ? data : (data.path || data.name || '');
-                window.voiceApi.send('open-file', filePath);
+                window.voiceApi.send('open-file', typeof data === 'string' ? data : (data.path || data.name || ''));
             }
 
-            // Close after selection
-            setTimeout(() => {
-                window.voiceApi.send('auto-close-voice');
-            }, 500);
+            setTimeout(() => window.voiceApi.send('auto-close-voice'), 500);
         }
 
         function hideVoiceResults() {
@@ -816,107 +836,96 @@
             currentVoiceResults = [];
         }
 
-        // Parse voice input for result selection
         function parseSelectionFromVoice(text) {
             if (!text) return null;
             const lower = text.toLowerCase().trim();
 
-            // Check for cancel
             if (lower.includes('cancel') || lower.includes('close') || lower.includes('never mind')) {
                 return 'cancel';
             }
 
-            // Check for number (1-9)
             const numMatch = lower.match(/\b(one|two|three|four|five|six|seven|eight|nine|ten|\d)\b/);
             if (numMatch) {
                 const wordToNum = { one: 1, two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, eight: 8, nine: 9, ten: 10 };
                 const num = wordToNum[numMatch[1]] || parseInt(numMatch[1]);
-                if (num >= 1 && num <= currentVoiceResults.length) {
-                    return num;
-                }
+                if (num >= 1 && num <= currentVoiceResults.length) return num;
             }
-
             return null;
         }
 
-        // Smooth horizontal scrolling karaoke
+        // ===== SMOOTH KARAOKE SUBTITLES =====
         function startKaraoke(text, duration) {
             words = text.split(' ').filter(w => w.trim());
             currentWordIndex = 0;
+            wordSpans = [];
 
             if (words.length === 0) return;
 
-            // Clear and setup track
-            subtitleTrack.innerHTML = '';
-            subtitlesEl.style.display = 'block';
+            // Build HTML with spans for each word
+            subtitleText.innerHTML = words.map((word, i) =>
+                `<span class="word-span future" data-index="${i}">${escapeHtml(word)}</span>`
+            ).join(' ');
 
-            // Add all words to track
-            words.forEach((word, i) => {
-                const span = document.createElement('span');
-                span.className = 'word';
-                span.textContent = word;
-                span.dataset.index = i;
-                subtitleTrack.appendChild(span);
-            });
+            wordSpans = Array.from(subtitleText.querySelectorAll('.word-span'));
 
-            const wordElements = subtitleTrack.querySelectorAll('.word');
+            // Show bubble with animation
+            subtitleBubble.classList.remove('hiding');
+            subtitleBubble.classList.add('visible');
 
-            // Handle single-word case - no interval needed
+            // Mark first word as current
+            if (wordSpans[0]) {
+                wordSpans[0].classList.remove('future');
+                wordSpans[0].classList.add('current');
+            }
+
             if (words.length <= 1) {
-                wordElements[0].classList.add('current');
-                setTimeout(() => {
-                    subtitlesEl.style.display = 'none';
-                    subtitleTrack.style.transform = 'translateX(0)';
-                }, duration + 1000);
+                setTimeout(() => hideSubtitles(), duration + 500);
                 return;
             }
 
-            const interval = duration / words.length;
-
-            // Highlight first word
-            wordElements[0].classList.add('current');
-
-            // Calculate word width for smooth scrolling
-            let cumulativeOffset = 0;
+            const wordDuration = duration / words.length;
 
             karaokeInterval = setInterval(() => {
                 if (currentWordIndex < words.length - 1) {
-                    // Remove current highlight
-                    wordElements[currentWordIndex].classList.remove('current');
-
-                    // Calculate how much to scroll (word width + gap)
-                    const currentWordEl = wordElements[currentWordIndex];
-                    const wordWidth = currentWordEl.offsetWidth + 16; // 16px gap
-                    cumulativeOffset += wordWidth;
+                    // Move previous word to past
+                    if (wordSpans[currentWordIndex]) {
+                        wordSpans[currentWordIndex].classList.remove('current');
+                        wordSpans[currentWordIndex].classList.add('past');
+                    }
 
                     currentWordIndex++;
 
-                    // Highlight next word
-                    wordElements[currentWordIndex].classList.add('current');
-
-                    // Smooth scroll to keep current word centered
-                    subtitleTrack.style.transform = `translateX(-${cumulativeOffset}px)`;
+                    // Highlight current word
+                    if (wordSpans[currentWordIndex]) {
+                        wordSpans[currentWordIndex].classList.remove('future');
+                        wordSpans[currentWordIndex].classList.add('current');
+                    }
                 } else {
                     clearInterval(karaokeInterval);
                     karaokeInterval = null;
-                    setTimeout(() => {
-                        subtitlesEl.style.display = 'none';
-                        subtitleTrack.style.transform = 'translateX(0)';
-                    }, 1000);
+                    setTimeout(() => hideSubtitles(), 600);
                 }
-            }, interval);
+            }, wordDuration);
+        }
+
+        function hideSubtitles() {
+            subtitleBubble.classList.add('hiding');
+            setTimeout(() => {
+                subtitleBubble.classList.remove('visible', 'hiding');
+                subtitleText.innerHTML = '';
+                wordSpans = [];
+            }, 250);
         }
 
         async function startListening() {
-            console.log('[VoiceWindow] startListening() called, current state:', currentState);
+            console.log('[VoiceWindow] startListening() called');
+
+            // Tell main process to restart STT service (it stops itself after getting a result)
+            window.voiceApi.send('restart-stt');
+
             try {
                 mediaStream = await navigator.mediaDevices.getUserMedia({
-                    audio: {
-                        channelCount: 1,
-                        echoCancellation: true,
-                        noiseSuppression: true,
-                        autoGainControl: true
-                    }
+                    audio: { channelCount: 1, echoCancellation: true, noiseSuppression: true, autoGainControl: true }
                 });
 
                 audioContext = new AudioContext({ sampleRate: 48000 });
@@ -925,7 +934,6 @@
                 try {
                     await audioContext.audioWorklet.addModule('workers/audio.processor.js');
                     workletNode = new AudioWorkletNode(audioContext, 'audio-capture-processor');
-
                     workletNode.port.onmessage = (event) => {
                         if (!isListening) return;
                         if (event.data.type === 'audio') {
@@ -934,10 +942,8 @@
                             window.voiceApi.send('audio-data', int16Data.buffer);
                         }
                     };
-
                     source.connect(workletNode);
                 } catch (e) {
-                    // Fallback to ScriptProcessor for older browsers
                     scriptProcessor = audioContext.createScriptProcessor(4096, 1, 1);
                     scriptProcessor.onaudioprocess = (e) => {
                         if (!isListening) return;
@@ -952,39 +958,20 @@
 
                 isListening = true;
                 setState(currentVoiceResults.length > 0 ? VoiceState.AWAITING_SELECTION : VoiceState.LISTENING);
-
-                // Always request fresh screen capture
                 screenCaptured = false;
                 window.voiceApi.send('capture-screen');
             } catch (err) {
+                console.error('[VoiceWindow] Mic error:', err);
                 statusEl.textContent = 'Mic Error';
-                // Notify main process about mic error
-                try {
-                    window.voiceApi.send('close-voice-window');
-                } catch (ipcErr) { /* ignore */ }
+                try { window.voiceApi.send('close-voice-window'); } catch (e) { }
             }
         }
 
         function stopListening() {
             isListening = false;
-
-            if (workletNode) {
-                try {
-                    workletNode.disconnect();
-                    workletNode = null;
-                } catch (e) { }
-            }
-
-            if (mediaStream) {
-                mediaStream.getTracks().forEach(track => track.stop());
-                mediaStream = null;
-            }
-
-            if (audioContext && audioContext.state !== 'closed') {
-                audioContext.close();
-                audioContext = null;
-            }
-
+            if (workletNode) { try { workletNode.disconnect(); } catch (e) { } workletNode = null; }
+            if (mediaStream) { mediaStream.getTracks().forEach(t => t.stop()); mediaStream = null; }
+            if (audioContext && audioContext.state !== 'closed') { audioContext.close(); audioContext = null; }
             if (currentState === VoiceState.LISTENING || currentState === VoiceState.AWAITING_SELECTION) {
                 setState(VoiceState.PROCESSING);
             }
@@ -993,70 +980,85 @@
         let shouldListenAgain = false;
 
         window.voiceApi.receive('continue-listening', () => {
-            // Only continue if within auto-listen limit
+            console.log('[VoiceWindow] continue-listening received');
             if (canAutoListen()) {
                 shouldListenAgain = true;
                 consecutiveListenCount++;
-                console.log(`[VoiceWindow] continue-listening received. shouldListenAgain set to true. Listen count: ${consecutiveListenCount}/${MAX_CONSECUTIVE_LISTENS}`);
+                console.log(`[VoiceWindow] shouldListenAgain=true, awaitingAudio=${awaitingAudio}, isSpeaking=${isSpeaking}`);
+
+                // Only start listening immediately if NOT waiting for audio and NOT speaking
+                if (!isSpeaking && !currentAudio && !awaitingAudio) {
+                    console.log('[VoiceWindow] Not speaking/awaiting - starting listening immediately');
+                    shouldListenAgain = false;
+                    setState(VoiceState.LISTENING);
+                    setTimeout(() => startListening(), 200);
+                }
+                // Otherwise, shouldListenAgain flag will be checked when audio ends
             } else {
-                console.log('Max consecutive listens reached. Waiting for explicit user trigger.');
+                console.log('[VoiceWindow] Max listens reached');
                 shouldListenAgain = false;
             }
         });
 
         function playAudioResponse(audioDataUrl, responseText) {
-            if (currentAudio) {
-                currentAudio.pause();
-                currentAudio = null;
-            }
-
-            if (karaokeInterval) {
-                clearInterval(karaokeInterval);
-            }
+            if (currentAudio) { currentAudio.pause(); currentAudio = null; }
+            if (karaokeInterval) { clearInterval(karaokeInterval); karaokeInterval = null; }
 
             currentAudio = new Audio(audioDataUrl);
             isSpeaking = true;
             setState(VoiceState.SPEAKING);
 
             currentAudio.onloadedmetadata = () => {
-                const duration = currentAudio.duration * 1000;
-                startKaraoke(responseText, duration);
+                startKaraoke(responseText, currentAudio.duration * 1000);
             };
 
             currentAudio.onended = () => {
                 isSpeaking = false;
+                currentAudio = null;
 
-                // Check if we need to continue for selection or follow-up
                 if (currentVoiceResults.length > 0) {
-                    // Results are showing, wait for selection - don't close
                     setState(VoiceState.SHOWING_RESULTS);
-                    // Start listening for selection
                     setTimeout(() => startListening(), 300);
                 } else if (shouldListenAgain) {
-                    console.log('[VoiceWindow] Audio ended, shouldListenAgain is TRUE, calling startListening()');
+                    console.log('[VoiceWindow] Audio ended, shouldListenAgain=true');
                     shouldListenAgain = false;
-                    // consecutiveListenCount is already incremented in continue-listening handler
                     setState(VoiceState.LISTENING);
                     setTimeout(() => startListening(), 200);
                 } else {
                     setState(VoiceState.IDLE);
                     setTimeout(() => {
-                        // Only auto-close if no results are showing
-                        if (currentVoiceResults.length === 0) {
-                            window.voiceApi.send('auto-close-voice');
-                        }
+                        if (currentVoiceResults.length === 0) window.voiceApi.send('auto-close-voice');
                     }, 1500);
                 }
             };
 
             currentAudio.onerror = () => {
                 isSpeaking = false;
-                setState(VoiceState.IDLE);
-                statusEl.textContent = 'Audio Error';
+                currentAudio = null;
+                // Clean up subtitles on error
+                if (karaokeInterval) { clearInterval(karaokeInterval); karaokeInterval = null; }
+                hideSubtitles();
+                if (shouldListenAgain) {
+                    shouldListenAgain = false;
+                    setState(VoiceState.LISTENING);
+                    setTimeout(() => startListening(), 200);
+                } else {
+                    setState(VoiceState.IDLE);
+                }
             };
 
             currentAudio.play().catch(err => {
-                statusEl.textContent = 'Playback Failed';
+                console.error('[VoiceWindow] Playback failed:', err);
+                isSpeaking = false;
+                currentAudio = null;
+                // Clean up subtitles on playback failure
+                if (karaokeInterval) { clearInterval(karaokeInterval); karaokeInterval = null; }
+                hideSubtitles();
+                if (shouldListenAgain) {
+                    shouldListenAgain = false;
+                    setState(VoiceState.LISTENING);
+                    setTimeout(() => startListening(), 200);
+                }
             });
         }
 
@@ -1067,19 +1069,15 @@
         });
 
         window.voiceApi.receive('stt-partial-result', (text) => {
-            if (text) {
-                partialEl.textContent = text;
-            }
+            if (text) partialEl.textContent = text;
         });
 
         window.voiceApi.receive('stt-result', (text) => {
             partialEl.textContent = '';
 
-            // Check if we're awaiting a selection
             if (currentState === VoiceState.AWAITING_SELECTION && currentVoiceResults.length > 0) {
                 stopListening();
                 const selection = parseSelectionFromVoice(text);
-
                 if (selection === 'cancel') {
                     hideVoiceResults();
                     window.voiceApi.send('auto-close-voice');
@@ -1088,49 +1086,48 @@
                     selectResult(selection);
                     return;
                 }
-                // If no valid selection, treat as new query
             }
 
             stopListening();
             setState(VoiceState.PROCESSING);
-
-            window.voiceApi.send('voice-query', {
-                query: text,
-                image: capturedImage
-            });
+            window.voiceApi.send('voice-query', { query: text, image: capturedImage });
         });
 
         window.voiceApi.receive('voice-response', (data) => {
             if (data.text) {
-                words = data.text.split(' ').filter(w => w.trim()); // Store for karaoke
+                words = data.text.split(' ').filter(w => w.trim());
                 statusEl.textContent = 'Synthesizing';
+                awaitingAudio = true; // Mark that we're waiting for TTS audio
                 if (data.audio) {
+                    awaitingAudio = false;
                     playAudioResponse(data.audio, data.text);
                 }
             }
         });
 
         window.voiceApi.receive('voice-audio-ready', (audioDataUrl) => {
+            awaitingAudio = false; // Audio arrived (or failed)
             if (audioDataUrl && words.length > 0) {
-                const responseText = words.join(' ');
-                playAudioResponse(audioDataUrl, responseText);
+                playAudioResponse(audioDataUrl, words.join(' '));
             } else if (shouldListenAgain) {
-                // Audio synthesis failed or no words, but we need to listen again
-                console.log('[VoiceWindow] Audio failed, but shouldListenAgain is true - starting listening');
+                console.log('[VoiceWindow] No audio but shouldListenAgain=true - starting listening');
                 shouldListenAgain = false;
                 setState(VoiceState.LISTENING);
                 setTimeout(() => startListening(), 200);
+            } else {
+                // No audio and not listening again - close after delay
+                setState(VoiceState.IDLE);
+                setTimeout(() => {
+                    if (currentVoiceResults.length === 0) window.voiceApi.send('auto-close-voice');
+                }, 1500);
             }
         });
 
-        // Handle search results display in voice mode
         window.voiceApi.receive('voice-search-results', (results) => {
             try {
                 const data = typeof results === 'string' ? JSON.parse(results) : results;
 
-                // New format with pre-formatted results array
                 if (data.results && Array.isArray(data.results)) {
-                    // Normalize items to expected shape { type, data }
                     currentVoiceResults = data.results.map(item => ({
                         type: item.type,
                         data: item.data !== undefined ? item.data : item
@@ -1139,19 +1136,10 @@
 
                     data.results.forEach((item, i) => {
                         let iconSvg, iconClass;
-                        if (item.type === 'app') {
-                            iconSvg = getAppIcon();
-                            iconClass = 'app-icon';
-                        } else if (item.type === 'folder') {
-                            iconSvg = getFolderIcon();
-                            iconClass = 'folder-icon';
-                        } else {
-                            iconSvg = getFileIcon();
-                            iconClass = '';
-                        }
-
-                        const resultItem = createResultItem(i + 1, item.name, item.type, iconClass, iconSvg);
-                        voiceResultsListEl.appendChild(resultItem);
+                        if (item.type === 'app') { iconSvg = getAppIcon(); iconClass = 'app-icon'; }
+                        else if (item.type === 'folder') { iconSvg = getFolderIcon(); iconClass = 'folder-icon'; }
+                        else { iconSvg = getFileIcon(); iconClass = ''; }
+                        voiceResultsListEl.appendChild(createResultItem(i + 1, item.name, item.type, iconClass, iconSvg));
                     });
 
                     if (currentVoiceResults.length > 0) {
@@ -1159,57 +1147,37 @@
                         setState(VoiceState.SHOWING_RESULTS);
                     }
                 } else {
-                    // Old format with apps/files/folders
                     displayVoiceResults(data);
                 }
 
-                // After showing results, start listening for selection
-                if (data.waitingForSelection) {
-                    setTimeout(() => {
-                        startListening();
-                    }, 500);
-                }
+                // NOTE: Don't start listening here! Audio is still playing the results list.
+                // Listening will start automatically when audio ends (shouldListenAgain flag).
             } catch (e) {
                 console.error('[VoiceWindow] Failed to parse search results:', e);
             }
         });
 
         window.voiceApi.receive('start-listening', () => {
-            // Explicit user trigger resets the consecutive listen counter
             resetListenCounter();
             startListening();
         });
 
-        window.voiceApi.receive('stop-listening', () => {
-            stopListening();
-        });
+        window.voiceApi.receive('stop-listening', () => stopListening());
 
-        // Prevent accidental close when clicking on results
-        document.getElementById('voice-results').addEventListener('click', (e) => {
-            e.stopPropagation();
-        });
+        document.getElementById('voice-results').addEventListener('click', e => e.stopPropagation());
 
         document.body.addEventListener('click', (e) => {
-            // Don't close if clicking on results panel
             if (e.target.closest('#voice-results')) return;
-
             stopListening();
             hideVoiceResults();
-            if (currentAudio) {
-                currentAudio.pause();
-                currentAudio = null;
-            }
-            if (karaokeInterval) {
-                clearInterval(karaokeInterval);
-            }
+            if (currentAudio) { currentAudio.pause(); currentAudio = null; }
+            if (karaokeInterval) { clearInterval(karaokeInterval); karaokeInterval = null; }
+            hideSubtitles();
             setState(VoiceState.IDLE);
             window.voiceApi.send('close-voice-window');
         });
 
-        window.addEventListener('load', () => {
-            window.voiceApi.send('voice-window-ready');
-        });
-
+        window.addEventListener('load', () => window.voiceApi.send('voice-window-ready'));
         window.addEventListener('beforeunload', () => {
             stopListening();
             hideVoiceResults();
