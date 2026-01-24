@@ -11,6 +11,7 @@
             margin: 0;
             padding: 0;
             box-sizing: border-box;
+            text-wrap: balance;
         }
 
         :root {
@@ -121,10 +122,10 @@
                     rgba(231, 231, 251, 0.95) 50%,
                     rgba(255, 255, 255, 0.98) 100%);
             backdrop-filter: blur(20px);
-            transition: all 0.8s cubic-bezier(0.16, 1, 0.3, 1),
-                border-radius 0.8s cubic-bezier(0.16, 1, 0.3, 1),
-                background 0.8s cubic-bezier(0.33, 1, 0.68, 1),
-                box-shadow 0.8s cubic-bezier(0.33, 1, 0.68, 1);
+            transition: all 0.5s cubic-bezier(0.16, 1, 0.3, 1),
+                border-radius 0.5s cubic-bezier(0.16, 1, 0.3, 1),
+                background 0.5s cubic-bezier(0.33, 1, 0.68, 1),
+                box-shadow 0.5s cubic-bezier(0.33, 1, 0.68, 1);
             box-shadow: 0 8px 32px rgba(201, 121, 238, 0.1), 0 0 0 1px rgba(201, 121, 238, 0.15);
         }
 
@@ -683,10 +684,22 @@
 
         .settings-panel {
             display: none;
-            padding: 20px;
-            padding-bottom: 24px;
+            padding: 24px;
             background: rgba(255, 255, 255, 0.98);
-            animation: fadeIn 0.2s ease-out;
+            border-radius: 0 0 15px 15px;
+            animation: settings-reveal 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        @keyframes settings-reveal {
+            from {
+                opacity: 0;
+                transform: translateY(-10px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
         }
 
         .settings-panel.visible {
@@ -697,31 +710,33 @@
             display: flex;
             align-items: center;
             justify-content: space-between;
-            margin-bottom: 20px;
+            margin-bottom: 24px;
         }
 
         .settings-header h2 {
-            font-size: 16px;
+            font-size: 18px;
             font-weight: 600;
             color: var(--text-primary);
+            letter-spacing: -0.3px;
         }
 
         .close-settings {
-            width: 28px;
-            height: 28px;
+            width: 32px;
+            height: 32px;
             border: none;
-            background: transparent;
+            background: rgba(0, 0, 0, 0.03);
             cursor: pointer;
             display: flex;
             align-items: center;
             justify-content: center;
-            border-radius: 6px;
-            transition: all 0.15s;
+            border-radius: 50%;
+            transition: all 0.2s;
             -webkit-app-region: no-drag;
         }
 
         .close-settings:hover {
-            background: var(--hover-bg);
+            background: rgba(0, 0, 0, 0.08);
+            transform: rotate(90deg);
         }
 
         .close-settings svg {
@@ -729,92 +744,172 @@
             height: 16px;
             stroke: var(--text-secondary);
             fill: none;
-            stroke-width: 2;
+            stroke-width: 2.5;
         }
 
-        .settings-form .form-group {
-            margin-bottom: 16px;
+        .settings-form {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .form-row {
+            display: flex;
+            gap: 16px;
+        }
+
+        .form-group {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
             -webkit-app-region: no-drag;
         }
 
-        .settings-form label {
-            display: block;
+        .form-group label {
             font-size: 12px;
-            font-weight: 500;
+            font-weight: 600;
             color: var(--text-secondary);
-            margin-bottom: 6px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
         }
 
-        .settings-form input {
+        .settings-form input[type="text"],
+        .settings-form select {
             width: 100%;
-            padding: 10px 12px;
+            padding: 12px 14px;
             background: rgba(255, 255, 255, 0.8);
             border: 1px solid var(--border-subtle);
-            border-radius: 6px;
-            font-size: 13px;
+            border-radius: 10px;
+            font-size: 14px;
             color: var(--text-primary);
             font-family: var(--font);
             outline: none;
-            transition: border-color 0.2s;
-            box-shadow: 0 1px 4px rgba(201, 121, 238, 0.08);
+            transition: all 0.2s;
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.02);
         }
 
-        .settings-form input:focus {
+        .settings-form input:focus,
+        .settings-form select:focus {
             border-color: var(--primary);
-            box-shadow: 0 2px 8px rgba(201, 121, 238, 0.15);
+            background: #fff;
+            box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.1);
         }
 
-        .settings-form .hint {
-            font-size: 10px;
-            color: var(--text-tertiary);
+        .checkbox-group {
             margin-top: 4px;
+        }
+
+        .checkbox-container {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            cursor: pointer;
+            font-size: 14px;
+            color: var(--text-primary);
+            user-select: none;
+            position: relative;
+        }
+
+        .checkbox-container input {
+            position: absolute;
+            opacity: 0;
+            cursor: pointer;
+            height: 0;
+            width: 0;
+        }
+
+        .checkmark {
+            height: 20px;
+            width: 20px;
+            background-color: rgba(0, 0, 0, 0.05);
+            border-radius: 6px;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .checkbox-container:hover input~.checkmark {
+            background-color: rgba(0, 0, 0, 0.1);
+        }
+
+        .checkbox-container input:focus-visible~.checkmark,
+        .checkbox-container input:focus~.checkmark {
+            box-shadow: 0 0 0 2px #fff, 0 0 0 4px var(--primary);
+        }
+
+        .checkbox-container input:checked~.checkmark {
+            background-color: var(--primary);
+        }
+
+        .checkmark:after {
+            content: "";
+            display: none;
+            width: 5px;
+            height: 10px;
+            border: solid white;
+            border-width: 0 2.5px 2.5px 0;
+            transform: rotate(45deg);
+            margin-bottom: 2px;
+        }
+
+        .checkbox-container input:checked~.checkmark:after {
+            display: block;
         }
 
         .settings-buttons {
             display: flex;
-            gap: 10px;
-            margin-top: 20px;
+            gap: 12px;
+            margin-top: 8px;
             -webkit-app-region: no-drag;
         }
 
         .settings-buttons button {
             flex: 1;
-            padding: 10px 16px;
-            border-radius: 6px;
-            font-size: 13px;
-            font-weight: 500;
+            padding: 12px 16px;
+            border-radius: 10px;
+            font-size: 14px;
+            font-weight: 600;
             font-family: var(--font);
             cursor: pointer;
-            transition: all 0.15s;
+            transition: all 0.2s;
         }
 
         .btn-save {
             background: var(--primary);
             border: none;
             color: #fff;
+            box-shadow: 0 4px 12px rgba(139, 92, 246, 0.25);
         }
 
         .btn-save:hover {
-            background: var(--highlight);
+            background: var(--accent);
+            transform: translateY(-1px);
+            box-shadow: 0 6px 16px rgba(139, 92, 246, 0.3);
         }
 
         .btn-cancel {
-            background: transparent;
-            border: 1px solid var(--border-subtle);
+            background: #f1f1f1;
+            border: none;
             color: var(--text-secondary);
         }
 
         .btn-cancel:hover {
-            background: var(--hover-bg);
+            background: #e5e5e5;
             color: var(--text-primary);
         }
 
         .settings-saved {
             display: none;
-            font-size: 12px;
-            color: #4ade80;
-            margin-top: 10px;
+            font-size: 13px;
+            font-weight: 500;
+            color: #10b981;
             text-align: center;
+            padding: 8px;
+            background: rgba(16, 185, 129, 0.1);
+            border-radius: 8px;
+            animation: fadeIn 0.3s ease-out;
         }
 
         .settings-saved.visible {
@@ -989,7 +1084,7 @@
         <div class="settings-panel" id="settingsPanel">
             <div class="settings-header">
                 <h2>Settings</h2>
-                <button class="close-settings" id="closeSettings">
+                <button class="close-settings" id="closeSettings" title="Close Settings">
                     <svg viewBox="0 0 24 24">
                         <line x1="18" y1="6" x2="6" y2="18"></line>
                         <line x1="6" y1="6" x2="18" y2="18"></line>
@@ -997,34 +1092,27 @@
                 </button>
             </div>
             <div class="settings-form">
-                <div class="form-group">
-                    <label for="settingsUserName">Your Name</label>
-                    <input type="text" id="settingsUserName" placeholder="Enter your name" />
-                    <p class="hint">The AI will address you by this name</p>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="settingsUserName">Your Name</label>
+                        <input type="text" id="settingsUserName" placeholder="Enter your name" />
+                    </div>
                 </div>
 
-                <div class="form-group">
-                    <label for="settingsApiKey">API Key (Optional)</label>
-                    <input type="password" id="settingsApiKey" placeholder="Uses .env file keys by default" />
-                    <p class="hint">Override default API key from .env</p>
-                </div>
-
-                <div class="form-group">
-                    <label for="settingsModelName">Model Name</label>
-                    <select id="settingsModelName">
-                        <option value="gemini-2.5-flash">Gemini 2.5 Flash</option>
-                        <option value="gemini-2.5-flash-lite">Gemini 2.5 Flash Lite</option>
-                        <option value="gemini-2.0-flash">Gemini 2.0 Flash</option>
-                    </select>
-                    <p class="hint">Select the AI model to use</p>
+                <div class="form-group checkbox-group">
+                    <label class="checkbox-container">
+                        <input type="checkbox" id="settingsAutoStart" />
+                        <span class="checkmark"></span>
+                        Launch Venesa at startup
+                    </label>
                 </div>
 
                 <div class="settings-buttons">
                     <button class="btn-cancel" id="cancelSettings">Cancel</button>
-                    <button class="btn-save" id="saveSettings">Save</button>
+                    <button class="btn-save" id="saveSettingsBtn">Save Changes</button>
                 </div>
                 <p class="settings-saved" id="settingsSaved">
-                    Settings saved! Restart the app to apply changes.
+                    Settings saved successfully!
                 </p>
             </div>
         </div>
@@ -1069,10 +1157,8 @@
         const settingsPanel = document.getElementById("settingsPanel");
         const closeSettingsBtn = document.getElementById("closeSettings");
         const cancelSettingsBtn = document.getElementById("cancelSettings");
-        const saveSettingsBtn = document.getElementById("saveSettings");
+        const saveSettingsBtn = document.getElementById("saveSettingsBtn");
         const settingsUserName = document.getElementById("settingsUserName");
-        const settingsApiKey = document.getElementById("settingsApiKey");
-        const settingsModelName = document.getElementById("settingsModelName");
         const settingsSaved = document.getElementById("settingsSaved");
 
         // Google search elements
@@ -1247,8 +1333,8 @@
         });
 
         const HEIGHTS = {
-            BASE: 56,
-            SETTINGS_PANEL: 460,
+            BASE: 60,
+            SETTINGS_PANEL: 340,
             LOADER: 120,
             NO_RESULTS: 130,
             RESULT_ITEM: 58,
@@ -1343,7 +1429,9 @@
                 let targetHeight = getBaseHeight();
 
                 if (settingsPanel.classList.contains("visible")) {
-                    targetHeight = HEIGHTS.SETTINGS_PANEL;
+                    // Calculate dynamic height based on settings panel content
+                    const panelHeight = settingsPanel.offsetHeight;
+                    targetHeight = Math.max(HEIGHTS.SETTINGS_PANEL, getBaseHeight() + panelHeight);
                     window.api.send("resize-window", targetHeight);
                     return;
                 }
@@ -1923,10 +2011,11 @@
 
             settingsOpen = true;
             settingsUserName.value = settings.userName || "User";
-            settingsApiKey.value = settings.apiKey || "";
-            settingsModelName.value = settings.modelName || "gemini-2.5-flash";
-            settingsSaved.classList.remove("visible");
+            const settingsAutoStart = document.getElementById("settingsAutoStart");
 
+            if (settingsAutoStart) settingsAutoStart.checked = settings.openAtLogin !== false;
+
+            settingsSaved.classList.remove("visible");
             settingsPanel.classList.add("visible");
             divider.classList.add("visible");
             updateWindowHeight();
@@ -1937,6 +2026,8 @@
             settingsPanel.classList.remove("visible");
             settingsSaved.classList.remove("visible");
             divider.classList.remove("visible");
+            resultsWrapper.classList.add("collapsed");
+            recomputeBaseHeight();
             updateWindowHeight();
         };
 
@@ -1954,17 +2045,16 @@
             window.api.send("open-voice-window");
         });
 
-        closeSettingsBtn.addEventListener("click", hideSettingsPanel);
-        cancelSettingsBtn.addEventListener("click", hideSettingsPanel);
+        closeSettingsBtn.addEventListener("click", () => hideSettingsPanel());
+        cancelSettingsBtn.addEventListener("click", () => hideSettingsPanel());
 
         saveSettingsBtn.addEventListener("click", () => {
+            const settingsAutoStart = document.getElementById("settingsAutoStart");
+
             const settings = {
                 userName: settingsUserName.value.trim() || "User",
-                apiKey: settingsApiKey.value.trim(),
-                modelName: settingsModelName.value.trim() || "gemini-2.5-flash",
+                openAtLogin: settingsAutoStart ? settingsAutoStart.checked : true
             };
-
-
 
             window.api.send("save-settings", settings);
         });

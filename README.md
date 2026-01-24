@@ -5,7 +5,7 @@
 </p>
 
 <p align="center">
-  <strong>AI-Powered Voice Assistant for Windows</strong>
+  <strong>Voice Assistant for Windows</strong>
 </p>
 
 <p align="center">
@@ -18,112 +18,103 @@
 
 ---
 
-## Overview
+## What is Venesa?
 
-**Venesa** is a desktop voice assistant for Windows that combines wake word detection, speech recognition, and natural language processing to provide a seamless, hands-free computing experience. Speak "Hey Venesa" to activate, then ask questions, launch applications, search files, or get AI-powered responses.
+Venesa is a desktop voice assistant for Windows. It listens for the wake word "Hey Venesa", transcribes your speech, processes it with Google Gemini, and responds with synthesized voice. You can also use it through a keyboard-triggered search bar.
 
-### Key Features
+**What it does:**
 
-- **Wake Word Activation** — Always-listening background detection using custom ONNX models
-- **Voice Commands** — Natural speech recognition powered by ElevenLabs Scribe STT
-- **AI Responses** — Intelligent conversation via Google Gemini with multi-key rotation
-- **Text-to-Speech** — High-quality voice synthesis using ElevenLabs TTS
-- **Quick Search Interface** — Keyboard-triggered search bar for quick text queries (Alt+Space)
-- **System Integration** — Launch apps, open files, and search your Windows system
-- **Screen Context** — Optional screen capture for visual context in queries
+- Listens in the background for the wake word using ONNX-based detection
+- Transcribes speech using ElevenLabs Scribe
+- Processes queries with Google Gemini 2.5
+- Speaks responses using ElevenLabs text-to-speech
+- Searches files and launches applications on your system
+- Provides a quick-access search bar (Alt+Space)
 
 ---
 
-## Architecture
+## Project Structure
 
 ```
 venesa/
 ├── src/
-│   ├── main/                          # Electron main process
-│   │   ├── main.js                    # Application entry point
-│   │   └── preload/                   # Context bridge scripts
-│   │       ├── main.preload.js        # Main window preload
-│   │       ├── voice.preload.js       # Voice window preload
-│   │       └── background.preload.js  # Background audio preload
-│   ├── core/                          # Business logic services
-│   │   ├── llm-service.js             # Gemini API integration
-│   │   ├── elevenlabs-service.js      # TTS/STT unified service
+│   ├── main/
+│   │   ├── main.js                    # Electron main process
+│   │   └── preload/
+│   │       ├── main.preload.js
+│   │       ├── voice.preload.js
+│   │       └── background.preload.js
+│   ├── core/
+│   │   ├── llm-service.js             # Gemini API calls
+│   │   ├── elevenlabs-service.js      # TTS and STT
 │   │   ├── stt-service.js             # Voice activity detection
-│   │   ├── task-service.js            # System actions executor
-│   │   ├── wake-word-service.js       # Wake word orchestration
-│   │   ├── config.js                  # ElevenLabs configuration
+│   │   ├── task-service.js            # System actions (open apps, search files)
+│   │   ├── wake-word-service.js       # Wake word detection setup
+│   │   ├── config.js                  # ElevenLabs settings
 │   │   ├── apiKeyPool.js              # Google API key rotation
 │   │   └── elevenLabsKeyPool.js       # ElevenLabs key rotation
-│   └── renderer/                      # UI windows
-│       ├── main.window.html           # Spotlight search interface
+│   └── renderer/
+│       ├── main.window.html           # Search bar UI
 │       ├── voice.window.html          # Voice interaction UI
-│       ├── background.window.html     # Hidden wake word listener
-│       ├── setup.window.html          # First-run configuration
-│       └── workers/                   # Web Workers
-│           ├── audio.processor.js     # AudioWorklet processor
-│           └── wake-word.worker.js    # ONNX wake word inference
-├── models/                            # ONNX models for wake word
-│   ├── melspectrogram.onnx
-│   ├── embedding_model.onnx
-│   └── hey_Venessa.onnx
-├── assets/                            # Static resources
-│   ├── logo.png
-│   └── logo.svg
-├── .env                               # API keys (not committed)
+│       ├── background.window.html     # Background wake word listener
+│       ├── setup.window.html          # First-run setup
+│       └── workers/
+│           ├── audio.processor.js     # Audio processing worklet
+│           └── wake-word.worker.js    # ONNX inference worker
+├── models/
+│   ├── melspectrogram.onnx            # Converts audio to mel spectrogram
+│   ├── embedding_model.onnx           # Generates audio embeddings
+│   ├── hey_Venessa.onnx               # Wake word classifier
+│   └── hey_Venessa.tflite             # Alternative wake word model
+├── assets/
+│   └── logo.png
+├── .env                               # API keys (not in git)
 ├── package.json
 └── README.md
-```
+
+
+## Requirements
+
+- Windows 10 or 11
+- Node.js 18 or higher
+- pnpm
+- Google Gemini API key
+- ElevenLabs API key
 
 ---
 
-## Prerequisites
+## Setup
 
-- **Operating System**: Windows 10 or Windows 11
-- **Runtime**: Node.js 18.0 or higher
-- **Package Manager**: pnpm (recommended) or npm
-- **API Keys**:
-  - Google Gemini API key(s)
-  - ElevenLabs API key(s)
-
----
-
-## Installation
-
-### 1. Clone the Repository
+### 1. Clone and install
 
 ```bash
 git clone https://github.com/mianjunaid1223/Venesa.git
 cd Venesa
-```
-
-### 2. Install Dependencies
-
-```bash
 pnpm install
 ```
 
-### 3. Configure Environment Variables
+### 2. Add API keys
 
 Create a `.env` file in the project root:
 
 ```env
-# Google Gemini API Keys (supports multiple for rotation)
-GOOGLE_API_KEY_1=your_gemini_api_key_here
+# Google Gemini API keys (add multiple for rotation)
+GOOGLE_API_KEY_1=your_key_here
 GOOGLE_API_KEY_2=optional_second_key
 GOOGLE_API_KEY_3=optional_third_key
 
-# ElevenLabs API Keys (supports multiple for rotation)
-ELEVENLABS_API_KEY_1=your_elevenlabs_api_key_here
+# ElevenLabs API keys (add multiple for rotation)
+ELEVENLABS_API_KEY_1=your_key_here
 ELEVENLABS_API_KEY_2=optional_second_key
 ```
 
-### 4. Run the Application
+### 3. Run
 
 ```bash
 pnpm start
 ```
 
-For development with logging:
+For debug logging:
 
 ```bash
 pnpm dev
@@ -131,44 +122,47 @@ pnpm dev
 
 ---
 
-## Usage
+## How to Use
 
 ### Keyboard Shortcuts
 
-| Shortcut | Action |
-|----------|--------|
-| `Alt + Space` | Toggle Venesa search bar |
-| `Ctrl + Shift + V` | Open voice window manually |
-| `Escape` | Close voice window |
-| `Enter` | Execute selected action |
-| `↑ / ↓` | Navigate search results |
+| Shortcut | What it does |
+|----------|--------------|
+| `Alt + Space` | Open/close search bar |
+| `Ctrl + Shift + V` | Open voice window |
+| `Escape` | Close current window |
+| `Enter` | Run selected action |
+| `↑ / ↓` | Navigate results |
 
-### Voice Activation
+### Voice Mode
 
-Say **"Hey Venesa"** to activate voice mode. The assistant will listen for your command, process it through speech recognition, and respond with synthesized speech.
+Say "Hey Venesa" to activate. The app will:
+1. Show a listening indicator
+2. Record and transcribe your speech
+3. Send it to Gemini for processing
+4. Speak the response
 
-### Search Modes
+### Search Bar Modes
 
 | Prefix | Mode | Example |
 |--------|------|---------|
-| *(none)* | File/App Search | `notepad` |
-| `/` | AI Query | `/what's the weather` |
-| `//` | Google Search | `//latest news` |
+| *(none)* | Search files and apps | `notepad` |
+| `/` | Ask Gemini | `/how do I resize an image` |
+| `//` | Google search | `//weather today` |
 
-### Voice Commands
+### Example Commands
 
-- **"Open Chrome"** — Launches Google Chrome
-- **"Find my resume"** — Searches for files matching "resume"
-- **"What's on my screen?"** — Analyzes current screen content
-- **"What time is it?"** — Returns current time
+- "Open Chrome"
+- "Find documents with budget"
+- "What time is it?"
+- "Set volume to 50%"
+- "What's on my screen?" (captures and analyzes screen)
 
 ---
 
 ## Configuration
 
-### Settings File
-
-User preferences are stored in `~/.venesa-settings.json`:
+Settings are stored in `~/.venesa-settings.json`:
 
 ```json
 {
@@ -177,9 +171,11 @@ User preferences are stored in `~/.venesa-settings.json`:
 }
 ```
 
-### ElevenLabs Voice
+You can also change settings through the gear icon in the search bar.
 
-The TTS voice can be customized in `src/core/config.js`:
+### Voice Settings
+
+Edit `src/core/config.js` to change the TTS voice:
 
 ```javascript
 tts: {
@@ -197,104 +193,103 @@ tts: {
 
 ## API Key Rotation
 
-Venesa supports multiple API keys for both Google Gemini and ElevenLabs. The key pool system automatically:
+Both Google and ElevenLabs support multiple keys. The app automatically:
 
-- Rotates through available keys
-- Handles rate limits (429 errors)
-- Removes invalid keys temporarily
-- Provides statistics on key health
+- Rotates between available keys
+- Switches keys when rate limited (429 errors)
+- Skips keys that return errors
+
+Add keys with incrementing numbers: `GOOGLE_API_KEY_1`, `GOOGLE_API_KEY_2`, etc.
 
 ---
 
-## Technology Stack
+## Tech Stack
 
 | Component | Technology |
 |-----------|------------|
-| Framework | Electron 28 |
-| AI Model | Google Gemini 2.5 Flash |
-| Speech-to-Text | ElevenLabs Scribe v1 |
-| Text-to-Speech | ElevenLabs Turbo v2.5 |
-| Wake Word | openWakeWord (ONNX) |
-| Audio Processing | Web Audio API + AudioWorklet |
-| System Integration | PowerShell (Windows Search API) |
+| Desktop framework | Electron 28 |
+| Language model | Google Gemini 2.5 Flash |
+| Speech-to-text | ElevenLabs Scribe |
+| Text-to-speech | ElevenLabs Turbo v2.5 |
+| Wake word | openWakeWord (ONNX) |
+| Audio | Web Audio API, AudioWorklet |
+| System integration | PowerShell |
 
 ---
 
-## Development
+## Adding New Actions
 
-### Project Scripts
-
-```bash
-pnpm start          # Launch application
-pnpm dev            # Launch with verbose logging
-```
-
-### Adding New Actions
-
-To add new system actions, modify `src/core/task-service.js`:
+Edit `src/core/task-service.js` to add system actions:
 
 ```javascript
-async function myNewAction(params) {
-  // Implementation
+async function myAction(params) {
+  // your code here
 }
 
 module.exports = {
-  // ... existing exports
-  myNewAction,
+  // existing exports...
+  myAction,
 };
 ```
 
-Then update the LLM prompt in `src/core/llm-service.js` to include the new action.
+Then update the prompt in `src/core/llm-service.js` so Gemini knows about the new action.
 
 ---
 
 ## Troubleshooting
 
-### Wake Word Not Detecting
+### Wake word not working
 
-1. Ensure microphone permissions are granted
-2. Check that ONNX models exist in the `models/` directory
-3. Verify no other application is using the microphone exclusively
+1. Check microphone permissions in Windows Settings
+2. Make sure model files exist in `models/`
+3. Close other apps that might be using the microphone
+4. Restart the app
 
-### STT/TTS Errors
+### Speech-to-text or text-to-speech errors
 
-1. Verify ElevenLabs API keys in `.env`
-2. Check API key quotas on the ElevenLabs dashboard
-3. Review console output for specific error codes
+1. Check your ElevenLabs API key in `.env`
+2. Check your quota at [elevenlabs.io/app](https://elevenlabs.io/app)
+3. Run with `pnpm dev` to see error details
 
-### Gemini API Errors
+### Gemini errors
 
-1. Verify Google API keys in `.env`
-2. Ensure keys have Gemini API access enabled
-3. Check for rate limiting (429 errors trigger automatic key rotation)
+1. Check your Google API key in `.env`
+2. Make sure the key has Gemini API access enabled
+3. If you see 429 errors, add more keys for rotation
+
+### Voice window not responding
+
+1. Press Escape to close, then Ctrl+Shift+V to reopen
+2. Check console for errors with `pnpm dev`
 
 ---
 
 ## Contributing
 
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/my-feature`)
-3. Commit changes (`git commit -m 'Add my feature'`)
-4. Push to the branch (`git push origin feature/my-feature`)
-5. Open a Pull Request
+1. Fork the repo
+2. Create a branch (`git checkout -b my-feature`)
+3. Commit changes (`git commit -m 'Add feature'`)
+4. Push (`git push origin my-feature`)
+5. Open a pull request
 
 ---
 
 ## License
 
-This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
+MIT License. See [LICENSE](LICENSE).
 
 ---
 
-## Acknowledgments
+## Credits
 
-- [Electron](https://www.electronjs.org/) — Desktop application framework
-- [Google Gemini](https://ai.google.dev/) — Large language model
-- [ElevenLabs](https://elevenlabs.io/) — Voice AI platform
-- [openWakeWord](https://github.com/dscripka/openWakeWord) — Wake word detection
+- [Electron](https://www.electronjs.org/)
+- [Google Gemini](https://ai.google.dev/)
+- [ElevenLabs](https://elevenlabs.io/)
+- [openWakeWord](https://github.com/dscripka/openWakeWord)
+- [ONNX Runtime](https://onnxruntime.ai/)
 
 ---
 
 <p align="center">
-  Built with ❤️ by <a href="https://github.com/mianjunaid1223">mianjunaid1223</a>
+  Made by <a href="https://github.com/mianjunaid1223">mianjunaid1223</a>
 </p>

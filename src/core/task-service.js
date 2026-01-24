@@ -20,11 +20,7 @@ const DOCUMENT_EXTENSIONS = new Set([
   ".doc", ".docx", ".pdf", ".txt", ".rtf", ".xls", ".xlsx", ".ppt", ".pptx", ".odt"
 ]);
 
-const EXCLUDED_DIRS = new Set([
-  "node_modules", ".git", ".vscode", "__pycache__", ".cache", "AppData",
-  "temp", "tmp", ".npm", ".nuget", "venv", ".env", "dist", "build",
-  "Library", "Application Data", ".Trash", "$Recycle.Bin"
-]);
+
 
 const POWERSHELL_TIMEOUT_MS = 10000; // 10 second timeout
 
@@ -89,13 +85,6 @@ function runPowerShell(script, timeoutMs = POWERSHELL_TIMEOUT_MS) {
   });
 }
 
-function classifyFile(filePath) {
-  const ext = path.extname(filePath).toLowerCase();
-  if (IMAGE_EXTENSIONS.has(ext)) return "image";
-  if (CODE_EXTENSIONS.has(ext)) return "code";
-  if (DOCUMENT_EXTENSIONS.has(ext)) return "document";
-  return "file";
-}
 
 function getRelativePath(fullPath) {
   if (fullPath.startsWith(HOME_DIR)) {
@@ -151,12 +140,6 @@ $results | ConvertTo-Json -Compress
   return [];
 }
 
-function escapeSqlQuery(query) {
-  return query
-    .replace(/'/g, "''")
-    .replace(/%/g, "[%]")
-    .replace(/_/g, "[_]");
-}
 
 async function searchFilesAndFolders(query, maxResults = 20) {
   const folders = [];

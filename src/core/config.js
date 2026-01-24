@@ -23,7 +23,7 @@ const config = {
         voiceSettings: {
             stability: 0.5,
             similarity_boost: 0.75,
-            style: 0.0,
+            style: 0.5,
             use_speaker_boost: true
         }
     },

@@ -1,7 +1,7 @@
 {
   "name": "venesa",
   "version": "1.0.0",
-  "description": "Venesa - AI-powered voice assistant for Windows with wake word detection, speech recognition, and natural language processing",
+  "description": "Venesa - Virtual voice assistant for Windows with wake word detection, speech recognition, and natural language processing",
   "main": "src/main/main.js",
   "scripts": {
     "start": "electron .",

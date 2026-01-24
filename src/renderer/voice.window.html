@@ -10,16 +10,38 @@
             margin: 0;
             padding: 0;
             box-sizing: border-box;
+            text-wrap: balance;
         }
+
 
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', Roboto, sans-serif;
-            background: transparent;
+            background: #00000024;
             overflow: hidden;
             width: 100vw;
             height: 100vh;
             cursor: pointer;
             color: white;
+            box-shadow: rgba(0, 85, 255, 0.3) 0px 30px 60px -12px inset, rgba(255, 0, 251, 0.25) 0px 18px 36px -18px inset;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0% {
+                box-shadow: rgba(0, 85, 255, 0.614) 0px 15px 60px -12px inset, rgba(255, 0, 251, 0.25) 0px 15px 36px -18px inset;
+            }
+
+            50% {
+                box-shadow: rgba(0, 85, 255, 0.6) 0px 30px 60px -12px inset, rgba(255, 0, 251, 0.5) 0px 18px 36px -18px inset;
+            }
+
+            90% {
+                box-shadow: rgba(255, 0, 251, 0.25) 0px 15px 60px -12px inset, rgba(0, 85, 255, 0.3) 0px 15px 36px -18px inset;
+            }
+
+            100% {
+                box-shadow: rgba(0, 85, 255, 0.614) 0px 15px 60px -12px inset, rgba(255, 0, 251, 0.25) 0px 15px 36px -18px inset;
+            }
         }
 
         #voice-screen {
@@ -840,7 +862,9 @@
             if (!text) return null;
             const lower = text.toLowerCase().trim();
 
-            if (lower.includes('cancel') || lower.includes('close') || lower.includes('never mind')) {
+            if (lower.includes('cancel') || lower.includes('close') || lower.includes('never mind') ||
+                lower.includes('stop') || lower.includes('exit') || lower.includes('dismiss') ||
+                lower.includes('forget it') || lower.includes('none of them')) {
                 return 'cancel';
             }
 
@@ -1016,9 +1040,17 @@
                 isSpeaking = false;
                 currentAudio = null;
 
-                if (currentVoiceResults.length > 0) {
+                // Only return to selection mode if we actually have results still visible
+                if (currentVoiceResults && currentVoiceResults.length > 0) {
                     setState(VoiceState.SHOWING_RESULTS);
-                    setTimeout(() => startListening(), 300);
+                    // Small delay to let user see the results list again if it was obscured
+                    setTimeout(() => {
+                        if (currentVoiceResults.length > 0) {
+                            startListening();
+                        } else {
+                            setState(VoiceState.IDLE);
+                        }
+                    }, 300);
                 } else if (shouldListenAgain) {
                     console.log('[VoiceWindow] Audio ended, shouldListenAgain=true');
                     shouldListenAgain = false;
@@ -1026,8 +1058,11 @@
                     setTimeout(() => startListening(), 200);
                 } else {
                     setState(VoiceState.IDLE);
+                    // Only auto-close if no results are pending
                     setTimeout(() => {
-                        if (currentVoiceResults.length === 0) window.voiceApi.send('auto-close-voice');
+                        if (!currentVoiceResults || currentVoiceResults.length === 0) {
+                            window.voiceApi.send('auto-close-voice');
+                        }
                     }, 1500);
                 }
             };
@@ -1079,8 +1114,27 @@
                 stopListening();
                 const selection = parseSelectionFromVoice(text);
                 if (selection === 'cancel') {
+                    // Properly cancel selection mode
+                    console.log('[VoiceWindow] Cancel detected - resetting state and closing');
+
+                    // Stop and cleanup any playing audio/karaoke
+                    if (currentAudio) {
+                        currentAudio.pause();
+                        currentAudio = null;
+                    }
+                    if (karaokeInterval) {
+                        clearInterval(karaokeInterval);
+                        karaokeInterval = null;
+                    }
+                    hideSubtitles();
+
                     hideVoiceResults();
-                    window.voiceApi.send('auto-close-voice');
+                    shouldListenAgain = false; // Prevent auto-listening
+                    awaitingAudio = false;     // Clear audio wait flag
+                    consecutiveListenCount = 0; // Reset counter
+                    setState(VoiceState.IDLE);
+                    // Close window after brief delay
+                    setTimeout(() => window.voiceApi.send('auto-close-voice'), 300);
                     return;
                 } else if (typeof selection === 'number') {
                     selectResult(selection);
@@ -1090,6 +1144,8 @@
 
             stopListening();
             setState(VoiceState.PROCESSING);
+            // Hide any previous results as we're starting a new query
+            hideVoiceResults();
             window.voiceApi.send('voice-query', { query: text, image: capturedImage });
         });
 
@@ -1168,12 +1224,12 @@
 
         document.body.addEventListener('click', (e) => {
             if (e.target.closest('#voice-results')) return;
-            stopListening();
-            hideVoiceResults();
-            if (currentAudio) { currentAudio.pause(); currentAudio = null; }
-            if (karaokeInterval) { clearInterval(karaokeInterval); karaokeInterval = null; }
-            hideSubtitles();
-            setState(VoiceState.IDLE);
+            // Immediate closure on background click
+            window.voiceApi.send('close-voice-window');
+        });
+
+        // Close on window blur (when user clicks another app)
+        window.addEventListener('blur', () => {
             window.voiceApi.send('close-voice-window');
         });
 

@@ -11,6 +11,7 @@ const SETTINGS_PATH = path.join(os.homedir(), ".venesa-settings.json");
 const DEFAULT_SETTINGS = {
   modelName: "gemini-2.5-flash",
   userName: "User",
+  openAtLogin: true,
 };
 
 // Track current API instances per key
@@ -21,10 +22,19 @@ function loadSettings() {
     if (fs.existsSync(SETTINGS_PATH)) {
       const data = fs.readFileSync(SETTINGS_PATH, "utf8").trim();
       if (data) {
-        return { ...DEFAULT_SETTINGS, ...JSON.parse(data) };
+        const saved = JSON.parse(data);
+        const settings = { ...DEFAULT_SETTINGS, ...saved };
+
+        // Final guard: Ensure modelName is never empty
+        if (!settings.modelName || settings.modelName.trim() === "") {
+          settings.modelName = DEFAULT_SETTINGS.modelName;
+        }
+
+        return settings;
       }
     }
   } catch (error) {
+    console.error("[LLM] Load settings error:", error);
     try {
       fs.unlinkSync(SETTINGS_PATH);
     } catch (e) { }
@@ -32,11 +42,14 @@ function loadSettings() {
   return DEFAULT_SETTINGS;
 }
 
-function saveSettings(settings) {
+function saveSettings(newSettings) {
   try {
-    fs.writeFileSync(SETTINGS_PATH, JSON.stringify(settings, null, 2));
+    const currentSettings = loadSettings();
+    const mergedSettings = { ...currentSettings, ...newSettings };
+    fs.writeFileSync(SETTINGS_PATH, JSON.stringify(mergedSettings, null, 2));
     return true;
   } catch (error) {
+    console.error("[LLM] Save settings error:", error);
     return false;
   }
 }
@@ -146,22 +159,22 @@ Use only when user asks about overall PC status.
 ## EXAMPLES OF CORRECT RESPONSES
 
 User: "find my resume"
-✅ "Searching for your resume. [action: searchFiles, query: resume]"
+Searching for your resume. [action: searchFiles, query: resume]
 
 User: "open Chrome"
-✅ "Opening Chrome. [action: launchApplication, appName: Chrome]"
+Opening Chrome. [action: launchApplication, appName: Chrome]
 
 User: "where are my photos"
-✅ "Looking for photos. [action: searchFiles, query: photos]"
+Looking for photos. [action: searchFiles, query: photos]
 
 User: (unclear/garbled speech)
-✅ "I didn't catch that. Could you say that again? [action: listen]"
+I didn't catch that. Could you say that again? [action: listen]
 
 User: "set volume to 50"
-✅ "Setting volume to 50. [action: systemControl, command: setVolume, value: 50]"
+Setting volume to 50. [action: systemControl, command: setVolume, value: 50]
 
 User: "what time is it"
-✅ "It's 9:46 PM."
+It's 9:46 PM.
 
 ## VOICE vs TEXT MODE
 
@@ -198,6 +211,9 @@ Only reference screen images if user asks about what's on screen. Otherwise igno
 function initializeAPI() {
   // Initialize the key pool from .env
   const initialized = keyPool.initialize();
+
+  // Clear cached instances to ensure new settings (like modelName) are picked up
+  apiInstances.clear();
 
   if (!initialized) {
     return false;
@@ -254,7 +270,7 @@ async function sendQuery(query, image = null, mode = 'text') {
   // Ensure pool is initialized
   if (!keyPool.isHealthy()) {
     if (!initializeAPI()) {
-      return "⚠️ No API keys configured. Add keys to the .env file.";
+      return "No API keys configured. Add keys to the .env file.";
     }
   }
 
@@ -339,10 +355,10 @@ async function sendQuery(query, image = null, mode = 'text') {
 
   // All keys exhausted or non-recoverable error
   if (lastError) {
-    return `⚠️ ${getErrorMessage(lastError)}`;
+    return `${getErrorMessage(lastError)}`;
   }
 
-  return "⚠️ All API keys are temporarily unavailable. Please wait and try again.";
+  return "All API keys are temporarily unavailable. Please wait and try again.";
 }
 
 /**

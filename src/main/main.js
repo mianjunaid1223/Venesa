@@ -26,13 +26,31 @@ let backgroundAudioWindow = null; // Hidden window for background mic
 const startHidden = process.argv.includes("--hidden");
 
 const WINDOW_WIDTH = 680;
-const MIN_HEIGHT = 53;
-const MAX_HEIGHT = 470;
+const MIN_HEIGHT = 60;
+const MAX_HEIGHT = 500;
+
+// Animation state - module level for access from createWindow blur handler
+const ANIMATION_DURATION = 150;
+const ANIMATION_STEPS = 12;
+let animationInProgress = false;
+let targetHeight = MIN_HEIGHT;
+let animationTimeout = null;
+
+const easeOutCubic = (t) => 1 - Math.pow(1 - t, 3);
+
+// Helper to cancel any ongoing animation
+const cancelAnimation = () => {
+  if (animationTimeout) {
+    clearTimeout(animationTimeout);
+    animationTimeout = null;
+  }
+  animationInProgress = false;
+};
 
 function createSetupWindow() {
   setupWindow = new BrowserWindow({
-    width: 450,
-    height: 550,
+    width: 420,
+    height: 380,
     frame: false,
     transparent: false,
     backgroundColor: "#e7e7fb",
@@ -100,6 +118,8 @@ function createWindow() {
   });
 
   mainWindow.on("blur", () => {
+    // Cancel any ongoing animation before hiding
+    cancelAnimation();
     const bounds = mainWindow.getBounds();
     mainWindow.setBounds({
       x: bounds.x,
@@ -209,14 +229,27 @@ app.whenReady().then(async () => {
     const success = gemini.saveSettings(settings);
     if (success) {
       gemini.initializeAPI();
+
+      // Update login settings if changed
+      if (settings.openAtLogin !== undefined) {
+        app.setLoginItemSettings({
+          openAtLogin: settings.openAtLogin,
+          path: app.getPath("exe"),
+          args: ["--hidden"],
+        });
+      }
+
       event.sender.send("settings-saved", true);
+
       if (setupWindow && !setupWindow.isDestroyed()) {
         setupWindow.removeAllListeners("blur");
         setupWindow.removeAllListeners("close");
         setupWindow.destroy();
         setupWindow = null;
+        if (!mainWindow || mainWindow.isDestroyed()) {
+          createWindow();
+        }
       }
-      createWindow();
     } else {
       event.sender.send("settings-saved", false);
     }
@@ -348,25 +381,10 @@ app.whenReady().then(async () => {
     }
   });
 
-  const ANIMATION_DURATION = 150;
-  const ANIMATION_STEPS = 12;
-
-  let animationInProgress = false;
-  let targetHeight = MIN_HEIGHT;
-  let animationTimeout = null;
-
-  const easeOutCubic = (t) => 1 - Math.pow(1 - t, 3);
 
   const animateWindowHeight = (fromHeight, toHeight) => {
-    // Prevent concurrent animations
-    if (animationInProgress) {
-      return;
-    }
-
-    if (animationTimeout) {
-      clearTimeout(animationTimeout);
-      animationTimeout = null;
-    }
+    // Cancel any in-progress animation to allow the new one
+    cancelAnimation();
 
     // Guard: ensure mainWindow exists and is not destroyed
     if (!mainWindow || mainWindow.isDestroyed()) {
@@ -381,8 +399,7 @@ app.whenReady().then(async () => {
     const animate = () => {
       // Check if window still exists
       if (!mainWindow || mainWindow.isDestroyed()) {
-        if (animationTimeout) clearTimeout(animationTimeout);
-        animationInProgress = false;
+        cancelAnimation();
         return;
       }
 
@@ -402,6 +419,7 @@ app.whenReady().then(async () => {
         animationTimeout = setTimeout(animate, stepDuration);
       } else {
         animationInProgress = false;
+        animationTimeout = null;
         if (mainWindow && !mainWindow.isDestroyed()) {
           mainWindow.setBounds({
             x: bounds.x,
@@ -480,14 +498,13 @@ app.whenReady().then(async () => {
 
     // Clicking outside (blur) or Esc hides the window
     voiceWindow.on("blur", () => {
-      // Small delay to prevent accidental closure on activation
+      // Snappier delay to close when clicking outside
       setTimeout(() => {
-        // Double check window still exists and is valid
         if (voiceWindow && !voiceWindow.isDestroyed() && voiceWindow.isVisible()) {
           console.log('[Main] hideVoiceWindow triggered by: blur event');
           hideVoiceWindow();
         }
-      }, 500);
+      }, 100);
     });
 
     voiceWindow.on("closed", () => {
@@ -726,11 +743,8 @@ app.whenReady().then(async () => {
           const displayResults = allResults.slice(0, 5);
 
           // Build spoken list
-          let listText = `I found ${totalCount} result${totalCount > 1 ? 's' : ''}. `;
-          displayResults.forEach((item, i) => {
-            listText += `${i + 1}, ${item.name}. `;
-          });
-          listText += "Which one do you want?";
+          let listText = `I found ${totalCount} result${totalCount > 1 ? 's' : ''}. Which one would you like me to open? Or just say “cancel” to dismiss it.`;
+
 
           finalResponse = listText;
           shouldListenAgain = true;
