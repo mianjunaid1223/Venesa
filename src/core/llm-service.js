@@ -112,6 +112,8 @@ USE THIS WHEN:
 - "search for photos" → [action: searchFiles, query: photos]
 - "find notes" → [action: searchFiles, query: notes]
 
+CRITICAL: Use ONLY the filename or direct keywords. Never include "my", "a", "the" unless it's part of the actual name.
+
 RESPONSE: "Searching for [term]." followed by the action tag.
 
 ### 2. LAUNCH an application

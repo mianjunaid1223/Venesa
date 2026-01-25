@@ -582,8 +582,8 @@ app.whenReady().then(async () => {
       voiceWindow.hide();
       sttService.stop();
 
-      // Send stop-listening to voice window to ensure mic is released
-      safeSendToVoice('stop-listening');
+      // Send auto-close-voice to voice window to ensure full reset
+      safeSendToVoice('auto-close-voice');
 
       // Resume wake word detection with a small delay to ensure voice window mic is released
       setTimeout(() => {
@@ -651,16 +651,31 @@ app.whenReady().then(async () => {
         imageToSend = payload.image || cachedScreenCapture;
       }
 
-      // Single Gemini request - AI decides intent and announces actions naturally
-      const rawResponse = await gemini.sendQuery(payload.query, imageToSend, 'voice');
+      let finalQuery = payload.query;
 
-      // Process response centrally (executes actions)
+      // If we have previous results (context), inject them into the query
+      if (payload.previousResults && Array.isArray(payload.previousResults)) {
+        const listStr = payload.previousResults.map(r => `${r.index}. ${r.name} (${r.type})`).join(', ');
+        finalQuery = `[CONTEXT: User is viewing these search results: ${listStr}] User said: "${payload.query}"
+        
+        INSTRUCTION: 
+        1. If user selects an item (by number like "one", "2", or name like "open resume", or position "the first one"), return [action: openFile, filePath: <path_from_list>] or [action: launchApplication, appName: <name_from_list>].
+        2. If user says "cancel" or "close", return "No Problem!" and NO action.
+        3. If user asks something new (e.g. "what is the weather"), ignore the list and answer the new question.
+        
+        Hidden paths data for your reference:
+        ${JSON.stringify(payload.previousResults.map(r => ({ index: r.index, path: r.path })))}`;
+      }
+
+      const rawResponse = await gemini.sendQuery(finalQuery, imageToSend, 'voice');
+      console.log('[Main] Voice query:', payload.query);
+      console.log('[Main] Raw Gemini response:', rawResponse);
+
       const { cleanResponse, results } = await taskExecutor.processResponse(rawResponse);
+      console.log('[Main] Parsed results:', JSON.stringify(results));
 
-      // Clean up any [NEED_SCREEN] tags from cleanResponse
       let finalResponse = cleanResponse.replace(/\[NEED_SCREEN\]/g, '').trim();
 
-      // Track state for search results and listen action
       let hasSearchResults = false;
       let searchResultData = null;
       let shouldListenAgain = false;
@@ -705,58 +720,27 @@ app.whenReady().then(async () => {
         const folders = searchResultData.folders || [];
         const totalCount = apps.length + files.length + folders.length;
 
-        if (totalCount === 1) {
-          // Single result - auto-open with confirmation
-          let itemName = '';
-          let itemType = '';
+        const allResults = [];
+        apps.forEach(app => allResults.push({ name: app.name, type: 'app', data: app }));
+        folders.forEach(folder => allResults.push({ name: path.basename(folder), type: 'folder', data: folder }));
+        files.forEach(file => allResults.push({ name: path.basename(file), type: 'file', data: file }));
+        const displayResults = allResults.slice(0, 5);
 
-          if (apps.length === 1) {
-            const app = apps[0];
-            itemName = app.name;
-            itemType = 'app';
-            if (app.path) {
-              shell.openPath(app.path);
-            }
-          } else if (folders.length === 1) {
-            const folderPath = path.isAbsolute(folders[0]) ? folders[0] : path.join(os.homedir(), folders[0]);
-            itemName = path.basename(folders[0]);
-            itemType = 'folder';
-            shell.openPath(folderPath);
-          } else if (files.length === 1) {
-            const filePath = path.isAbsolute(files[0]) ? files[0] : path.join(os.homedir(), files[0]);
-            itemName = path.basename(files[0]);
-            itemType = 'file';
-            shell.openPath(filePath);
-          }
+        // ALWAYS send results to UI to match "textmode pipeline"
+        if (!event.sender.isDestroyed()) {
+          event.sender.send("voice-search-results", {
+            results: displayResults,
+            totalCount,
+            waitingForSelection: true
+          });
+        }
 
-          finalResponse = `Opening ${itemName}.`;
-
-        } else if (totalCount > 1) {
-          // Multiple results - list them and ask user to choose
-          const allResults = [];
-
-          apps.forEach(app => allResults.push({ name: app.name, type: 'app', data: app }));
-          folders.forEach(folder => allResults.push({ name: path.basename(folder), type: 'folder', data: folder }));
-          files.forEach(file => allResults.push({ name: path.basename(file), type: 'file', data: file }));
-
-          // Limit to first 5 for voice selection
-          const displayResults = allResults.slice(0, 5);
-
-          // Build spoken list
-          let listText = `I found ${totalCount} result${totalCount > 1 ? 's' : ''}. Which one would you like me to open? Or just say “cancel” to dismiss it.`;
-
-
-          finalResponse = listText;
+        // Set response but let the UI show the results
+        if (totalCount > 0) {
+          finalResponse = `I found ${totalCount} match${totalCount > 1 ? 'es' : ''}. Which one would you like?`;
           shouldListenAgain = true;
-
-          // Store results for selection (attach to voice window)
-          if (!event.sender.isDestroyed()) {
-            event.sender.send("voice-search-results", {
-              results: displayResults,
-              totalCount,
-              waitingForSelection: true
-            });
-          }
+        } else {
+          finalResponse = "I couldn't find any matching files or apps.";
         }
       }
 
@@ -773,7 +757,16 @@ app.whenReady().then(async () => {
         });
       }
 
-      // Handle listen action - signal voice window to continue listening
+      const cancelRegex = /\b(cancelled|closing|cancel)\b|no problem!?/i;
+      if (cancelRegex.test(finalResponse)) {
+        shouldListenAgain = false;
+        setTimeout(() => {
+          if (voiceWindow && !voiceWindow.isDestroyed()) {
+            hideVoiceWindow();
+          }
+        }, 1500); // Close after speaking
+      }
+
       if (shouldListenAgain && !event.sender.isDestroyed()) {
         event.sender.send("continue-listening");
       }
@@ -821,6 +814,114 @@ app.whenReady().then(async () => {
         safeSend('stt-partial-result', text);
       }
     });
+  });
+
+  // Handle file selection from voice window - send to Gemini with context
+  ipcMain.on("voice-file-action", async (event, payload) => {
+    try {
+      if (!payload || !payload.selectedItem || typeof payload.selectedItem !== 'object') {
+        console.error('[Main] Invalid voice-file-action payload');
+        if (!event.sender.isDestroyed()) {
+          event.sender.send("voice-response", { text: "Error: Invalid selection data", audio: null });
+        }
+        return;
+      }
+
+      const { originalQuery, selectedItem } = payload;
+      if (process.env.DEBUG) {
+        console.log('[Main] voice-file-action received');
+      }
+
+      // Build context for Gemini to determine action
+      const contextQuery = `The user said "${originalQuery}" and selected a ${selectedItem.type} named "${selectedItem.name}". The full path is "${selectedItem.path}". Based on the original request, what action should I take? If the user was searching for something to open/launch, open it. If they wanted to find/locate it, show it in the folder. Respond with the action to take.`;
+
+      // Ask Gemini what action to perform
+      const rawResponse = await gemini.sendQuery(contextQuery, null, 'voice');
+      const { cleanResponse, results } = await taskExecutor.processResponse(rawResponse);
+
+      let actionTaken = false;
+      let finalResponse = cleanResponse;
+
+      // Check if Gemini returned an action, otherwise default to opening
+      if (results && results.length > 0) {
+        for (const res of results) {
+          if (res.actionName === 'openFile' || res.actionName === 'launchApplication') {
+            actionTaken = true;
+            break;
+          }
+        }
+      }
+
+      // If no specific action was taken by Gemini, default to opening the item
+      if (!actionTaken) {
+        let openError = '';
+        if (selectedItem.type === 'app') {
+          if (selectedItem.data && selectedItem.data.path) {
+            openError = await shell.openPath(selectedItem.data.path);
+          } else {
+            try {
+              const launchResult = await taskExecutor.launchApplication(selectedItem.name);
+              // Use returned error message if available, as launchApplication might return strings like "Error ..."
+              if (launchResult && (launchResult.startsWith('Error') || launchResult.startsWith('Could not'))) {
+                openError = launchResult;
+              }
+            } catch (err) {
+              openError = err.message || "Failed to launch application";
+            }
+          }
+          if (!openError) finalResponse = `Opening ${selectedItem.name}.`;
+        } else if (selectedItem.type === 'folder') {
+          const folderPath = path.isAbsolute(selectedItem.path)
+            ? selectedItem.path
+            : path.join(os.homedir(), selectedItem.path);
+          openError = await shell.openPath(folderPath);
+          if (!openError) finalResponse = `Opening ${selectedItem.name}.`;
+        } else if (selectedItem.type === 'file') {
+          const filePath = path.isAbsolute(selectedItem.path)
+            ? selectedItem.path
+            : path.join(os.homedir(), selectedItem.path);
+          openError = await shell.openPath(filePath);
+          if (!openError) finalResponse = `Opening ${selectedItem.name}.`;
+        }
+
+        if (openError) {
+          console.error('[Main] Failed to open path:', openError);
+          finalResponse = `I couldn't open that item.`;
+        }
+      }
+
+      // Send response to voice window
+      if (!event.sender.isDestroyed()) {
+        event.sender.send("voice-response", {
+          text: finalResponse,
+          audio: null
+        });
+      }
+
+      // Synthesize TTS
+      if (ttsService.isAvailable() && finalResponse.length > 0) {
+        ttsService.synthesizeToDataURL(finalResponse)
+          .then(audioDataUrl => {
+            if (!event.sender.isDestroyed()) {
+              event.sender.send("voice-audio-ready", audioDataUrl);
+            }
+          })
+          .catch(ttsError => { });
+      }
+
+      // Auto close after action
+      setTimeout(() => {
+        if (voiceWindow && !voiceWindow.isDestroyed()) {
+          hideVoiceWindow();
+        }
+      }, 2000);
+
+    } catch (error) {
+      console.error('[Main] voice-file-action error:', error);
+      if (!event.sender.isDestroyed()) {
+        event.sender.send("voice-response", { text: `Error: ${error.message}`, audio: null });
+      }
+    }
   });
 
   // Handle voice audio from voice window for ElevenLabs STT

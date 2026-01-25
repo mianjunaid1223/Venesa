@@ -699,6 +699,7 @@
         const MAX_CONSECUTIVE_LISTENS = 3;
         let consecutiveListenCount = 0;
         let currentVoiceResults = [];
+        let originalQuery = ''; // Store the original user query for context
 
 
         const statusEl = document.getElementById('status');
@@ -836,21 +837,29 @@
             hideVoiceResults();
             const data = selected.data;
 
+            // Get the file/folder/app name and path for context
+            let itemName = '';
+            let itemPath = '';
+
             if (selected.type === 'app') {
-                if (typeof data === 'object' && data.path) {
-                    window.voiceApi.send('launch-app', data);
-                } else if (typeof data === 'object' && data.name) {
-                    window.voiceApi.send('launch-app', { name: data.name, path: data.path || '' });
-                } else {
-                    window.voiceApi.send('launch-app', { name: String(data), path: typeof data === 'string' ? data : '' });
-                }
-            } else if (selected.type === 'folder') {
-                window.voiceApi.send('open-folder', typeof data === 'string' ? data : (data.path || data.name || ''));
-            } else if (selected.type === 'file') {
-                window.voiceApi.send('open-file', typeof data === 'string' ? data : (data.path || data.name || ''));
+                itemName = typeof data === 'object' ? data.name : String(data);
+                itemPath = typeof data === 'object' ? (data.path || '') : '';
+            } else if (selected.type === 'folder' || selected.type === 'file') {
+                itemPath = typeof data === 'string' ? data : (data.path || data.name || '');
+                itemName = itemPath.split(/[\\/]/).pop();
             }
 
-            setTimeout(() => window.voiceApi.send('auto-close-voice'), 500);
+            // Send to Gemini with context for smart action determination
+            setState(VoiceState.PROCESSING);
+            window.voiceApi.send('voice-file-action', {
+                originalQuery: originalQuery,
+                selectedItem: {
+                    type: selected.type,
+                    name: itemName,
+                    path: itemPath,
+                    data: data
+                }
+            });
         }
 
         function hideVoiceResults() {
@@ -858,23 +867,42 @@
             currentVoiceResults = [];
         }
 
-        function parseSelectionFromVoice(text) {
-            if (!text) return null;
-            const lower = text.toLowerCase().trim();
+        // Full reset - stop all audio, clear state, prepare for silent close
+        function fullReset() {
+            console.log('[VoiceWindow] Full reset - stopping all audio and clearing state');
 
-            if (lower.includes('cancel') || lower.includes('close') || lower.includes('never mind') ||
-                lower.includes('stop') || lower.includes('exit') || lower.includes('dismiss') ||
-                lower.includes('forget it') || lower.includes('none of them')) {
-                return 'cancel';
+            // Stop listening
+            stopListening();
+
+            // Stop any playing audio
+            if (currentAudio) {
+                currentAudio.pause();
+                currentAudio.src = '';
+                currentAudio = null;
             }
 
-            const numMatch = lower.match(/\b(one|two|three|four|five|six|seven|eight|nine|ten|\d)\b/);
-            if (numMatch) {
-                const wordToNum = { one: 1, two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, eight: 8, nine: 9, ten: 10 };
-                const num = wordToNum[numMatch[1]] || parseInt(numMatch[1]);
-                if (num >= 1 && num <= currentVoiceResults.length) return num;
+            // Clear karaoke
+            if (karaokeInterval) {
+                clearInterval(karaokeInterval);
+                karaokeInterval = null;
             }
-            return null;
+            hideSubtitles();
+
+            // Clear state
+            isSpeaking = false;
+            awaitingAudio = false;
+            shouldListenAgain = false;
+            consecutiveListenCount = 0;
+            words = [];
+            wordSpans = [];
+            originalQuery = '';
+
+            // Hide results
+            hideVoiceResults();
+
+            // Reset visual state
+            setState(VoiceState.IDLE);
+            partialEl.textContent = '';
         }
 
         // ===== SMOOTH KARAOKE SUBTITLES =====
@@ -1112,40 +1140,36 @@
 
             if (currentState === VoiceState.AWAITING_SELECTION && currentVoiceResults.length > 0) {
                 stopListening();
-                const selection = parseSelectionFromVoice(text);
-                if (selection === 'cancel') {
-                    // Properly cancel selection mode
-                    console.log('[VoiceWindow] Cancel detected - resetting state and closing');
 
-                    // Stop and cleanup any playing audio/karaoke
-                    if (currentAudio) {
-                        currentAudio.pause();
-                        currentAudio = null;
-                    }
-                    if (karaokeInterval) {
-                        clearInterval(karaokeInterval);
-                        karaokeInterval = null;
-                    }
-                    hideSubtitles();
+                // Don't parse locally anymore - let AI handle it
+                // We send the current context (results list) so AI knows what "the second one" refers to
+                setState(VoiceState.PROCESSING);
 
-                    hideVoiceResults();
-                    shouldListenAgain = false; // Prevent auto-listening
-                    awaitingAudio = false;     // Clear audio wait flag
-                    consecutiveListenCount = 0; // Reset counter
-                    setState(VoiceState.IDLE);
-                    // Close window after brief delay
-                    setTimeout(() => window.voiceApi.send('auto-close-voice'), 300);
-                    return;
-                } else if (typeof selection === 'number') {
-                    selectResult(selection);
-                    return;
-                }
+                // Prepare context about what's on screen
+                const resultsContext = currentVoiceResults.map((item, index) => ({
+                    index: index + 1,
+                    name: item.data.name || item.data,
+                    type: item.type,
+                    path: typeof item.data === 'string' ? item.data : (item.data.path || '')
+                }));
+
+                window.voiceApi.send('voice-query', {
+                    query: text,
+                    image: capturedImage,
+                    previousResults: resultsContext // Send context to main process
+                });
+
+                // Hide results immediately to show we are processing
+                hideVoiceResults();
+                return;
             }
 
             stopListening();
             setState(VoiceState.PROCESSING);
             // Hide any previous results as we're starting a new query
             hideVoiceResults();
+            // Store the original query for context when user selects a file
+            originalQuery = text;
             window.voiceApi.send('voice-query', { query: text, image: capturedImage });
         });
 
@@ -1220,16 +1244,24 @@
 
         window.voiceApi.receive('stop-listening', () => stopListening());
 
+        window.voiceApi.receive('auto-close-voice', () => {
+            console.log('[VoiceWindow] Received auto-close-voice from main');
+            fullReset();
+        });
+
         document.getElementById('voice-results').addEventListener('click', e => e.stopPropagation());
 
         document.body.addEventListener('click', (e) => {
             if (e.target.closest('#voice-results')) return;
-            // Immediate closure on background click
+            // Reset everything and close immediately
+            fullReset();
             window.voiceApi.send('close-voice-window');
         });
 
         // Close on window blur (when user clicks another app)
         window.addEventListener('blur', () => {
+            // Reset everything, stop any audio, close silently
+            fullReset();
             window.voiceApi.send('close-voice-window');
         });
 

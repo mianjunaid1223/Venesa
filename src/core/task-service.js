@@ -145,79 +145,73 @@ async function searchFilesAndFolders(query, maxResults = 20) {
   const folders = [];
   const files = [];
 
-  const escapedPsQuery = escapePowerShellQuery(query);
+  const lowerQuery = query.toLowerCase();
+  const searchDirs = [
+    path.join(HOME_DIR, 'Desktop'),
+    path.join(HOME_DIR, 'Documents'),
+    path.join(HOME_DIR, 'Downloads'),
+    path.join(HOME_DIR, 'Pictures'),
+    path.join(HOME_DIR, 'Music'),
+    path.join(HOME_DIR, 'Videos'),
+    path.join(HOME_DIR, 'OneDrive', 'Desktop'),
+    path.join(HOME_DIR, 'OneDrive', 'Documents')
+  ];
 
-  // Fast direct search - limited depth, focused on common user folders
-  const psScript = `
-$ErrorActionPreference = 'SilentlyContinue'
-$searchTerm = '${escapedPsQuery}'
-$results = @()
+  let foundCount = 0;
 
-# Search in common user folders with depth limit for speed
-$searchPaths = @(
-    "$env:USERPROFILE\\Desktop",
-    "$env:USERPROFILE\\Documents",
-    "$env:USERPROFILE\\Downloads",
-    "$env:USERPROFILE\\Pictures",
-    "$env:USERPROFILE\\Videos",
-    "$env:USERPROFILE\\Music",
-    "$env:USERPROFILE\\OneDrive\\Desktop",
-    "$env:USERPROFILE\\OneDrive\\Documents",
-    "$env:USERPROFILE\\OneDrive"
-)
+  // Helper for recursive search with depth limit
+  // Note: foundCount is shared state, serialization happens in consumer
+  const searchDir = async (dir, depth) => {
 
-$maxCount = ${maxResults}
+    if (foundCount >= maxResults || depth > 2) return;
+    try {
+      if (!fs.existsSync(dir)) return;
 
-foreach ($sp in $searchPaths) {
-    if ((Test-Path $sp) -and ($results.Count -lt $maxCount)) {
-        $remaining = $maxCount - $results.Count
-        # First search top level (fast)
-        $found = Get-ChildItem -Path $sp -ErrorAction SilentlyContinue |
-            Where-Object { $_.Name -like "*$searchTerm*" } |
-            Select-Object -First $remaining
-        foreach ($f in $found) {
-            $results += @{ name = $f.Name; path = $f.FullName; isDir = $f.PSIsContainer }
+      const contents = await fs.promises.readdir(dir, { withFileTypes: true });
+
+      for (const dirent of contents) {
+        if (foundCount >= maxResults) break;
+
+        const fullPath = path.join(dir, dirent.name);
+        const name = dirent.name;
+
+        // Skip hidden files/folders
+        if (name.startsWith('.') || name.startsWith('$')) continue;
+
+        if (name.toLowerCase().includes(lowerQuery)) {
+          if (dirent.isDirectory()) {
+            folders.push(getRelativePath(fullPath));
+          } else {
+            files.push(getRelativePath(fullPath));
+          }
+          foundCount++;
         }
-        
-        # Then search two levels deep if we need more
-        if ($results.Count -lt $maxCount) {
-            $remaining = $maxCount - $results.Count
-            $found = Get-ChildItem -Path $sp -Recurse -Depth 4 -ErrorAction SilentlyContinue |
-                Where-Object { $_.Name -like "*$searchTerm*" } |
-                Select-Object -First $remaining
-            foreach ($f in $found) {
-                $results += @{ name = $f.Name; path = $f.FullName; isDir = $f.PSIsContainer }
-            }
+
+        // Recurse if directory
+        if (dirent.isDirectory()) {
+          await searchDir(fullPath, depth + 1);
         }
+      }
+    } catch (e) {
+      // Ignore permission denied etc
     }
-}
-
-if ($results.Count -eq 0) {
-    Write-Output "[]"
-} else {
-    $results | ConvertTo-Json -Compress
-}
-`;
+  };
 
   try {
-    console.log('[TaskService] Searching for:', query);
-    const output = await runPowerShell(psScript, 8000); // 8 second timeout for search
-    console.log('[TaskService] Search output length:', output ? output.length : 0);
-    if (output && output !== "null" && output !== "[]") {
-      const parsed = JSON.parse(output);
-      const items = Array.isArray(parsed) ? parsed : [parsed];
-      items.forEach(item => {
-        if (item && item.path) {
-          const isFolder = item.isDir === true || item.isDir === "True";
-          if (isFolder) folders.push(getRelativePath(item.path));
-          else files.push(getRelativePath(item.path));
-        }
-      });
+    if (process.env.DEBUG) {
+      console.log('[TaskService] Starting native Node.js search for:', query);
     }
-    console.log(`[TaskService] Search complete: ${files.length} files, ${folders.length} folders`);
+    // Serialized execution to prevent race conditions on foundCount
+    for (const dir of searchDirs) {
+      await searchDir(dir, 0);
+    }
+    if (process.env.DEBUG) {
+      console.log(`[TaskService] Search complete: ${files.length} files, ${folders.length} folders`);
+    }
   } catch (e) {
-    console.error('[TaskService] File search error:', e.message);
+    console.error('[TaskService] Node search error:', e.message);
   }
+
   return { files, folders };
 }
 
@@ -264,10 +258,19 @@ async function launchApplication(appName) {
 function openFile(filePath) {
   return new Promise((resolve, reject) => {
     try {
-      const resolvedPath = path.resolve(path.join(HOME_DIR, filePath));
+      const resolvedPath = path.isAbsolute(filePath) ? filePath : path.resolve(path.join(HOME_DIR, filePath));
       const canonicalHome = path.resolve(HOME_DIR);
 
-      if (!resolvedPath.startsWith(canonicalHome + path.sep) && resolvedPath !== canonicalHome) {
+      const normalizedPath = path.normalize(resolvedPath).toLowerCase();
+      const normalizedHome = path.normalize(canonicalHome).toLowerCase();
+      const homePrefix = path.normalize(canonicalHome + path.sep).toLowerCase();
+
+      // Platform aware system checks (Windows)
+      let isAllowed = false;
+      // Strict security: Broad allowlist removed. Access restricted to Home Directory by homepage below.
+
+      // Allow if system path OR inside home directory
+      if (!isAllowed && normalizedPath !== normalizedHome && !normalizedPath.startsWith(homePrefix)) {
         reject(new Error(`Access denied: path escapes home directory`));
         return;
       }
@@ -300,16 +303,35 @@ async function processResponse(response) {
     const params = {};
 
     if (paramsStr) {
-      paramsStr.split(',').forEach(pair => {
-        const [key, ...valParts] = pair.split(':');
-        if (key && valParts.length) {
-          let val = valParts.join(':').trim();
-          if ((val.startsWith('"') && val.endsWith('"')) || (val.startsWith("'") && val.endsWith("'"))) {
-            val = val.slice(1, -1);
-          }
-          params[key.trim()] = val;
+      // Improved parameter parsing to handle values with commas
+      // Capture key: value pairs non-greedily until the next key or end of string
+      const paramRegex = /(\w+):\s*(.+?)(?=\s*,\s*\w+:|$)/g;
+      let pMatch;
+      while ((pMatch = paramRegex.exec(paramsStr)) !== null) {
+        const key = pMatch[1].trim();
+        let val = pMatch[2].trim();
+        // Remove trailing comma if captured
+        if (val.endsWith(',')) val = val.slice(0, -1).trim();
+
+        if ((val.startsWith('"') && val.endsWith('"')) || (val.startsWith("'") && val.endsWith("'"))) {
+          val = val.slice(1, -1);
         }
-      });
+        params[key] = val;
+      }
+
+      // Fallback for cases where regex might fail but simple split works
+      if (Object.keys(params).length === 0 && paramsStr.includes(':')) {
+        paramsStr.split(',').forEach(pair => {
+          const [key, ...valParts] = pair.split(':');
+          if (key && valParts.length) {
+            let val = valParts.join(':').trim();
+            if ((val.startsWith('"') && val.endsWith('"')) || (val.startsWith("'") && val.endsWith("'"))) {
+              val = val.slice(1, -1);
+            }
+            params[key.trim()] = val;
+          }
+        });
+      }
     }
 
     executionPromises.push((async () => {

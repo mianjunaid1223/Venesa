@@ -64,7 +64,7 @@ venesa/
 ├── models/
 │   ├── melspectrogram.onnx            # Converts audio to mel spectrogram
 │   ├── embedding_model.onnx           # Generates audio embeddings
-│   ├── hey_Venessa.onnx               # Wake word classifier
+│   ├── hey_vuh_ness_uh.onnx               # Wake word classifier
 │   └── hey_Venessa.tflite             # Alternative wake word model
 ├── assets/
 │   └── logo.png

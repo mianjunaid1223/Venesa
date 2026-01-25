@@ -16,7 +16,8 @@ contextBridge.exposeInMainWorld('voiceApi', {
             'open-file',
             'open-folder',
             'launch-app',
-            'restart-stt'
+            'restart-stt',
+            'voice-file-action'
         ];
         if (validChannels.includes(channel)) {
             ipcRenderer.send(channel, data);
@@ -34,7 +35,8 @@ contextBridge.exposeInMainWorld('voiceApi', {
             'play-sound',
             'stt-result',
             'stt-partial-result',
-            'voice-audio-ready'
+            'voice-audio-ready',
+            'auto-close-voice'
         ];
         if (validChannels.includes(channel)) {
             // Verify func is a function before registering
@@ -44,11 +46,10 @@ contextBridge.exposeInMainWorld('voiceApi', {
             }
             const handler = (event, ...args) => func(...args);
             ipcRenderer.on(channel, handler);
-            // Return unsubscribe function
             return () => {
                 ipcRenderer.removeListener(channel, handler);
             };
         }
-        return () => { }; // Return no-op if invalid channel
+        return () => { };
     }
 });

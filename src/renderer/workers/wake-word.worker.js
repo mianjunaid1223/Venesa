@@ -4,7 +4,7 @@
  * 
  * Pipeline:
  * [Audio 1280 samples] -> melspectrogram.onnx -> transform -> buffer (76 frames)
- * -> embedding_model.onnx -> buffer (16 embeddings) -> hey_Venessa.onnx -> score
+ * -> embedding_model.onnx -> buffer (16 embeddings) -> hey_vuh_ness_uh.onnx -> score
  */
 
 importScripts('https://cdn.jsdelivr.net/npm/onnxruntime-web@1.17.0/dist/ort.min.js');

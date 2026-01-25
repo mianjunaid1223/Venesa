@@ -14,7 +14,7 @@ const DEBOUNCE_MS = 2000;
 const MODELS_DIR = path.join(__dirname, '../../models');
 const MELSPEC_MODEL = path.join(MODELS_DIR, 'melspectrogram.onnx');
 const EMBEDDING_MODEL = path.join(MODELS_DIR, 'embedding_model.onnx');
-const WAKEWORD_MODEL = path.join(MODELS_DIR, 'hey_Venessa.onnx');
+const WAKEWORD_MODEL = path.join(MODELS_DIR, 'hey_vuh_ness_uh.onnx');
 
 function modelsExist() {
     return fs.existsSync(MELSPEC_MODEL) &&
