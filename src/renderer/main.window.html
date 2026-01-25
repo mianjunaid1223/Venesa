@@ -796,6 +796,54 @@
             box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.1);
         }
 
+        .shake-animation {
+            animation: shake 0.4s ease-in-out;
+        }
+
+        @keyframes shake {
+
+            0%,
+            100% {
+                transform: translateX(0);
+            }
+
+            25% {
+                transform: translateX(-5px);
+            }
+
+            50% {
+                transform: translateX(5px);
+            }
+
+            75% {
+                transform: translateX(-5px);
+            }
+        }
+
+        .shake-animation {
+            animation: shake 0.4s ease-in-out;
+        }
+
+        @keyframes shake {
+
+            0%,
+            100% {
+                transform: translateX(0);
+            }
+
+            25% {
+                transform: translateX(-5px);
+            }
+
+            50% {
+                transform: translateX(5px);
+            }
+
+            75% {
+                transform: translateX(-5px);
+            }
+        }
+
         .checkbox-group {
             margin-top: 4px;
         }
@@ -2050,9 +2098,37 @@
 
         saveSettingsBtn.addEventListener("click", () => {
             const settingsAutoStart = document.getElementById("settingsAutoStart");
+            const nameVal = settingsUserName.value.trim();
+
+            // Validate forbidden names
+            if (nameVal.toLowerCase() === "user") {
+                // Show temporary error feedback by shaking the input or similar
+                settingsUserName.style.borderColor = "var(--accent2)";
+                settingsUserName.classList.add("shake-animation"); // Assuming CSS class or just style
+
+                // Reset style after animation
+                setTimeout(() => {
+                    settingsUserName.style.borderColor = "var(--border-subtle)";
+                    settingsUserName.classList.remove("shake-animation");
+                }, 500);
+
+                // Ideally show a message, but for minimal changes we just block it
+                // Or update the saved success message to be an error
+                settingsSaved.textContent = "Please choose a specific name.";
+                settingsSaved.style.color = "#ef788c"; // Error color
+                settingsSaved.classList.add("visible");
+
+                setTimeout(() => {
+                    settingsSaved.classList.remove("visible");
+                    settingsSaved.textContent = "Settings saved successfully!"; // Restore default text
+                    settingsSaved.style.color = "#10b981"; // Restore success color
+                }, 2000);
+
+                return;
+            }
 
             const settings = {
-                userName: settingsUserName.value.trim() || "User",
+                userName: nameVal || "Venesa User",
                 openAtLogin: settingsAutoStart ? settingsAutoStart.checked : true
             };
 

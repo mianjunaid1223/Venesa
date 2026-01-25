@@ -22,7 +22,7 @@ const DOCUMENT_EXTENSIONS = new Set([
 
 
 
-const POWERSHELL_TIMEOUT_MS = 10000; // 10 second timeout
+const POWERSHELL_TIMEOUT_MS = 20000; // 20 second timeout
 
 function runPowerShell(script, timeoutMs = POWERSHELL_TIMEOUT_MS) {
   return new Promise((resolve, reject) => {

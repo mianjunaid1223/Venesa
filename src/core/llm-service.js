@@ -55,12 +55,15 @@ function saveSettings(newSettings) {
 }
 
 function needsSetup() {
-  // Initialize key pool if not already done
-  if (!keyPool.isHealthy()) {
-    keyPool.initialize();
+  const settings = loadSettings();
+  const userName = settings.userName;
+
+  // Needs setup if userName is missing, empty, or default "User"
+  if (!userName || userName.trim() === "" || userName.trim().toLowerCase() === "user") {
+    return true;
   }
-  // Setup is needed only if no API keys are available
-  return !keyPool.isHealthy();
+
+  return false;
 }
 
 function getSettings() {

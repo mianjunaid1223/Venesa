@@ -50,7 +50,7 @@ const cancelAnimation = () => {
 function createSetupWindow() {
   setupWindow = new BrowserWindow({
     width: 420,
-    height: 380,
+    height: 550,
     frame: false,
     transparent: false,
     backgroundColor: "#e7e7fb",
@@ -248,6 +248,10 @@ app.whenReady().then(async () => {
         setupWindow = null;
         if (!mainWindow || mainWindow.isDestroyed()) {
           createWindow();
+
+          // Initialize voice services after setup
+          sttService.initialize();
+          startBackgroundWakeWordDetection();
         }
       }
     } else {
