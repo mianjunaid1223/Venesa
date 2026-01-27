@@ -159,8 +159,9 @@ app.whenReady().then(async () => {
     });
   }
 
-  // Initialize API key pool at startup (no validation - validate lazily on first use)
-  gemini.initializeAPI();
+  // Initialize API key pool at startup (VALIDATE FIRST before showing UI)
+  // This ensures keys are checked once at startup as requested
+  await gemini.initializeAPI();
 
   if (gemini.needsSetup()) {
     createSetupWindow();

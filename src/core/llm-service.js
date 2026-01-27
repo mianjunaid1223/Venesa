@@ -161,6 +161,15 @@ Commands: volumeUp, volumeDown, volumeMute, setVolume, brightnessUp, brightnessD
 \`[action: getSystemInfo]\`
 Use only when user asks about overall PC status.
 
+### 8. DISMISS / STOP LISTENING
+
+USE THIS WHEN:
+- User says "shut up", "cancel", "stop", "nothing", "nevermind", "quiet", "exit"
+- User indicates they activated you by mistake
+- User is clearly done talking
+
+RESPONSE: "Okay." or "Understood." followed by no action.
+
 ## EXAMPLES OF CORRECT RESPONSES
 
 User: "find my resume"
@@ -214,18 +223,9 @@ Only reference screen images if user asks about what's on screen. Otherwise igno
 }
 
 function initializeAPI() {
-  // Initialize the key pool from .env
-  const initialized = keyPool.initialize();
-
-  // Clear cached instances to ensure new settings (like modelName) are picked up
   apiInstances.clear();
-
-  if (!initialized) {
-    return false;
-  }
-
-  currentSettings = loadSettings();
-  return true;
+  // Initialize the key pool from .env
+  return keyPool.initialize();
 }
 
 function getErrorMessage(error) {
@@ -233,11 +233,6 @@ function getErrorMessage(error) {
   const message = error.message || "";
 
   if (status === 429 || message.includes("429") || message.includes("quota")) {
-    const retryMatch = message.match(/retry in ([\d.]+)/i);
-    if (retryMatch) {
-      const seconds = Math.ceil(parseFloat(retryMatch[1]));
-      return `Rate limit reached. Trying another key... (wait ${seconds}s if all keys exhausted)`;
-    }
     return "Rate limit reached. Switching to next available key...";
   }
 
@@ -245,20 +240,8 @@ function getErrorMessage(error) {
     return "Invalid API key detected and removed. Trying next key...";
   }
 
-  if (status === 404 || message.includes("not found")) {
-    return "Model not found. Please check the model name in settings.";
-  }
-
-  if (message.includes("fetch") || message.includes("network") || message.includes("ENOTFOUND")) {
-    return "Network error. Please check your internet connection.";
-  }
-
-  if (message.includes("safety") || message.includes("blocked")) {
-    return "Response blocked by safety filters. Please try a different query.";
-  }
-
   if (status >= 500) {
-    return "Gemini server error. Please try again later.";
+    return "Gemini connection error. Please try again later.";
   }
 
   return "Something went wrong. Please try again.";
@@ -272,24 +255,16 @@ function getErrorMessage(error) {
  * @returns {Promise<string>} The AI response
  */
 async function sendQuery(query, image = null, mode = 'text') {
-  // Ensure pool is initialized
-  if (!keyPool.isHealthy()) {
-    if (!initializeAPI()) {
-      return "No API keys configured. Add keys to the .env file.";
-    }
-  }
-
   // Add mode context to query for AI awareness
   const contextualQuery = mode === 'voice'
     ? `[USER SPOKE VIA VOICE] ${query}`
     : `[USER TYPED IN TEXT MODE] ${query}`;
 
-  const maxRetries = keyPool.getAvailableKeyCount();
+  const maxRetries = 3; // Try up to 3 keys if failures happen
   let lastError = null;
 
-  // Try up to the number of available keys
   for (let attempt = 0; attempt < maxRetries; attempt++) {
-    const apiKey = keyPool.getNextKey();
+    const apiKey = keyPool.getNextKey('gemini');
 
     if (!apiKey) {
       break; // No more keys available
@@ -302,68 +277,55 @@ async function sendQuery(query, image = null, mode = 'text') {
       if (image) {
         // Validate image is a proper data URL
         if (!image.startsWith('data:') || !image.includes(';base64,')) {
-          console.error('[LLM] Invalid image data URL format');
-          throw new Error('Invalid image format - must be a data URL');
-        }
+          // just ignore image if bad format
+          result = await chat.sendMessage(contextualQuery);
+        } else {
+          const base64Data = image.substring(image.indexOf(',') + 1);
 
-        // Extract base64 data and mime type safely
-        const commaIndex = image.indexOf(',');
-        if (commaIndex === -1) {
-          throw new Error('Invalid image format - missing base64 data');
-        }
+          if (!base64Data) {
+            // If invalid base64, fall back to text only
+            result = await chat.sendMessage(contextualQuery);
+          } else {
+            const match = image.match(/^data:([^;]+);base64,/);
+            const mimeType = match ? match[1] : 'image/png';
 
-        const base64Data = image.substring(commaIndex + 1);
-        const mimeMatch = image.match(/^data:([^;]+);base64,/);
-        const mimeType = mimeMatch ? mimeMatch[1] : 'image/png';
-
-        if (!base64Data) {
-          throw new Error('Invalid image format - empty base64 data');
-        }
-
-        const imagePart = {
-          inlineData: {
-            data: base64Data,
-            mimeType: mimeType
+            const imagePart = {
+              inlineData: {
+                data: base64Data,
+                mimeType: mimeType
+              }
+            };
+            result = await chat.sendMessage([contextualQuery, imagePart]);
           }
-        };
-
-        result = await chat.sendMessage([contextualQuery, imagePart]);
+        }
       } else {
         result = await chat.sendMessage(contextualQuery);
       }
 
       const response = await result.response;
-      const text = response.text();
-
-      // Report success to the pool
-      keyPool.reportSuccess(apiKey);
-
-      return text;
+      return response.text();
 
     } catch (error) {
       lastError = error;
+      console.error(`[LLM] Error with key: ${error.message}`);
 
-      // Report error to the pool - it handles rate limits and invalid keys
-      const errorResult = keyPool.reportError(apiKey, error);
+      // Report to pool - will remove if invalid auth
+      keyPool.reportError('gemini', apiKey, error);
 
-      // If it's not a key-related error, don't retry with another key
-      if (!errorResult.keyHandled) {
-        break;
-      }
-
-      // Remove the failed instance so we create a fresh one next time
+      // Clean up instance
       apiInstances.delete(apiKey);
 
-      // Continue to try the next key
+      // If it's 429 or 401/403, we loop to next key. 
+      // Other errors (network/server) might just loop too or break?
+      // For now, simple loop is safest to try another key.
     }
   }
 
-  // All keys exhausted or non-recoverable error
   if (lastError) {
     return `${getErrorMessage(lastError)}`;
   }
 
-  return "All API keys are temporarily unavailable. Please wait and try again.";
+  return "No Gemini API keys available. Please check your internet or keys.";
 }
 
 /**
@@ -380,7 +342,7 @@ function getPoolStats() {
  */
 function refreshKeyPool() {
   apiInstances.clear(); // Clear all cached instances
-  return keyPool.refresh();
+  return keyPool.initialize();
 }
 
 module.exports = {

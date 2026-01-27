@@ -6,8 +6,8 @@ const elevenlabsService = require('./elevenlabs-service.js');
 
 const CONFIG = {
     SPEECH_THRESHOLD: 0.01,
-    SILENCE_DURATION: 800,
-    MIN_RECORDING: 400,
+    SILENCE_DURATION: 1200, // Increased to allow natural pauses
+    MIN_RECORDING: 600,     // Increased to filter short noises
     MAX_RECORDING: 10000,
     PRE_ROLL_FRAMES: 5
 };
