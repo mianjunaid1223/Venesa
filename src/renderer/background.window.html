@@ -4,371 +4,164 @@
 <head>
     <meta charset="UTF-8">
     <title>Background Audio</title>
-    <style>
-        body {
-            margin: 0;
-            padding: 0;
-            background: transparent;
-        }
-    </style>
 </head>
 
 <body>
+    <script src="lib/vosk.js"></script>
     <script>
-        /**
-         * Background Audio Capture
-         * Hidden window for always-on microphone with wake word detection
-         */
-
-        // Override console to send logs to main process
-        const originalLog = console.log;
-        const originalError = console.error;
-        console.log = (...args) => {
-            originalLog(...args);
-            try { window.backgroundAudioApi.send('console-log', args.map(a => String(a)).join(' ')); } catch (e) { }
-        };
-        console.error = (...args) => {
-            originalError(...args);
-            try { window.backgroundAudioApi.send('console-error', args.map(a => String(a)).join(' ')); } catch (e) { }
-        };
-
-        // Audio processing constants
         const SAMPLE_RATE = 16000;
-        const CHUNK_SIZE = 1280;  // 80ms at 16kHz - required by openWakeWord
 
-        // State
         let audioContext = null;
         let mediaStream = null;
-        let audioWorklet = null;
-        let wakeWordWorker = null;
-        let isListening = false;
+        let workletNode = null;
+        let recognizer = null;
+        let model = null;
+        let isPaused = false;
+        let Vosk = window.Vosk;
 
-        /**
-         * Initialize audio capture and wake word detection
-         */
-        async function initialize() {
+        const log = (msg) => window.backgroundAudioApi.send('console-log', msg);
+        const logError = (msg) => window.backgroundAudioApi.send('console-error', msg);
+
+        async function initializeVosk(modelPath) {
             try {
-                // Request microphone access
-                mediaStream = await navigator.mediaDevices.getUserMedia({
-                    audio: {
-                        channelCount: 1,
-                        sampleRate: SAMPLE_RATE,
-                        echoCancellation: true,
-                        noiseSuppression: true,
-                        autoGainControl: true
+                const fileUrl = 'file:///' + modelPath.replace(/\\/g, '/');
+                log('Loading Vosk model from: ' + fileUrl);
+
+                if (!Vosk) {
+                    // In case it wasn't valid immediately, try to get it again or wait
+                    Vosk = window.Vosk;
+                    if (!Vosk && window.exports && window.exports.Vosk) Vosk = window.exports.Vosk;
+                }
+
+                if (!Vosk) {
+                    throw new Error('Vosk library not loaded properly');
+                }
+
+                // Vosk.createModel expects a URL.
+                model = await Vosk.createModel(fileUrl);
+                recognizer = new model.KaldiRecognizer(SAMPLE_RATE);
+
+                recognizer.on('result', (event) => {
+                    if (event.result && event.result.text) {
+                        checkWakeWord(event.result.text);
                     }
                 });
 
-                // Create audio context
-                audioContext = new AudioContext({ sampleRate: SAMPLE_RATE });
-
-                // Register audio worklet processor
-                await audioContext.audioWorklet.addModule('data:text/javascript,' + encodeURIComponent(`
-          class AudioProcessor extends AudioWorkletProcessor {
-            constructor() {
-              super();
-              this.buffer = [];
-            }
-            
-            process(inputs, outputs, parameters) {
-              const input = inputs[0];
-              if (input && input[0]) {
-                // Accumulate samples
-                for (let i = 0; i < input[0].length; i++) {
-                  this.buffer.push(input[0][i]);
-                }
-                
-                // Send chunks of 1280 samples (80ms at 16kHz)
-                while (this.buffer.length >= 1280) {
-                  const chunk = this.buffer.splice(0, 1280);
-                  this.port.postMessage({ type: 'audio', data: new Float32Array(chunk) });
-                }
-              }
-              return true;
-            }
-          }
-          registerProcessor('audio-processor', AudioProcessor);
-        `));
-
-                // Create audio worklet node
-                audioWorklet = new AudioWorkletNode(audioContext, 'audio-processor');
-
-                // Handle audio chunks from worklet
-                audioWorklet.port.onmessage = (event) => {
-                    if (event.data.type === 'audio' && wakeWordWorker) {
-                        // Convert float32 to int16 PCM
-                        const float32 = event.data.data;
-                        const int16 = new Int16Array(float32.length);
-                        for (let i = 0; i < float32.length; i++) {
-                            const s = Math.max(-1, Math.min(1, float32[i]));
-                            int16[i] = s < 0 ? s * 0x8000 : s * 0x7FFF;
-                        }
-
-                        // Send to wake word worker
-                        wakeWordWorker.postMessage({
-                            type: 'audio',
-                            data: { buffer: int16.buffer }
-                        }, [int16.buffer]);
+                recognizer.on('partialresult', (event) => {
+                    if (event.result && event.result.partial) {
+                        checkWakeWord(event.result.partial);
                     }
-                };
+                });
 
-                // Connect audio graph
-                const source = audioContext.createMediaStreamSource(mediaStream);
-                source.connect(audioWorklet);
-                // Don't connect to destination (silent processing)
-
-                // Initialize wake word worker
-                initializeWakeWordWorker();
-
-                isListening = true;
-                console.log('[BackgroundAudio] Audio capture initialized');
-
+                log('Vosk model loaded');
+                return true;
             } catch (error) {
-                console.error('[BackgroundAudio] Initialization failed:', error);
-                // Notify main process about initialization failure
-                try {
-                    window.backgroundAudioApi.send('console-error', `Initialization failed: ${error.message || error}`);
-                } catch (e) { /* ignore IPC errors during init failure */ }
+                logError('Vosk init failed: ' + error.message);
+                return false;
             }
         }
 
-        /**
-         * Initialize the wake word detection worker
-         */
-        function initializeWakeWordWorker() {
-            wakeWordWorker = new Worker('workers/wake-word.worker.js');
+        function checkWakeWord(text) {
+            if (isPaused || !text) return;
 
-            wakeWordWorker.onmessage = (event) => {
-                const { type, score, wakeWord } = event.data;
-
-                switch (type) {
-                    case 'ready':
-                        console.log('[BackgroundAudio] Wake word worker ready');
-                        window.backgroundAudioApi.send('background-audio-ready');
-                        break;
-
-                    case 'score':
-                        // Optionally log scores for debugging
-                        // console.log('[BackgroundAudio] Score:', score.toFixed(3));
-                        break;
-
-                    case 'detection':
-                        console.log('[BackgroundAudio] Wake word detected!', wakeWord, score);
-                        window.backgroundAudioApi.send('wake-word-detected', { wakeWord, score });
-                        break;
-
-                    case 'error':
-                        console.error('[BackgroundAudio] Worker error:', event.data.error);
-                        break;
-                }
-            };
-
-            wakeWordWorker.onerror = (error) => {
-                console.error('[BackgroundAudio] Worker error:', error);
-            };
-
-            // Get model buffers from main process and initialize
-            window.backgroundAudioApi.receive('model-buffers', (buffers) => {
-                console.log('[BackgroundAudio] Received model buffers');
-
-                // Convert arrays back to ArrayBuffers
-                const modelBuffers = {
-                    melspectrogram: new Uint8Array(buffers.melspectrogram).buffer,
-                    embedding: new Uint8Array(buffers.embedding).buffer,
-                    wakeword: new Uint8Array(buffers.wakeword).buffer
-                };
-
-                wakeWordWorker.postMessage({
-                    type: 'init',
-                    data: { modelBuffers: modelBuffers }
-                });
-            });
-
-            // Request model buffers
-            window.backgroundAudioApi.send('get-model-paths');
-        }
-
-        /**
-         * Play wake word acknowledgment sound
-         */
-        function playAcknowledgment() {
-            // Create a short beep sound
-            const ctx = new AudioContext();
-            const oscillator = ctx.createOscillator();
-            const gainNode = ctx.createGain();
-
-            oscillator.connect(gainNode);
-            gainNode.connect(ctx.destination);
-
-            oscillator.frequency.value = 880;  // A5 note
-            oscillator.type = 'sine';
-
-            gainNode.gain.setValueAtTime(0.3, ctx.currentTime);
-            gainNode.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.15);
-
-            oscillator.start(ctx.currentTime);
-            oscillator.stop(ctx.currentTime + 0.15);
-
-            // Close context after sound completes to prevent resource leak
-            oscillator.onended = () => ctx.close();
-        }
-
-        // Listen for acknowledgment signal
-        window.backgroundAudioApi && window.backgroundAudioApi.receive('play-acknowledgment', () => {
-            playAcknowledgment();
-            // Release microphone when wake word is detected (voice window will use it)
-            pauseDetection();
-        });
-
-        // Listen for pause detection (release mic for voice window)
-        window.backgroundAudioApi && window.backgroundAudioApi.receive('pause-detection', () => {
-            pauseDetection();
-        });
-
-        // Listen for resume detection (re-acquire mic after voice window closes)
-        window.backgroundAudioApi && window.backgroundAudioApi.receive('resume-detection', () => {
-            resumeDetection();
-        });
-
-        /**
-         * Pause detection - release microphone
-         */
-        function pauseDetection() {
-            isListening = false;
-
-            // Stop microphone stream
-            if (mediaStream) {
-                mediaStream.getTracks().forEach(track => track.stop());
-                mediaStream = null;
-            }
-
-            // Close audio context
-            if (audioContext && audioContext.state !== 'closed') {
-                audioContext.close();
-                audioContext = null;
-            }
-
-            // Reset worker buffers
-            if (wakeWordWorker) {
-                wakeWordWorker.postMessage({ type: 'reset' });
-            }
-
-            console.log('[BackgroundAudio] Paused - mic released');
-
-            // Notify main process that mic is released
-            window.backgroundAudioApi.send('mic-released');
-        }
-
-        /**
-         * Resume detection - re-acquire microphone
-         */
-        async function resumeDetection(retryCount = 0) {
-            if (isListening) {
-                console.log('[BackgroundAudio] Already listening, skipping resume');
+            // Support both string and object formats (Vosk sometimes returns JSON)
+            let cleanText = "";
+            if (typeof text === 'string') {
+                cleanText = text.toLowerCase().trim();
+            } else if (text.text) {
+                cleanText = text.text.toLowerCase().trim();
+            } else {
                 return;
             }
 
-            console.log(`[BackgroundAudio] Resuming detection (attempt ${retryCount + 1})...`);
+            const patterns = [
+                /hey\s*v[ei]n[aeiou]?s+[aeu]/i,
+                /hey\s*vanessa/i,
+                /hey\s*venesa/i,
+                /hey\s*venus/i
+            ];
 
-            // Small delay to ensure voice window released mic (main.js already has 100ms delay)
-            await new Promise(r => setTimeout(r, 300));
-
-            try {
-                // Request microphone access again
-                mediaStream = await navigator.mediaDevices.getUserMedia({
-                    audio: {
-                        channelCount: 1,
-                        sampleRate: SAMPLE_RATE,
-                        echoCancellation: true,
-                        noiseSuppression: true,
-                        autoGainControl: true
-                    }
-                });
-
-                // Create new audio context
-                audioContext = new AudioContext({ sampleRate: SAMPLE_RATE });
-
-                // Re-register audio worklet processor
-                await audioContext.audioWorklet.addModule('data:text/javascript,' + encodeURIComponent(`
-                    class AudioProcessor extends AudioWorkletProcessor {
-                        constructor() {
-                            super();
-                            this.buffer = [];
-                        }
-                        
-                        process(inputs, outputs, parameters) {
-                            const input = inputs[0];
-                            if (input && input[0]) {
-                                for (let i = 0; i < input[0].length; i++) {
-                                    this.buffer.push(input[0][i]);
-                                }
-                                
-                                while (this.buffer.length >= 1280) {
-                                    const chunk = this.buffer.splice(0, 1280);
-                                    this.port.postMessage({ type: 'audio', data: new Float32Array(chunk) });
-                                }
-                            }
-                            return true;
-                        }
-                    }
-                    registerProcessor('audio-processor', AudioProcessor);
-                `));
-
-                // Create audio worklet node
-                audioWorklet = new AudioWorkletNode(audioContext, 'audio-processor');
-
-                // Handle audio chunks
-                audioWorklet.port.onmessage = (event) => {
-                    if (event.data.type === 'audio' && wakeWordWorker && isListening) {
-                        const float32 = event.data.data;
-                        const int16 = new Int16Array(float32.length);
-                        for (let i = 0; i < float32.length; i++) {
-                            const s = Math.max(-1, Math.min(1, float32[i]));
-                            int16[i] = s < 0 ? s * 0x8000 : s * 0x7FFF;
-                        }
-
-                        wakeWordWorker.postMessage({
-                            type: 'audio',
-                            data: { buffer: int16.buffer }
-                        }, [int16.buffer]);
-                    }
-                };
-
-                // Connect audio graph
-                const source = audioContext.createMediaStreamSource(mediaStream);
-                source.connect(audioWorklet);
-
-                isListening = true;
-                console.log('[BackgroundAudio] Resumed - mic re-acquired');
-
-            } catch (error) {
-                console.error('[BackgroundAudio] Resume failed:', error.message || error);
-
-                // Cleanup any partially acquired resources
-                if (mediaStream) {
-                    mediaStream.getTracks().forEach(track => track.stop());
-                    mediaStream = null;
-                }
-                if (audioContext && audioContext.state !== 'closed') {
-                    audioContext.close();
-                    audioContext = null;
-                }
-
-                // Retry logic if mic is busy - increase retries for reliability
-                if (retryCount < 5) {
-                    const delay = 500 * (retryCount + 1); // Increase delay with each retry
-                    console.log(`[BackgroundAudio] Retrying in ${delay}ms...`);
-                    setTimeout(() => resumeDetection(retryCount + 1), delay);
-                } else {
-                    console.error('[BackgroundAudio] Failed to resume after 5 attempts');
-                    // Notify main process that wake word detection is inactive
-                    window.backgroundAudioApi.send('resume-failed');
+            for (const pattern of patterns) {
+                if (pattern.test(cleanText)) {
+                    log('Wake word: ' + cleanText);
+                    isPaused = true;
+                    stopMic();
+                    window.backgroundAudioApi.send('wake-word-detected', { wakeWord: 'hey_venessa', score: 1.0 });
+                    return;
                 }
             }
         }
 
-        // Initialize on load
-        document.addEventListener('DOMContentLoaded', initialize);
+        async function startMic() {
+            try {
+                if (audioContext) await audioContext.close().catch(() => { });
+
+                mediaStream = await navigator.mediaDevices.getUserMedia({
+                    audio: { sampleRate: SAMPLE_RATE, channelCount: 1, echoCancellation: true, noiseSuppression: true }
+                });
+
+                audioContext = new AudioContext({ sampleRate: SAMPLE_RATE });
+                await audioContext.audioWorklet.addModule('workers/audio.processor.js');
+
+                const source = audioContext.createMediaStreamSource(mediaStream);
+                workletNode = new AudioWorkletNode(audioContext, 'audio-capture-processor');
+
+                workletNode.port.onmessage = (event) => {
+                    if (event.data.type === 'audio' && recognizer && !isPaused) {
+                        const float32 = event.data.buffer;
+                        const int16 = new Int16Array(float32.length);
+                        for (let i = 0; i < float32.length; i++) {
+                            int16[i] = Math.max(-32768, Math.min(32767, Math.floor(float32[i] * 32768)));
+                        }
+                        recognizer.acceptWaveform(int16);
+                    }
+                };
+
+                source.connect(workletNode);
+                log('Mic started');
+            } catch (error) {
+                logError('Mic error: ' + error.message);
+            }
+        }
+
+        function stopMic() {
+            if (workletNode) { workletNode.disconnect(); workletNode = null; }
+            if (mediaStream) { mediaStream.getTracks().forEach(t => t.stop()); mediaStream = null; }
+            if (audioContext) { audioContext.close().catch(() => { }); audioContext = null; }
+            window.backgroundAudioApi.send('mic-released');
+            log('Mic stopped');
+        }
+
+        async function playAck() {
+            try {
+                const ctx = new AudioContext();
+                const osc = ctx.createOscillator();
+                const gain = ctx.createGain();
+                osc.frequency.setValueAtTime(880, ctx.currentTime);
+                osc.frequency.setValueAtTime(1100, ctx.currentTime + 0.1);
+                gain.gain.setValueAtTime(0.1, ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.2);
+                osc.connect(gain);
+                gain.connect(ctx.destination);
+                osc.start();
+                osc.stop(ctx.currentTime + 0.2);
+                setTimeout(() => ctx.close(), 300);
+            } catch (e) { }
+        }
+
+        window.backgroundAudioApi.receive('play-acknowledgment', () => playAck());
+        window.backgroundAudioApi.receive('pause-detection', () => { isPaused = true; stopMic(); });
+        window.backgroundAudioApi.receive('resume-detection', async () => { isPaused = false; if (recognizer) await startMic(); });
+
+        window.backgroundAudioApi.receive('model-path', async (modelPath) => {
+            if (await initializeVosk(modelPath)) {
+                await startMic();
+                window.backgroundAudioApi.send('background-audio-ready');
+            }
+        });
+
+        window.backgroundAudioApi.send('get-model-paths');
+        log('Background window loaded');
     </script>
 </body>
 

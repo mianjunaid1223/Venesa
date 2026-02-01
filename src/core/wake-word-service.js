@@ -1,54 +1,42 @@
-/**
- * Wake Word Service - Manages openWakeWord ONNX model detection
- */
-
 const path = require('path');
 const fs = require('fs');
 
-let isListening = false;
+let isInitialized = false;
 let isPaused = false;
 let onWakeWordCallback = null;
-let lastDetectionTime = 0;
-const DEBOUNCE_MS = 2000;
+let voskModelPath = null;
 
-const MODELS_DIR = path.join(__dirname, '../../models');
-const MELSPEC_MODEL = path.join(MODELS_DIR, 'melspectrogram.onnx');
-const EMBEDDING_MODEL = path.join(MODELS_DIR, 'embedding_model.onnx');
-const WAKEWORD_MODEL = path.join(MODELS_DIR, 'hey_vuh_ness_uh.onnx');
-
-function modelsExist() {
-    return fs.existsSync(MELSPEC_MODEL) &&
-        fs.existsSync(EMBEDDING_MODEL) &&
-        fs.existsSync(WAKEWORD_MODEL);
-}
-
-function getModelPaths() {
-    return {
-        melspectrogram: MELSPEC_MODEL,
-        embedding: EMBEDDING_MODEL,
-        wakeword: WAKEWORD_MODEL
-    };
+function getModelPath() {
+    const modelDir = path.join(__dirname, '../../models/vosk-model-small-en-us-0.15');
+    if (fs.existsSync(modelDir)) {
+        return modelDir;
+    }
+    return null;
 }
 
 function initialize() {
-    if (!modelsExist()) {
-        console.error('[WakeWord] Models not found');
+    voskModelPath = getModelPath();
+    if (!voskModelPath) {
+        console.error('[WakeWord] Vosk model not found');
         return false;
     }
-    console.log('[WakeWord] Models found, service ready');
+    isInitialized = true;
+    console.log('[WakeWord] Initialized with model:', voskModelPath);
     return true;
 }
 
+function getVoskModelPath() {
+    return voskModelPath;
+}
+
 function start(callback) {
-    if (!modelsExist()) {
-        console.error('[WakeWord] Cannot start - models not found');
-        return false;
+    if (!isInitialized) {
+        console.error('[WakeWord] Service not initialized');
+        return;
     }
     onWakeWordCallback = callback;
-    isListening = true;
     isPaused = false;
-    console.log('[WakeWord] Started listening');
-    return true;
+    console.log('[WakeWord] Started');
 }
 
 function pause() {
@@ -61,57 +49,44 @@ function resume() {
     console.log('[WakeWord] Resumed');
 }
 
-function stop() {
-    isListening = false;
-    isPaused = false;
-    onWakeWordCallback = null;
-    console.log('[WakeWord] Stopped');
-}
+function handleDetection(text) {
+    if (isPaused || !onWakeWordCallback) return false;
 
-function handleDetection(wakeWord, score) {
-    const now = Date.now();
-
-    if (now - lastDetectionTime < DEBOUNCE_MS) {
-        console.log('[WakeWord] Debounced detection');
-        return;
+    if (typeof text !== 'string') {
+        if (text && text.wakeWord) {
+            isPaused = true;
+            onWakeWordCallback('hey_venessa');
+            return true;
+        }
+        return false;
     }
 
-    if (!isListening || isPaused) {
-        console.log(`[WakeWord] Ignored (listening=${isListening}, paused=${isPaused})`);
-        return;
+    const cleanText = text.toLowerCase().trim();
+    const wakePatterns = [
+        /hey\s*v[ei]n[aeiou]?s+[aeu]/i,
+        /hey\s*vanessa/i,
+        /hey\s*venesa/i,
+        /hey\s*venus/i,
+        /a\s*v[ei]n[aeiou]?s+[aeu]/i
+    ];
+
+    for (const pattern of wakePatterns) {
+        if (pattern.test(cleanText)) {
+            console.log('[WakeWord] Detected:', cleanText);
+            isPaused = true;
+            onWakeWordCallback('hey_venessa');
+            return true;
+        }
     }
-
-    lastDetectionTime = now;
-
-    // Validate score before using toFixed to avoid TypeError
-    const displayScore = Number.isFinite(score) ? score.toFixed(3) : 'N/A';
-    console.log(`[WakeWord] Detected "${wakeWord}" with score ${displayScore}`);
-
-    if (onWakeWordCallback) {
-        onWakeWordCallback(wakeWord);
-    }
-}
-
-/**
- * Feed audio buffer for wake word detection.
- * NOTE: This function is intentionally a no-op. Audio processing occurs
- * in the background-audio.html renderer via Web Worker, not through this service.
- * @param {Buffer} audioBuffer - Audio data (ignored)
- */
-function feedAudio(audioBuffer) {
-    // Intentionally no-op - wake word detection happens in background renderer
-    console.warn('[WakeWord] feedAudio called but audio processing occurs in background renderer');
+    return false;
 }
 
 module.exports = {
     initialize,
+    getVoskModelPath,
     start,
     pause,
     resume,
-    stop,
     handleDetection,
-    feedAudio,
-    modelsExist,
-    getModelPaths,
-    get isListening() { return isListening && !isPaused; }
+    get isPaused() { return isPaused; }
 };

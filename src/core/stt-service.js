@@ -1,13 +1,9 @@
-/**
- * STT Service - Voice Activity Detection + HTTP POST to ElevenLabs
- */
-
 const elevenlabsService = require('./elevenlabs-service.js');
 
 const CONFIG = {
     SPEECH_THRESHOLD: 0.01,
-    SILENCE_DURATION: 1200, // Increased to allow natural pauses
-    MIN_RECORDING: 600,     // Increased to filter short noises
+    SILENCE_DURATION: 1200,
+    MIN_RECORDING: 600,
     MAX_RECORDING: 10000,
     PRE_ROLL_FRAMES: 5
 };
@@ -138,14 +134,9 @@ async function processBuffer() {
 }
 
 function calculateRMS(buffer) {
-    // Guard against empty buffer to avoid NaN
-    if (!buffer || buffer.length < 2) {
-        return 0;
-    }
+    if (!buffer || buffer.length < 2) return 0;
     const int16 = new Int16Array(buffer.buffer, buffer.byteOffset, buffer.length / 2);
-    if (int16.length === 0) {
-        return 0;
-    }
+    if (int16.length === 0) return 0;
     let sum = 0;
     for (let i = 0; i < int16.length; i++) {
         const val = int16[i] / 32768.0;
@@ -160,7 +151,6 @@ module.exports = {
     stop,
     pause: stop,
     resume: (cb) => {
-        // Full state reset for consistency, whether callback provided or not
         audioChunks = [];
         preRollBuffer = [];
         isRecording = false;

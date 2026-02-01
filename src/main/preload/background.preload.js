@@ -1,15 +1,9 @@
-/**
- * Background Audio Preload
- * IPC bridge for background audio window
- */
-
 const { contextBridge, ipcRenderer } = require('electron');
 
 contextBridge.exposeInMainWorld('backgroundAudioApi', {
     send: (channel, data) => {
         const validChannels = [
             'background-audio-ready',
-            'background-audio-data',
             'wake-word-detected',
             'get-model-paths',
             'mic-released',
@@ -24,19 +18,15 @@ contextBridge.exposeInMainWorld('backgroundAudioApi', {
     receive: (channel, func) => {
         const validChannels = [
             'play-acknowledgment',
-            'model-paths',
-            'model-buffers',
+            'model-path',
             'pause-detection',
             'resume-detection'
         ];
         if (validChannels.includes(channel)) {
             const handler = (event, ...args) => func(...args);
             ipcRenderer.on(channel, handler);
-            // Return unsubscribe function
-            return () => {
-                ipcRenderer.removeListener(channel, handler);
-            };
+            return () => ipcRenderer.removeListener(channel, handler);
         }
-        return () => { }; // Return no-op if invalid channel
+        return () => { };
     }
 });

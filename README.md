@@ -22,14 +22,14 @@
 
 Venesa is a desktop voice assistant for Windows. It listens for the wake word "Hey Venesa", transcribes your speech, processes it with Google Gemini, and responds with synthesized voice. You can also use it through a keyboard-triggered search bar.
 
-**What it does:**
+**Features:**
 
-- Listens in the background for the wake word using ONNX-based detection
-- Transcribes speech using ElevenLabs Scribe
-- Processes queries with Google Gemini 2.5
-- Speaks responses using ElevenLabs text-to-speech
-- Searches files and launches applications on your system
-- Provides a quick-access search bar (Alt+Space)
+- Wake word detection using Vosk speech recognition
+- Speech-to-text using ElevenLabs Scribe
+- Natural language processing with Google Gemini 2.5
+- Text-to-speech using ElevenLabs
+- File search and application launching
+- Quick-access search bar (Alt+Space)
 
 ---
 
@@ -39,39 +39,34 @@ Venesa is a desktop voice assistant for Windows. It listens for the wake word "H
 venesa/
 ├── src/
 │   ├── main/
-│   │   ├── main.js                    # Electron main process
+│   │   ├── main.js
 │   │   └── preload/
 │   │       ├── main.preload.js
 │   │       ├── voice.preload.js
 │   │       └── background.preload.js
 │   ├── core/
-│   │   ├── llm-service.js             # Gemini API calls
-│   │   ├── elevenlabs-service.js      # TTS and STT
-│   │   ├── stt-service.js             # Voice activity detection
-│   │   ├── task-service.js            # System actions (open apps, search files)
-│   │   ├── wake-word-service.js       # Wake word detection setup
-│   │   ├── config.js                  # ElevenLabs settings
-│   │   ├── apiKeyPool.js              # Google API key rotation
-│   │   └── elevenLabsKeyPool.js       # ElevenLabs key rotation
+│   │   ├── llm-service.js
+│   │   ├── elevenlabs-service.js
+│   │   ├── stt-service.js
+│   │   ├── task-service.js
+│   │   ├── wake-word-service.js
+│   │   ├── config.js
+│   │   └── apiKeyPool.js
 │   └── renderer/
-│       ├── main.window.html           # Search bar UI
-│       ├── voice.window.html          # Voice interaction UI
-│       ├── background.window.html     # Background wake word listener
-│       ├── setup.window.html          # First-run setup
+│       ├── main.window.html
+│       ├── voice.window.html
+│       ├── background.window.html
+│       ├── setup.window.html
 │       └── workers/
-│           ├── audio.processor.js     # Audio processing worklet
-│           └── wake-word.worker.js    # ONNX inference worker
+│           └── audio.processor.js
 ├── models/
-│   ├── melspectrogram.onnx            # Converts audio to mel spectrogram
-│   ├── embedding_model.onnx           # Generates audio embeddings
-│   ├── hey_vuh_ness_uh.onnx               # Wake word classifier
-│   └── hey_Venessa.tflite             # Alternative wake word model
+│   └── vosk-model-small-en-us-0.15/
 ├── assets/
 │   └── logo.png
-├── .env                               # API keys (not in git)
+├── .env
 ├── package.json
 └── README.md
-
+```
 
 ## Requirements
 
@@ -98,12 +93,10 @@ pnpm install
 Create a `.env` file in the project root:
 
 ```env
-# Google Gemini API keys (add multiple for rotation)
 GOOGLE_API_KEY_1=your_key_here
 GOOGLE_API_KEY_2=optional_second_key
 GOOGLE_API_KEY_3=optional_third_key
 
-# ElevenLabs API keys (add multiple for rotation)
 ELEVENLABS_API_KEY_1=your_key_here
 ELEVENLABS_API_KEY_2=optional_second_key
 ```
@@ -126,8 +119,8 @@ pnpm dev
 
 ### Keyboard Shortcuts
 
-| Shortcut | What it does |
-|----------|--------------|
+| Shortcut | Action |
+|----------|--------|
 | `Alt + Space` | Open/close search bar |
 | `Ctrl + Shift + V` | Open voice window |
 | `Escape` | Close current window |
@@ -156,7 +149,7 @@ Say "Hey Venesa" to activate. The app will:
 - "Find documents with budget"
 - "What time is it?"
 - "Set volume to 50%"
-- "What's on my screen?" (captures and analyzes screen)
+- "What's on my screen?"
 
 ---
 
@@ -170,8 +163,6 @@ Settings are stored in `~/.venesa-settings.json`:
   "userName": "User"
 }
 ```
-
-You can also change settings through the gear icon in the search bar.
 
 ### Voice Settings
 
@@ -211,28 +202,9 @@ Add keys with incrementing numbers: `GOOGLE_API_KEY_1`, `GOOGLE_API_KEY_2`, etc.
 | Language model | Google Gemini 2.5 Flash |
 | Speech-to-text | ElevenLabs Scribe |
 | Text-to-speech | ElevenLabs Turbo v2.5 |
-| Wake word | openWakeWord (ONNX) |
+| Wake word | Vosk |
 | Audio | Web Audio API, AudioWorklet |
 | System integration | PowerShell |
-
----
-
-## Adding New Actions
-
-Edit `src/core/task-service.js` to add system actions:
-
-```javascript
-async function myAction(params) {
-  // your code here
-}
-
-module.exports = {
-  // existing exports...
-  myAction,
-};
-```
-
-Then update the prompt in `src/core/llm-service.js` so Gemini knows about the new action.
 
 ---
 
@@ -241,7 +213,7 @@ Then update the prompt in `src/core/llm-service.js` so Gemini knows about the ne
 ### Wake word not working
 
 1. Check microphone permissions in Windows Settings
-2. Make sure model files exist in `models/`
+2. Make sure the Vosk model exists in `models/vosk-model-small-en-us-0.15/`
 3. Close other apps that might be using the microphone
 4. Restart the app
 
@@ -285,8 +257,7 @@ MIT License. See [LICENSE](LICENSE).
 - [Electron](https://www.electronjs.org/)
 - [Google Gemini](https://ai.google.dev/)
 - [ElevenLabs](https://elevenlabs.io/)
-- [openWakeWord](https://github.com/dscripka/openWakeWord)
-- [ONNX Runtime](https://onnxruntime.ai/)
+- [Vosk](https://alphacephei.com/vosk/)
 
 ---
 

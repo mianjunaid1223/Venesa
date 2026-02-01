@@ -539,18 +539,14 @@ app.whenReady().then(async () => {
       }
     };
 
-    // Start STT service - only handle text and partial results here
-    // start-listening is handled separately with proper window ready check
     sttService.start((type, text) => {
       if (type === 'text') {
         safeSend('stt-result', text);
       } else if (type === 'partial') {
         safeSend('stt-partial-result', text);
       }
-      // 'ready' type is intentionally not handled here to avoid double-send
     });
 
-    // Wait for window to be ready before sending IPC
     const sendStartListening = () => {
       if (!startListeningSent) {
         startListeningSent = true;
@@ -558,11 +554,9 @@ app.whenReady().then(async () => {
       }
     };
 
-    // Check if webContents is already loaded
     if (voiceWindow.webContents.isLoading()) {
       voiceWindow.webContents.once('did-finish-load', sendStartListening);
     } else {
-      // Small delay to ensure renderer IPC handlers are registered
       setTimeout(sendStartListening, 50);
     }
 
@@ -658,7 +652,6 @@ app.whenReady().then(async () => {
 
       let finalQuery = payload.query;
 
-      // If we have previous results (context), inject them into the query
       if (payload.previousResults && Array.isArray(payload.previousResults)) {
         const listStr = payload.previousResults.map(r => `${r.index}. ${r.name} (${r.type})`).join(', ');
         finalQuery = `[CONTEXT: User is viewing these search results: ${listStr}] User said: "${payload.query}"
@@ -837,10 +830,8 @@ app.whenReady().then(async () => {
         console.log('[Main] voice-file-action received');
       }
 
-      // Build context for Gemini to determine action
       const contextQuery = `The user said "${originalQuery}" and selected a ${selectedItem.type} named "${selectedItem.name}". The full path is "${selectedItem.path}". Based on the original request, what action should I take? If the user was searching for something to open/launch, open it. If they wanted to find/locate it, show it in the folder. Respond with the action to take.`;
 
-      // Ask Gemini what action to perform
       const rawResponse = await gemini.sendQuery(contextQuery, null, 'voice');
       const { cleanResponse, results } = await taskExecutor.processResponse(rawResponse);
 
@@ -998,6 +989,7 @@ app.whenReady().then(async () => {
         preload: path.join(__dirname, "preload/background.preload.js"),
         contextIsolation: true,
         nodeIntegration: false,
+        webSecurity: false,
       },
     });
 
@@ -1009,73 +1001,41 @@ app.whenReady().then(async () => {
   }
 
   function startBackgroundWakeWordDetection() {
-    // Initialize wake word service first
     if (!wakeWordService.initialize()) {
-      console.error('[Main] Wake word models not found, skipping wake word detection');
+      console.error('[Main] Vosk model not found');
       return;
     }
 
     createBackgroundAudioWindow();
 
-    // Handle model buffers request from renderer
-    // Remove any existing listener to prevent duplicates if function called multiple times
     ipcMain.removeAllListeners("get-model-paths");
-    ipcMain.on("get-model-paths", async (event) => {
-      try {
-        const paths = wakeWordService.getModelPaths();
-
-        const [melspecBuffer, embeddingBuffer, wakewordBuffer] = await Promise.all([
-          fs.promises.readFile(paths.melspectrogram),
-          fs.promises.readFile(paths.embedding),
-          fs.promises.readFile(paths.wakeword)
-        ]);
-
-        event.sender.send("model-buffers", {
-          melspectrogram: Array.from(melspecBuffer),
-          embedding: Array.from(embeddingBuffer),
-          wakeword: Array.from(wakewordBuffer)
-        });
-
-        console.log('[Main] Sent model buffers to renderer');
-      } catch (error) {
-        console.error('[Main] Failed to load model files:', error);
-      }
+    ipcMain.on("get-model-paths", (event) => {
+      const modelPath = wakeWordService.getVoskModelPath();
+      event.sender.send("model-path", modelPath);
     });
 
-    // Handle wake word detection from renderer (Web Worker)
     ipcMain.on("wake-word-detected", (event, data) => {
-      const { wakeWord, score } = data;
-      wakeWordService.handleDetection(wakeWord, score);
+      wakeWordService.handleDetection(data.wakeWord);
     });
 
-    // Start the wake word service with callback
     wakeWordService.start((wakeWord) => {
-      console.log('[Main] Wake word triggered, preparing window...');
+      console.log('[Main] Wake word triggered');
+      captureScreenForVoice();
 
-      captureScreenForVoice(); // Parallel
-
-      // Wait for mic to be released with timeout fallback
-      const MIC_RELEASE_TIMEOUT = 3000; // 3 seconds max wait
+      const MIC_RELEASE_TIMEOUT = 3000;
       let micReleaseHandler = null;
       let timeoutId = null;
 
       const showWindowAndCleanup = () => {
         if (timeoutId) clearTimeout(timeoutId);
-        if (micReleaseHandler) {
-          ipcMain.removeListener("mic-released", micReleaseHandler);
-        }
+        if (micReleaseHandler) ipcMain.removeListener("mic-released", micReleaseHandler);
         showVoiceWindow();
       };
 
-      micReleaseHandler = () => {
-        showWindowAndCleanup();
-      };
-
+      micReleaseHandler = () => showWindowAndCleanup();
       ipcMain.once("mic-released", micReleaseHandler);
 
-      // Timeout fallback in case mic-released never fires
       timeoutId = setTimeout(() => {
-        console.log('[Main] mic-released timeout, showing voice window anyway');
         ipcMain.removeListener("mic-released", micReleaseHandler);
         showVoiceWindow();
       }, MIC_RELEASE_TIMEOUT);
@@ -1085,23 +1045,10 @@ app.whenReady().then(async () => {
       }
     });
 
-    // Handle background audio ready signal
-    ipcMain.on("background-audio-ready", () => {
-      console.log('[Main] Background audio window ready');
-    });
-
-    ipcMain.on("console-log", (event, msg) => {
-      console.log(`[BackgroundAudio] ${msg}`);
-    });
-
-    ipcMain.on("console-error", (event, msg) => {
-      console.error(`[BackgroundAudio] ${msg}`);
-    });
-
-    ipcMain.on("resume-failed", () => {
-      console.error('[Main] Wake word detection failed to resume - mic may be in use');
-      // Optionally could show a notification to user or attempt recovery
-    });
+    ipcMain.on("background-audio-ready", () => console.log('[Main] Background audio ready'));
+    ipcMain.on("console-log", (event, msg) => console.log(`[BackgroundAudio] ${msg}`));
+    ipcMain.on("console-error", (event, msg) => console.error(`[BackgroundAudio] ${msg}`));
+    ipcMain.on("resume-failed", () => console.error('[Main] Wake word resume failed'));
   }
 
   // Capture screen helper
