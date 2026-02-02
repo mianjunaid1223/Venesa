@@ -1,774 +1,909 @@
-<!DOCTYPE html>
+<!doctype html>
 <html>
+  <head>
+    <meta charset="UTF-8" />
+    <title>Venesa Setup</title>
+    <style>
+      @import url("https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap");
 
-<head>
-  <meta charset="UTF-8" />
-  <title>Venesa Setup</title>
-  <style>
-    @import url("https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap");
-
-    * {
-      margin: 0;
-      padding: 0;
-      box-sizing: border-box;
-      text-wrap: balance;
-    }
-
-    :root {
-      --font: "SF Pro Display", "SF Pro Text", "Inter", -apple-system, system-ui, sans-serif;
-      --primary: #007AFF;
-      --primary-gradient: linear-gradient(135deg, #0080ff 0%, #00C7BE 100%);
-      --text-primary: #1d1d1f;
-      --text-secondary: #86868b;
-      --bg-color: #fbfbfd;
-      --surface: #ffffff;
-      --shadow-sm: 0 4px 12px rgba(0, 0, 0, 0.05);
-      --shadow-md: 0 12px 30px rgba(0, 0, 0, 0.08);
-      --error: #FF3B30;
-      --ease-spring: cubic-bezier(0.175, 0.885, 0.32, 1.275);
-      --ease-smooth: cubic-bezier(0.16, 1, 0.3, 1);
-    }
-
-    body {
-      height: 100vh;
-      width: 100vw;
-      overflow: hidden;
-      background: var(--bg-color);
-      font-family: var(--font);
-      color: var(--text-primary);
-      -webkit-app-region: drag;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-    }
-
-    /* Background decoration */
-    .bg-blobs {
-      position: absolute;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      overflow: hidden;
-      z-index: -1;
-      pointer-events: none;
-    }
-
-    .blob {
-      position: absolute;
-      border-radius: 50%;
-      filter: blur(80px);
-      opacity: 0.6;
-    }
-
-    .blob-1 {
-      top: -20%;
-      right: -20%;
-      width: 400px;
-      height: 400px;
-      background: rgba(0, 122, 255, 0.1);
-      animation: float 10s ease-in-out infinite alternate;
-    }
-
-    .blob-2 {
-      bottom: -20%;
-      left: -20%;
-      width: 350px;
-      height: 350px;
-      background: rgba(0, 199, 190, 0.1);
-      animation: float 12s ease-in-out infinite alternate-reverse;
-    }
-
-    @keyframes float {
-      0% {
-        transform: translate(0, 0);
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+        text-wrap: balance;
       }
 
-      100% {
-        transform: translate(30px, 30px);
+      :root {
+        --font:
+          "SF Pro Display", "SF Pro Text", "Inter", -apple-system, system-ui,
+          sans-serif;
+        --primary: #007aff;
+        --primary-gradient: linear-gradient(135deg, #0080ff 0%, #00c7be 100%);
+        --text-primary: #1d1d1f;
+        --text-secondary: #86868b;
+        --bg-color: #fbfbfd;
+        --surface: #ffffff;
+        --shadow-sm: 0 4px 12px rgba(0, 0, 0, 0.05);
+        --shadow-md: 0 12px 30px rgba(0, 0, 0, 0.08);
+        --error: #ff3b30;
+        --ease-spring: cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        --ease-smooth: cubic-bezier(0.16, 1, 0.3, 1);
       }
-    }
 
-    .container {
-      width: 100%;
-      height: 100%;
-      overflow: hidden;
-      position: relative;
-    }
+      body {
+        height: 100vh;
+        width: 100vw;
+        overflow: hidden;
+        background: var(--bg-color);
+        font-family: var(--font);
+        color: var(--text-primary);
+        -webkit-app-region: drag;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
 
-    /* Slider Mechanism */
-    .slide-track {
-      display: flex;
-      width: 400%;
-      /* 4 slides */
-      height: 100%;
-      transition: transform 0.6s var(--ease-smooth);
-    }
+      .bg-blobs {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
+        z-index: -1;
+        pointer-events: none;
+      }
 
-    .slide {
-      width: 25%;
-      /* 100% / 4 */
-      height: 100%;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      /* Center content vertically */
-      padding: 40px;
-      opacity: 0;
-      filter: blur(8px);
-      transform: scale(0.96);
-      transition: all 0.6s var(--ease-smooth);
-      pointer-events: none;
-    }
+      .blob {
+        position: absolute;
+        border-radius: 50%;
+        filter: blur(80px);
+        opacity: 0.6;
+      }
 
-    .slide.active {
-      opacity: 1;
-      filter: blur(0);
-      transform: scale(1);
-      pointer-events: all;
-    }
+      .blob-1 {
+        top: -20%;
+        right: -20%;
+        width: 400px;
+        height: 400px;
+        background: rgba(0, 122, 255, 0.1);
+        animation: float 10s ease-in-out infinite alternate;
+      }
 
-    /* Slide Content */
-    .slide-content {
-      width: 100%;
-      max-width: 380px;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      text-align: center;
-      margin-bottom: 20px;
-    }
+      .blob-2 {
+        bottom: -20%;
+        left: -20%;
+        width: 350px;
+        height: 350px;
+        background: rgba(0, 199, 190, 0.1);
+        animation: float 12s ease-in-out infinite alternate-reverse;
+      }
 
-    .logo-wrapper {
-      width: 80px;
-      height: 80px;
-      margin-bottom: 24px;
-      filter: drop-shadow(0 8px 16px rgba(0, 0, 0, 0.1));
-    }
+      @keyframes float {
+        0% {
+          transform: translate(0, 0);
+        }
 
-    .logo-wrapper img {
-      width: 100%;
-      height: 100%;
-      object-fit: contain;
-    }
+        100% {
+          transform: translate(30px, 30px);
+        }
+      }
 
-    .icon-hero {
-      width: 72px;
-      height: 72px;
-      background: white;
-      border-radius: 20px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      margin-bottom: 24px;
-      box-shadow: var(--shadow-sm);
-      color: var(--primary);
-      position: relative;
-    }
+      .container {
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
+        position: relative;
+      }
 
-    .icon-hero::after {
-      content: '';
-      position: absolute;
-      inset: 0;
-      border-radius: 20px;
-      border: 1px solid rgba(0, 0, 0, 0.05);
-    }
+      .slide-track {
+        display: flex;
+        width: 400%;
 
-    .icon-hero svg {
-      width: 36px;
-      height: 36px;
-      stroke-width: 2;
-    }
+        height: 100%;
+        transition: transform 0.6s var(--ease-smooth);
+      }
 
-    h1 {
-      font-size: 26px;
-      font-weight: 700;
-      margin-bottom: 10px;
-      background: linear-gradient(135deg, #1d1d1f 0%, #434344 100%);
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-      letter-spacing: -0.5px;
-    }
+      .slide {
+        width: 25%;
 
-    p {
-      font-size: 15px;
-      line-height: 1.5;
-      color: var(--text-secondary);
-      max-width: 300px;
-    }
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
 
-    /* Feature Lists (Slide 2) */
-    .feature-list {
-      display: flex;
-      flex-direction: column;
-      gap: 14px;
-      width: 100%;
-      margin-top: 28px;
-      text-align: left;
-    }
+        padding: 40px;
+        opacity: 0;
+        filter: blur(8px);
+        transform: scale(0.96);
+        transition: all 0.6s var(--ease-smooth);
+        pointer-events: none;
+      }
 
-    .feature-item {
-      display: flex;
-      align-items: center;
-      gap: 14px;
-      padding: 12px 14px;
-      background: rgba(255, 255, 255, 0.6);
-      border-radius: 14px;
-      border: 1px solid rgba(0, 0, 0, 0.03);
-      transition: background 0.2s;
-    }
+      .slide.active {
+        opacity: 1;
+        filter: blur(0);
+        transform: scale(1);
+        pointer-events: all;
+      }
 
-    .feature-item:hover {
-      background: rgba(255, 255, 255, 0.9);
-    }
+      .slide-content {
+        width: 100%;
+        max-width: 380px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        text-align: center;
+        margin-bottom: 20px;
+      }
 
-    .feature-icon-small {
-      width: 36px;
-      height: 36px;
-      background: white;
-      border-radius: 10px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      color: var(--primary);
-      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.04);
-      flex-shrink: 0;
-    }
+      .logo-wrapper {
+        width: 80px;
+        height: 80px;
+        margin-bottom: 24px;
+        filter: drop-shadow(0 8px 16px rgba(0, 0, 0, 0.1));
+      }
 
-    .feature-icon-small svg {
-      width: 18px;
-      height: 18px;
-    }
+      .logo-wrapper img {
+        width: 100%;
+        height: 100%;
+        object-fit: contain;
+      }
 
-    .feature-text {
-      flex: 1;
-    }
+      .icon-hero {
+        width: 72px;
+        height: 72px;
+        background: white;
+        border-radius: 20px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin-bottom: 24px;
+        box-shadow: var(--shadow-sm);
+        color: var(--primary);
+        position: relative;
+      }
 
-    .feature-text h3 {
-      font-size: 14px;
-      font-weight: 600;
-      color: var(--text-primary);
-      margin-bottom: 2px;
-    }
+      .icon-hero::after {
+        content: "";
+        position: absolute;
+        inset: 0;
+        border-radius: 20px;
+        border: 1px solid rgba(0, 0, 0, 0.05);
+      }
 
-    .feature-text p {
-      font-size: 11px;
-      color: var(--text-secondary);
-      font-weight: 400;
-      max-width: 100%;
-    }
+      .icon-hero svg {
+        width: 36px;
+        height: 36px;
+        stroke-width: 2;
+      }
 
-    /* Input (Slide 1) */
-    .input-group {
-      width: 100%;
-      margin-top: 24px;
-      position: relative;
-      -webkit-app-region: no-drag;
-    }
+      h1 {
+        font-size: 26px;
+        font-weight: 700;
+        margin-bottom: 10px;
+        background: linear-gradient(135deg, #1d1d1f 0%, #434344 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        letter-spacing: -0.5px;
+      }
 
-    input {
-      width: 100%;
-      padding: 16px 20px;
-      border-radius: 16px;
-      border: 1px solid rgba(0, 0, 0, 0.08);
-      background: white;
-      font-size: 16px;
-      font-family: var(--font);
-      outline: none;
-      transition: all 0.3s;
-      text-align: center;
-      box-shadow: var(--shadow-sm);
-    }
+      p {
+        font-size: 15px;
+        line-height: 1.5;
+        color: var(--text-secondary);
+        max-width: 300px;
+      }
 
-    input:focus {
-      border-color: var(--primary);
-      box-shadow: 0 4px 12px rgba(0, 122, 255, 0.15);
-      transform: translateY(-2px);
-    }
+      .feature-list {
+        display: flex;
+        flex-direction: column;
+        gap: 14px;
+        width: 100%;
+        margin-top: 28px;
+        text-align: left;
+      }
 
-    .error-msg {
-      position: absolute;
-      bottom: -24px;
-      left: 0;
-      width: 100%;
-      text-align: center;
-      font-size: 12px;
-      color: var(--error);
-      opacity: 0;
-      transform: translateY(-5px);
-      transition: all 0.3s;
-    }
+      .feature-item {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        padding: 12px 14px;
+        background: rgba(255, 255, 255, 0.6);
+        border-radius: 14px;
+        border: 1px solid rgba(0, 0, 0, 0.03);
+        transition: background 0.2s;
+      }
 
-    .error-msg.visible {
-      opacity: 1;
-      transform: translateY(0);
-    }
+      .feature-item:hover {
+        background: rgba(255, 255, 255, 0.9);
+      }
 
-    /* Buttons */
-    .btn-container {
-      margin-top: auto;
-      width: 100%;
-      display: flex;
-      justify-content: center;
-      padding-top: 10px;
-      -webkit-app-region: no-drag;
-    }
+      .feature-icon-small {
+        width: 36px;
+        height: 36px;
+        background: white;
+        border-radius: 10px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: var(--primary);
+        box-shadow: 0 2px 6px rgba(0, 0, 0, 0.04);
+        flex-shrink: 0;
+      }
 
-    button {
-      padding: 14px 32px;
-      border-radius: 30px;
-      border: none;
-      background: var(--primary-gradient);
-      color: white;
-      font-family: var(--font);
-      font-size: 15px;
-      font-weight: 600;
-      cursor: pointer;
-      box-shadow: 0 6px 16px rgba(0, 122, 255, 0.25);
-      transition: all 0.3s var(--ease-spring);
-      min-width: 140px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 8px;
-    }
+      .feature-icon-small svg {
+        width: 18px;
+        height: 18px;
+      }
 
-    button:hover {
-      transform: translateY(-3px) scale(1.02);
-      box-shadow: 0 10px 24px rgba(0, 122, 255, 0.35);
-    }
+      .feature-text {
+        flex: 1;
+      }
 
-    button:active {
-      transform: translateY(-1px) scale(0.98);
-    }
+      .feature-text h3 {
+        font-size: 14px;
+        font-weight: 600;
+        color: var(--text-primary);
+        margin-bottom: 2px;
+      }
 
-    button svg {
-      width: 16px;
-      height: 16px;
-    }
+      .feature-text p {
+        font-size: 11px;
+        color: var(--text-secondary);
+        font-weight: 400;
+        max-width: 100%;
+      }
 
-    /* Navigation Dots */
-    .dots {
-      position: absolute;
-      top: 14px;
-      left: 0;
-      width: 100%;
-      display: flex;
-      justify-content: center;
-      gap: 6px;
-      pointer-events: none;
-    }
+      .input-group {
+        width: 100%;
+        margin-top: 24px;
+        position: relative;
+        -webkit-app-region: no-drag;
+      }
 
-    .dot {
-      width: 6px;
-      height: 6px;
-      border-radius: 50%;
-      background: #d1d1d6;
-      transition: all 0.4s var(--ease-spring);
-    }
+      input {
+        width: 100%;
+        padding: 16px 20px;
+        border-radius: 16px;
+        border: 1px solid rgba(0, 0, 0, 0.08);
+        background: white;
+        font-size: 16px;
+        font-family: var(--font);
+        outline: none;
+        transition: all 0.3s;
+        text-align: center;
+        box-shadow: var(--shadow-sm);
+      }
 
-    .dot.active {
-      width: 20px;
-      border-radius: 10px;
-      background: var(--primary);
-    }
+      input:focus {
+        border-color: var(--primary);
+        box-shadow: 0 4px 12px rgba(0, 122, 255, 0.15);
+        transform: translateY(-2px);
+      }
 
-    /* Animations */
-    .fade-up {
-      opacity: 0;
-      transform: translateY(20px);
-      animation: fadeUp 0.6s var(--ease-smooth) forwards;
-    }
+      .error-msg {
+        position: absolute;
+        bottom: -24px;
+        left: 0;
+        width: 100%;
+        text-align: center;
+        font-size: 12px;
+        color: var(--error);
+        opacity: 0;
+        transform: translateY(-5px);
+        transition: all 0.3s;
+      }
 
-    .d-1 {
-      animation-delay: 0.1s;
-    }
-
-    .d-2 {
-      animation-delay: 0.2s;
-    }
-
-    .d-3 {
-      animation-delay: 0.3s;
-    }
-
-    .d-4 {
-      animation-delay: 0.4s;
-    }
-
-    @keyframes fadeUp {
-      to {
+      .error-msg.visible {
         opacity: 1;
         transform: translateY(0);
       }
-    }
 
-    /* Voice Wave Animation (Slide 3) */
-    .voice-visual {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 5px;
-      height: 48px;
-      margin: 24px 0;
-    }
-
-    .bar {
-      width: 5px;
-      background: var(--primary);
-      border-radius: 3px;
-      animation: wave 1.2s ease-in-out infinite;
-    }
-
-    .bar:nth-child(1) {
-      height: 16px;
-      animation-delay: 0.0s;
-      background-color: #d83229;
-    }
-
-    .bar:nth-child(2) {
-      height: 28px;
-      animation-delay: 0.1s;
-      background-color: rgb(241, 111, 133);
-    }
-
-    .bar:nth-child(3) {
-      height: 40px;
-      animation-delay: 0.2s;
-    }
-
-    .bar:nth-child(4) {
-      height: 28px;
-      animation-delay: 0.3s;
-      background-color: #1d88fb;
-    }
-
-    .bar:nth-child(5) {
-      height: 16px;
-      animation-delay: 0.4s;
-      background: #00C7BE;
-    }
-
-    @keyframes wave {
-
-      0%,
-      100% {
-        transform: scaleY(1);
-        opacity: 0.5;
+      .btn-container {
+        margin-top: auto;
+        width: 100%;
+        display: flex;
+        justify-content: center;
+        padding-top: 10px;
+        -webkit-app-region: no-drag;
       }
 
-      50% {
-        transform: scaleY(1.4);
-        opacity: 1;
+      button {
+        padding: 14px 32px;
+        border-radius: 30px;
+        border: none;
+        background: var(--primary-gradient);
+        color: white;
+        font-family: var(--font);
+        font-size: 15px;
+        font-weight: 600;
+        cursor: pointer;
+        box-shadow: 0 6px 16px rgba(0, 122, 255, 0.25);
+        transition: all 0.3s var(--ease-spring);
+        min-width: 140px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
       }
-    }
 
-    /* Code tags */
-    code {
-      background: #eef0f2;
-      padding: 2px 6px;
-      border-radius: 4px;
-      font-family: inherit;
-      font-weight: 600;
-      color: #1d1d1f;
-      font-size: 0.9em;
-      border: 1px solid rgba(0, 0, 0, 0.05);
-    }
-  </style>
-</head>
+      button:hover {
+        transform: translateY(-3px) scale(1.02);
+        box-shadow: 0 10px 24px rgba(0, 122, 255, 0.35);
+      }
 
-<body>
-  <div class="bg-blobs">
-    <div class="blob blob-1"></div>
-    <div class="blob blob-2"></div>
-  </div>
+      button:active {
+        transform: translateY(-1px) scale(0.98);
+      }
 
-  <div class="container">
-    <div class="slide-track" id="slideTrack">
+      button svg {
+        width: 16px;
+        height: 16px;
+      }
 
-      <!-- SLIDE 1: WELCOME -->
-      <div class="slide active">
-        <div class="slide-content">
-          <div class="logo-wrapper fade-up">
-            <img src="../../assets/logo.png" alt="Venesa Logo" />
-          </div>
-          <h1 class="fade-up d-1">Welcome to Venesa</h1>
-          <p class="fade-up d-2">Your intelligent desktop companion.<br>Let's get everything set up.</p>
+      .dots {
+        position: absolute;
+        top: 14px;
+        left: 0;
+        width: 100%;
+        display: flex;
+        justify-content: center;
+        gap: 6px;
+        pointer-events: none;
+      }
 
-          <div class="input-group fade-up d-3">
-            <input type="text" id="userName" placeholder="What should I call you?" autocomplete="off"
-              spellcheck="false" />
-            <div class="error-msg" id="nameError">Please enter a name to continue</div>
-          </div>
-        </div>
-        <div class="btn-container fade-up d-4">
-          <button onclick="nextSlide()">Continue <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
-              stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M5 12h14M12 5l7 7-7 7" />
-            </svg></button>
-        </div>
-      </div>
+      .dot {
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: #d1d1d6;
+        transition: all 0.4s var(--ease-spring);
+      }
 
-      <!-- SLIDE 2: CAPABILITIES -->
-      <div class="slide">
-        <div class="slide-content feature-slide-content">
-          <div class="icon-hero">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
-              <circle cx="11" cy="11" r="8" />
-              <line x1="21" y1="21" x2="16.65" y2="16.65" />
-            </svg>
-          </div>
-          <h1>Text Mode</h1>
-          <p>Your powerful desktop command center.</p>
+      .dot.active {
+        width: 20px;
+        border-radius: 10px;
+        background: var(--primary);
+      }
 
-          <div class="feature-list">
-            <div class="feature-item">
-              <div class="feature-icon-small" style="color:#007AFF"><svg viewBox="0 0 24 24" fill="none"
-                  stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
-                  <circle cx="12" cy="12" r="10" />
-                  <line x1="2" y1="12" x2="22" y2="12" />
-                  <path
-                    d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
-                </svg></div>
-              <div class="feature-text">
-                <h3>Search Everything</h3>
-                <p>Press <code>Alt + Space</code> to find apps & files.</p>
-              </div>
+      .fade-up {
+        opacity: 0;
+        transform: translateY(20px);
+        animation: fadeUp 0.6s var(--ease-smooth) forwards;
+      }
+
+      .d-1 {
+        animation-delay: 0.1s;
+      }
+
+      .d-2 {
+        animation-delay: 0.2s;
+      }
+
+      .d-3 {
+        animation-delay: 0.3s;
+      }
+
+      .d-4 {
+        animation-delay: 0.4s;
+      }
+
+      @keyframes fadeUp {
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+
+      .voice-visual {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 5px;
+        height: 48px;
+        margin: 24px 0;
+      }
+
+      .bar {
+        width: 5px;
+        background: var(--primary);
+        border-radius: 3px;
+        animation: wave 1.2s ease-in-out infinite;
+      }
+
+      .bar:nth-child(1) {
+        height: 16px;
+        animation-delay: 0s;
+        background-color: #d83229;
+      }
+
+      .bar:nth-child(2) {
+        height: 28px;
+        animation-delay: 0.1s;
+        background-color: rgb(241, 111, 133);
+      }
+
+      .bar:nth-child(3) {
+        height: 40px;
+        animation-delay: 0.2s;
+      }
+
+      .bar:nth-child(4) {
+        height: 28px;
+        animation-delay: 0.3s;
+        background-color: #1d88fb;
+      }
+
+      .bar:nth-child(5) {
+        height: 16px;
+        animation-delay: 0.4s;
+        background: #00c7be;
+      }
+
+      @keyframes wave {
+        0%,
+        100% {
+          transform: scaleY(1);
+          opacity: 0.5;
+        }
+
+        50% {
+          transform: scaleY(1.4);
+          opacity: 1;
+        }
+      }
+
+      code {
+        background: #eef0f2;
+        padding: 2px 6px;
+        border-radius: 4px;
+        font-family: inherit;
+        font-weight: 600;
+        color: #1d1d1f;
+        font-size: 0.9em;
+        border: 1px solid rgba(0, 0, 0, 0.05);
+      }
+    </style>
+  </head>
+
+  <body>
+    <div class="bg-blobs">
+      <div class="blob blob-1"></div>
+      <div class="blob blob-2"></div>
+    </div>
+
+    <div class="container">
+      <div class="slide-track" id="slideTrack">
+        <div class="slide active">
+          <div class="slide-content">
+            <div class="logo-wrapper fade-up">
+              <img src="../../assets/logo.png" alt="Venesa Logo" />
             </div>
-            <div class="feature-item">
-              <div class="feature-icon-small" style="color:#00C7BE"><svg viewBox="0 0 24 24" fill="none"
-                  stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
-                  <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-                </svg></div>
-              <div class="feature-text">
-                <h3>Natural Language Commands</h3>
-                <p>Type <code>/</code> to tell Venesa what to do or ask questions.</p>
-              </div>
-            </div>
-            <div class="feature-item">
-              <div class="feature-icon-small" style="color:#34C759"><svg viewBox="0 0 24 24" fill="none"
-                  stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
-                  <circle cx="12" cy="12" r="10" />
-                  <line x1="2" y1="12" x2="22" y2="12" />
-                  <path
-                    d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
-                </svg></div>
-              <div class="feature-text">
-                <h3>Web Search</h3>
-                <p>Type <code>//</code> for instant Google results.</p>
-              </div>
-            </div>
-          </div>
-        </div>
-        <div class="btn-container">
-          <button onclick="nextSlide()">Next <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
-              stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M5 12h14M12 5l7 7-7 7" />
-            </svg></button>
-        </div>
-      </div>
-
-      <!-- SLIDE 3: VOICE -->
-      <div class="slide">
-        <div class="slide-content">
-          <div class="icon-hero">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" />
-              <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
-              <line x1="12" y1="19" x2="12" y2="23" />
-              <line x1="8" y1="23" x2="16" y2="23" />
-            </svg>
-          </div>
-          <h1>Voice Mode</h1>
-          <p>Hands-free control for your workflow.</p>
-
-          <div class="voice-visual">
-            <div class="bar"></div>
-            <div class="bar"></div>
-            <div class="bar"></div>
-            <div class="bar"></div>
-            <div class="bar"></div>
-          </div>
-
-          <p style="font-size: 16px; font-weight: 500; color: var(--primary); margin-bottom: 8px;">"Hey Venesa"</p>
-          <p style="font-size: 13px; color: var(--text-secondary);">Wake word to activate</p>
-
-          <div
-            style="margin-top: 24px; padding: 16px; background: rgba(255,255,255,0.6); border-radius: 12px; width: 100%;">
-            <p style="font-size: 13px; line-height: 1.6;">
-              Try saying:<br>
-              <i>"Open Spotify"</i><br>
-              <i>"What's on my screen?"</i>
+            <h1 class="fade-up d-1">Welcome to Venesa</h1>
+            <p class="fade-up d-2">
+              Your intelligent desktop companion.<br />Let's get everything set
+              up.
             </p>
-          </div>
-        </div>
-        <div class="btn-container">
-          <button onclick="nextSlide()">Next <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
-              stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M5 12h14M12 5l7 7-7 7" />
-            </svg></button>
-        </div>
-      </div>
 
-      <!-- SLIDE 4: FINISH -->
-      <div class="slide">
-        <div class="slide-content">
-          <div class="logo-wrapper">
-            <img src="../../assets/logo.png" alt="Venesa Logo" />
-          </div>
-
-          <h1 id="finalGreeting">You're All Set!</h1>
-          <p>Venesa is ready to help you be more productive.</p>
-
-          <div
-            style="background: white; padding: 20px; border-radius: 16px; margin-top: 32px; box-shadow: var(--shadow-sm); width: 100%; text-align: left; border: 1px solid rgba(0,0,0,0.05);">
-            <div style="display:flex; gap:12px; align-items:start;">
-              <div
-                style="width:24px; height:24px; background:#e5f1ff; border-radius:6px; display:flex; align-items:center; justify-content:center; color:#007AFF;">
-                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5">
-                  <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
-                </svg>
-              </div>
-              <div>
-                <p style="font-size: 14px; margin-bottom: 4px; font-weight: 600; color: #1d1d1f;">Pro Tip</p>
-                <p style="font-size: 13px; color: var(--text-secondary); line-height: 1.4;">
-                  Venesa runs quietly in the background. Summon her anytime with <code>Alt + Space</code>.
-                </p>
+            <div class="input-group fade-up d-3">
+              <input
+                type="text"
+                id="userName"
+                placeholder="What should I call you?"
+                autocomplete="off"
+                spellcheck="false"
+              />
+              <div class="error-msg" id="nameError">
+                Please enter a name to continue
               </div>
             </div>
           </div>
+          <div class="btn-container fade-up d-4">
+            <button onclick="nextSlide()">
+              Continue
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2.5"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <path d="M5 12h14M12 5l7 7-7 7" />
+              </svg>
+            </button>
+          </div>
         </div>
-        <div class="btn-container">
-          <button id="finishBtn" onclick="finishSetup()">Get Started <svg viewBox="0 0 24 24" fill="none"
-              stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-              <line x1="5" y1="12" x2="19" y2="12" />
-              <polyline points="12 5 19 12 12 19" />
-            </svg></button>
+
+        <div class="slide">
+          <div class="slide-content feature-slide-content">
+            <div class="icon-hero">
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <circle cx="11" cy="11" r="8" />
+                <line x1="21" y1="21" x2="16.65" y2="16.65" />
+              </svg>
+            </div>
+            <h1>Text Mode</h1>
+            <p>Your powerful desktop command center.</p>
+
+            <div class="feature-list">
+              <div class="feature-item">
+                <div class="feature-icon-small" style="color: #007aff">
+                  <svg
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  >
+                    <circle cx="12" cy="12" r="10" />
+                    <line x1="2" y1="12" x2="22" y2="12" />
+                    <path
+                      d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"
+                    />
+                  </svg>
+                </div>
+                <div class="feature-text">
+                  <h3>Search Everything</h3>
+                  <p>Press <code>Alt + Space</code> to find apps & files.</p>
+                </div>
+              </div>
+              <div class="feature-item">
+                <div class="feature-icon-small" style="color: #00c7be">
+                  <svg
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  >
+                    <path
+                      d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"
+                    />
+                  </svg>
+                </div>
+                <div class="feature-text">
+                  <h3>Natural Language Commands</h3>
+                  <p>
+                    Type <code>/</code> to tell Venesa what to do or ask
+                    questions.
+                  </p>
+                </div>
+              </div>
+              <div class="feature-item">
+                <div class="feature-icon-small" style="color: #34c759">
+                  <svg
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  >
+                    <circle cx="12" cy="12" r="10" />
+                    <line x1="2" y1="12" x2="22" y2="12" />
+                    <path
+                      d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"
+                    />
+                  </svg>
+                </div>
+                <div class="feature-text">
+                  <h3>Web Search</h3>
+                  <p>Type <code>//</code> for instant Google results.</p>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="btn-container">
+            <button onclick="nextSlide()">
+              Next
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2.5"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <path d="M5 12h14M12 5l7 7-7 7" />
+              </svg>
+            </button>
+          </div>
+        </div>
+
+        <div class="slide">
+          <div class="slide-content">
+            <div class="icon-hero">
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <path
+                  d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"
+                />
+                <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
+                <line x1="12" y1="19" x2="12" y2="23" />
+                <line x1="8" y1="23" x2="16" y2="23" />
+              </svg>
+            </div>
+            <h1>Voice Mode</h1>
+            <p>Hands-free control for your workflow.</p>
+
+            <div class="voice-visual">
+              <div class="bar"></div>
+              <div class="bar"></div>
+              <div class="bar"></div>
+              <div class="bar"></div>
+              <div class="bar"></div>
+            </div>
+
+            <p
+              style="
+                font-size: 16px;
+                font-weight: 500;
+                color: var(--primary);
+                margin-bottom: 8px;
+              "
+            >
+              "Hey Venesa"
+            </p>
+            <p style="font-size: 13px; color: var(--text-secondary)">
+              Wake word to activate
+            </p>
+
+            <div
+              style="
+                margin-top: 24px;
+                padding: 16px;
+                background: rgba(255, 255, 255, 0.6);
+                border-radius: 12px;
+                width: 100%;
+              "
+            >
+              <p style="font-size: 13px; line-height: 1.6">
+                Try saying:<br />
+                <i>"Open Spotify"</i><br />
+                <i>"What's on my screen?"</i>
+              </p>
+            </div>
+          </div>
+          <div class="btn-container">
+            <button onclick="nextSlide()">
+              Next
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2.5"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <path d="M5 12h14M12 5l7 7-7 7" />
+              </svg>
+            </button>
+          </div>
+        </div>
+
+        <div class="slide">
+          <div class="slide-content">
+            <div class="logo-wrapper">
+              <img src="../../assets/logo.png" alt="Venesa Logo" />
+            </div>
+
+            <h1 id="finalGreeting">You're All Set!</h1>
+            <p>Venesa is ready to help you be more productive.</p>
+
+            <div
+              style="
+                background: white;
+                padding: 20px;
+                border-radius: 16px;
+                margin-top: 32px;
+                box-shadow: var(--shadow-sm);
+                width: 100%;
+                text-align: left;
+                border: 1px solid rgba(0, 0, 0, 0.05);
+              "
+            >
+              <div style="display: flex; gap: 12px; align-items: start">
+                <div
+                  style="
+                    width: 24px;
+                    height: 24px;
+                    background: #e5f1ff;
+                    border-radius: 6px;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    color: #007aff;
+                  "
+                >
+                  <svg
+                    viewBox="0 0 24 24"
+                    width="14"
+                    height="14"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2.5"
+                  >
+                    <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
+                  </svg>
+                </div>
+                <div>
+                  <p
+                    style="
+                      font-size: 14px;
+                      margin-bottom: 4px;
+                      font-weight: 600;
+                      color: #1d1d1f;
+                    "
+                  >
+                    Pro Tip
+                  </p>
+                  <p
+                    style="
+                      font-size: 13px;
+                      color: var(--text-secondary);
+                      line-height: 1.4;
+                    "
+                  >
+                    Venesa runs quietly in the background. Summon her anytime
+                    with <code>Alt + Space</code>.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="btn-container">
+            <button id="finishBtn" onclick="finishSetup()">
+              Get Started
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2.5"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <line x1="5" y1="12" x2="19" y2="12" />
+                <polyline points="12 5 19 12 12 19" />
+              </svg>
+            </button>
+          </div>
         </div>
       </div>
 
+      <div class="dots">
+        <div class="dot active"></div>
+        <div class="dot"></div>
+        <div class="dot"></div>
+        <div class="dot"></div>
+      </div>
     </div>
 
-    <!-- DOTS -->
-    <div class="dots">
-      <div class="dot active"></div>
-      <div class="dot"></div>
-      <div class="dot"></div>
-      <div class="dot"></div>
-    </div>
-  </div>
+    <script>
+      let currentSlide = 0;
+      const totalSlides = 4;
+      const slideTrack = document.getElementById("slideTrack");
+      const slides = document.querySelectorAll(".slide");
+      const dots = document.querySelectorAll(".dot");
+      const userNameInput = document.getElementById("userName");
+      const nameError = document.getElementById("nameError");
+      const finalGreeting = document.getElementById("finalGreeting");
+      let userName = "";
 
-  <script>
-    let currentSlide = 0;
-    const totalSlides = 4;
-    const slideTrack = document.getElementById('slideTrack');
-    const slides = document.querySelectorAll('.slide');
-    const dots = document.querySelectorAll('.dot');
-    const userNameInput = document.getElementById('userName');
-    const nameError = document.getElementById('nameError');
-    const finalGreeting = document.getElementById('finalGreeting');
-    let userName = '';
+      setTimeout(() => userNameInput.focus(), 500);
 
-    // Auto-focus input on start
-    setTimeout(() => userNameInput.focus(), 500);
+      function updateSlide() {
+        slideTrack.style.transform = `translateX(-${currentSlide * 25}%)`;
 
-    function updateSlide() {
-      slideTrack.style.transform = `translateX(-${currentSlide * 25}%)`;
+        slides.forEach((slide, index) => {
+          if (index === currentSlide) slide.classList.add("active");
+          else slide.classList.remove("active");
+        });
 
-      slides.forEach((slide, index) => {
-        if (index === currentSlide) slide.classList.add('active');
-        else slide.classList.remove('active');
-      });
+        dots.forEach((dot, index) => {
+          if (index === currentSlide) dot.classList.add("active");
+          else dot.classList.remove("active");
+        });
+      }
 
-      dots.forEach((dot, index) => {
-        if (index === currentSlide) dot.classList.add('active');
-        else dot.classList.remove('active');
-      });
-    }
+      function nextSlide() {
+        if (currentSlide === 0) {
+          const val = userNameInput.value.trim();
+          if (!val) {
+            nameError.textContent = "Please enter a name to continue";
+            nameError.classList.add("visible");
+            userNameInput.focus();
+            shakeInput();
+            return;
+          }
 
-    function nextSlide() {
-      // Validation for Slide 1
-      if (currentSlide === 0) {
-        const val = userNameInput.value.trim();
-        if (!val) {
-          nameError.textContent = "Please enter a name to continue";
-          nameError.classList.add('visible');
-          userNameInput.focus();
-          shakeInput();
-          return;
+          if (val.toLowerCase() === "user") {
+            nameError.textContent = "Please enter a specific name (not 'User')";
+            nameError.classList.add("visible");
+            userNameInput.focus();
+            shakeInput();
+            return;
+          }
+
+          userName = val;
+          nameError.classList.remove("visible");
+          finalGreeting.textContent = `You're all set, ${userName}!`;
         }
 
-        if (val.toLowerCase() === "user") {
-          nameError.textContent = "Please enter a specific name (not 'User')";
-          nameError.classList.add('visible');
-          userNameInput.focus();
-          shakeInput();
-          return;
+        if (currentSlide < totalSlides - 1) {
+          currentSlide++;
+          updateSlide();
+        }
+      }
+
+      function finishSetup() {
+        const btn = document.getElementById("finishBtn");
+
+        btn.innerHTML =
+          'Starting... <svg class="spinner" viewBox="0 0 50 50" style="width:16px;height:16px;animation:spin 1s linear infinite;"><circle cx="25" cy="25" r="20" fill="none" stroke="white" stroke-width="5" stroke-dasharray="80" stroke-dashoffset="0"></circle></svg>';
+        btn.style.opacity = "0.8";
+        btn.disabled = true;
+
+        if (!document.getElementById("spinStyle")) {
+          const style = document.createElement("style");
+          style.id = "spinStyle";
+          style.textContent = `@keyframes spin { 100% { transform: rotate(360deg); } }`;
+          document.head.appendChild(style);
         }
 
-        userName = val;
-        nameError.classList.remove('visible');
-        finalGreeting.textContent = `You're all set, ${userName}!`;
+        window.api.send("save-settings", {
+          modelName: "gemini-2.5-flash",
+          userName: userName,
+        });
       }
 
-      if (currentSlide < totalSlides - 1) {
-        currentSlide++;
-        updateSlide();
-      }
-    }
-
-    function finishSetup() {
-      const btn = document.getElementById('finishBtn');
-      // Spinner SVG
-      btn.innerHTML = 'Starting... <svg class="spinner" viewBox="0 0 50 50" style="width:16px;height:16px;animation:spin 1s linear infinite;"><circle cx="25" cy="25" r="20" fill="none" stroke="white" stroke-width="5" stroke-dasharray="80" stroke-dashoffset="0"></circle></svg>';
-      btn.style.opacity = '0.8';
-      btn.disabled = true;
-
-      // Add spin animation style dynamically if not present
-      if (!document.getElementById('spinStyle')) {
-        const style = document.createElement('style');
-        style.id = 'spinStyle';
-        style.textContent = `@keyframes spin { 100% { transform: rotate(360deg); } }`;
-        document.head.appendChild(style);
-      }
-
-      // Save settings and trigger main window open
-      window.api.send("save-settings", {
-        modelName: "gemini-2.5-flash",
-        userName: userName
+      window.api.receive("settings-saved", (success) => {
+        if (!success) {
+          const btn = document.getElementById("finishBtn");
+          btn.innerHTML = "Try Again";
+          btn.disabled = false;
+          btn.style.opacity = "1";
+          alert("Failed to save settings. Please try again.");
+        }
       });
-    }
 
-    // Listen for save confirmation
-    window.api.receive("settings-saved", (success) => {
-      if (!success) {
-        const btn = document.getElementById('finishBtn');
-        btn.innerHTML = 'Try Again';
-        btn.disabled = false;
-        btn.style.opacity = '1';
-        alert("Failed to save settings. Please try again.");
+      userNameInput.addEventListener("keydown", (e) => {
+        if (e.key === "Enter") nextSlide();
+        if (nameError.classList.contains("visible"))
+          nameError.classList.remove("visible");
+      });
+
+      userNameInput.addEventListener("input", () => {
+        nameError.classList.remove("visible");
+      });
+
+      function shakeInput() {
+        userNameInput.style.transform = "translateX(6px)";
+        setTimeout(
+          () => (userNameInput.style.transform = "translateX(-6px)"),
+          50,
+        );
+        setTimeout(
+          () => (userNameInput.style.transform = "translateX(6px)"),
+          100,
+        );
+        setTimeout(
+          () => (userNameInput.style.transform = "translateX(0)"),
+          150,
+        );
       }
-    });
-
-    // Input Enter key support
-    userNameInput.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter') nextSlide();
-      if (nameError.classList.contains('visible')) nameError.classList.remove('visible');
-    });
-
-    // Error clearing
-    userNameInput.addEventListener('input', () => {
-      nameError.classList.remove('visible');
-    });
-
-    function shakeInput() {
-      userNameInput.style.transform = "translateX(6px)";
-      setTimeout(() => userNameInput.style.transform = "translateX(-6px)", 50);
-      setTimeout(() => userNameInput.style.transform = "translateX(6px)", 100);
-      setTimeout(() => userNameInput.style.transform = "translateX(0)", 150);
-    }
-  </script>
-</body>
-
+    </script>
+  </body>
 </html>

@@ -1,9 +1,6 @@
-/**
- * ElevenLabs Service - Unified TTS/STT with API key rotation
- */
-
-const config = require('./config.js');
+const servicesConfig = require('../config/services.config');
 const keyPool = require('./apiKeyPool');
+const logger = require('./logger');
 
 function pcmToWav(pcmBuffer) {
     const sampleRate = 16000;
@@ -31,8 +28,7 @@ function pcmToWav(pcmBuffer) {
 }
 
 async function transcribe(audioBuffer, options = {}) {
-    // 1. Get a key (simple round-robin, no validation)
-    let apiKey = keyPool.getNextKey('elevenlabs');
+    let apiKey = await keyPool.getNextKey('elevenlabs');
     if (!apiKey) throw new Error('No valid ElevenLabs API keys available');
 
     const { filename = 'audio.wav', contentType = 'audio/wav' } = options;
@@ -43,22 +39,21 @@ async function transcribe(audioBuffer, options = {}) {
         try {
             const form = new FormData();
             form.append('file', audioBuffer, { filename, contentType });
-            form.append('model_id', config.stt.model);
-            form.append('language_code', 'en');
+            form.append('model_id', servicesConfig.elevenlabs.stt.model);
+            form.append('language_code', servicesConfig.elevenlabs.stt.language);
 
-            const response = await fetch(config.endpoints.stt, {
+            const response = await fetch('https://api.elevenlabs.io/v1/speech-to-text', {
                 method: 'POST',
                 headers: { 'xi-api-key': apiKey, ...form.getHeaders() },
                 body: form.getBuffer()
             });
 
             if (!response.ok) {
-                // If auth error, report it and try one more time with a different key
                 if (response.status === 401 || response.status === 403) {
                     keyPool.reportError('elevenlabs', apiKey, { status: response.status });
-                    apiKey = keyPool.getNextKey('elevenlabs'); // Get new key
+                    apiKey = await keyPool.getNextKey('elevenlabs');
                     if (!apiKey) throw new Error('All keys exhausted');
-                    continue; // Retry once
+                    continue;
                 }
                 const errorText = await response.text();
                 throw new Error(`STT failed: ${response.status} - ${errorText}`);
@@ -67,8 +62,8 @@ async function transcribe(audioBuffer, options = {}) {
             return (await response.json()).text || '';
 
         } catch (error) {
-            console.error(`[ElevenLabs] STT Error: ${error.message}`);
-            if (i === 1) throw error; // Throw on last attempt
+            logger.error(`STT error: ${error.message}`);
+            if (i === 1) throw error;
         }
     }
 }
@@ -76,21 +71,26 @@ async function transcribe(audioBuffer, options = {}) {
 async function synthesizeToDataURL(text) {
     if (!text || text.trim().length === 0) return null;
 
-    let apiKey = keyPool.getNextKey('elevenlabs');
+    let apiKey = await keyPool.getNextKey('elevenlabs');
     if (!apiKey) throw new Error('No valid ElevenLabs API keys available');
 
-    // Simple retry loop (max 2 attempts)
     for (let i = 0; i < 2; i++) {
         try {
+            const ttsConfig = servicesConfig.elevenlabs.tts;
             const response = await fetch(
-                `${config.endpoints.tts}/${config.tts.voiceId}?output_format=${config.tts.outputFormat}`,
+                `https://api.elevenlabs.io/v1/text-to-speech/${ttsConfig.voiceId}?output_format=${ttsConfig.outputFormat}`,
                 {
                     method: 'POST',
                     headers: { 'xi-api-key': apiKey, 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         text: text,
-                        model_id: config.tts.model,
-                        voice_settings: config.tts.voiceSettings
+                        model_id: ttsConfig.model,
+                        voice_settings: {
+                            stability: ttsConfig.stability,
+                            similarity_boost: ttsConfig.similarityBoost,
+                            style: ttsConfig.style,
+                            use_speaker_boost: ttsConfig.useSpeakerBoost
+                        }
                     })
                 }
             );
@@ -98,7 +98,7 @@ async function synthesizeToDataURL(text) {
             if (!response.ok) {
                 if (response.status === 401 || response.status === 403) {
                     keyPool.reportError('elevenlabs', apiKey, { status: response.status });
-                    apiKey = keyPool.getNextKey('elevenlabs');
+                    apiKey = await keyPool.getNextKey('elevenlabs');
                     if (!apiKey) throw new Error('All keys exhausted');
                     continue;
                 }
@@ -109,7 +109,7 @@ async function synthesizeToDataURL(text) {
             const buffer = Buffer.from(await response.arrayBuffer());
             return `data:audio/mpeg;base64,${buffer.toString('base64')}`;
         } catch (error) {
-            console.error(`[ElevenLabs] TTS Error: ${error.message}`);
+            logger.error(`TTS error: ${error.message}`);
             if (i === 1) throw error;
         }
     }

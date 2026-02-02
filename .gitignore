@@ -1,4 +1,17 @@
-node_modules
-.env
+# Dependencies
+node_modules/
+
+# Build outputs
 dist/
 out/
+
+# Logs (generated at runtime)
+logs/
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+Thumbs.db
+.DS_Store

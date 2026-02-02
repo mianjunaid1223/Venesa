@@ -3,6 +3,7 @@ const { shell } = require("electron");
 const os = require("os");
 const path = require("path");
 const fs = require("fs");
+const logger = require('./logger');
 
 const HOME_DIR = os.homedir();
 
@@ -20,9 +21,7 @@ const DOCUMENT_EXTENSIONS = new Set([
   ".doc", ".docx", ".pdf", ".txt", ".rtf", ".xls", ".xlsx", ".ppt", ".pptx", ".odt"
 ]);
 
-
-
-const POWERSHELL_TIMEOUT_MS = 20000; // 20 second timeout
+const POWERSHELL_TIMEOUT_MS = 20000;
 
 function runPowerShell(script, timeoutMs = POWERSHELL_TIMEOUT_MS) {
   return new Promise((resolve, reject) => {
@@ -37,10 +36,19 @@ function runPowerShell(script, timeoutMs = POWERSHELL_TIMEOUT_MS) {
       return;
     }
 
+    // Create a clean environment without venv activation that might interfere
+    const cleanEnv = { ...process.env };
+    // Remove Python virtual environment variables that could interfere
+    delete cleanEnv.VIRTUAL_ENV;
+    delete cleanEnv.PYTHONHOME;
+    // Ensure we use system PowerShell path
+    const systemRoot = process.env.SystemRoot || 'C:\\Windows';
+    const psPath = path.join(systemRoot, 'System32', 'WindowsPowerShell', 'v1.0', 'powershell.exe');
+
     const ps = spawn(
-      "powershell",
+      fs.existsSync(psPath) ? psPath : "powershell",
       ["-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-File", tempFile],
-      { windowsHide: true }
+      { windowsHide: true, env: cleanEnv }
     );
 
     let stdout = "";
@@ -83,6 +91,80 @@ function runPowerShell(script, timeoutMs = POWERSHELL_TIMEOUT_MS) {
       done(() => reject(error));
     });
   });
+}
+
+// Get current time in a friendly format
+function getCurrentTime() {
+  const now = new Date();
+  const timeStr = now.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+  const dateStr = now.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
+  return JSON.stringify({ time: timeStr, date: dateStr, full: `${timeStr} on ${dateStr}` });
+}
+
+// Safe PowerShell execution for read-only info gathering
+// SECURITY: Uses strict allowlist - script must start with an allowed pattern
+const SAFE_PS_PATTERNS = [
+  /^Get-CimInstance/i,    // WMI queries (read-only)
+  /^Get-Process/i,        // Process listing
+  /^Get-Service/i,        // Service listing
+  /^Get-ChildItem/i,      // Directory listing
+  /^Get-Content/i,        // File reading
+  /^Get-Date/i,           // Date/time
+  /^Get-Location/i,       // Current directory
+  /^\$env:/i,             // Environment variable reads
+  /^\[math\]::/i,         // Math operations
+];
+
+// Dangerous patterns that bypass allowlist - always blocked
+const DANGEROUS_PS_PATTERNS = [
+  // Encoded/obfuscated execution
+  /-enc/i, /-encodedcommand/i, /-e\s/i,
+  // Download/network patterns
+  /webclient/i, /net\./i, /downloadstring/i, /downloadfile/i,
+  /invoke-webrequest/i, /iwr\s/i, /curl/i, /wget/i,
+  // Code execution patterns
+  /invoke-expression/i, /iex\s/i, /invoke-command/i, /icm\s/i,
+  /scriptblock/i, /\[scriptblock\]/i, /::create/i,
+  // Reflection/dynamic code
+  /reflection/i, /\[type\]/i, /gettype/i, /assembly/i,
+  // Call operator and concatenation tricks
+  /&\s*\$/i, /&\s*\(/i, /&\s*['"]/, /\+\s*['"].*['"]\s*\+/i,
+  // Destructive commands
+  /remove-/i, /delete-/i, /set-/i, /new-/i, /stop-/i, /start-/i,
+  /clear-/i, /install-/i, /uninstall-/i, /update-/i, /add-/i,
+  /format-/i, /mount-/i, /dismount-/i, /restart-/i, /shutdown/i,
+  /rm\s/i, /del\s/i, /-file\s/i, /-command\s/i,
+  /powershell/i, /pwsh/i, /cmd\.exe/i, /cmd\s/i,
+];
+
+// Internal function - only called by trusted internal code paths (getSystemInfo, executeSystemControl)
+// NOT exposed via action handler to prevent arbitrary script injection
+async function runSafePowerShell(script) {
+  if (!script || typeof script !== 'string') {
+    return JSON.stringify({ error: "No script provided" });
+  }
+
+  const trimmedScript = script.trim();
+
+  // SECURITY: First check for dangerous patterns (always blocked)
+  for (const pattern of DANGEROUS_PS_PATTERNS) {
+    if (pattern.test(trimmedScript)) {
+      return JSON.stringify({ error: "Command contains blocked pattern" });
+    }
+  }
+
+  // SECURITY: Verify script starts with an allowed safe pattern (allowlist)
+  const isAllowed = SAFE_PS_PATTERNS.some(pattern => pattern.test(trimmedScript));
+  if (!isAllowed) {
+    return JSON.stringify({ error: "Command not in allowlist" });
+  }
+
+  try {
+    const result = await runPowerShell(script, 10000); // 10 second timeout
+    return result;
+  } catch (e) {
+    return JSON.stringify({ error: e.message });
+  }
 }
 
 
@@ -159,10 +241,7 @@ async function searchFilesAndFolders(query, maxResults = 20) {
 
   let foundCount = 0;
 
-  // Helper for recursive search with depth limit
-  // Note: foundCount is shared state, serialization happens in consumer
   const searchDir = async (dir, depth) => {
-
     if (foundCount >= maxResults || depth > 2) return;
     try {
       if (!fs.existsSync(dir)) return;
@@ -175,7 +254,6 @@ async function searchFilesAndFolders(query, maxResults = 20) {
         const fullPath = path.join(dir, dirent.name);
         const name = dirent.name;
 
-        // Skip hidden files/folders
         if (name.startsWith('.') || name.startsWith('$')) continue;
 
         if (name.toLowerCase().includes(lowerQuery)) {
@@ -187,29 +265,21 @@ async function searchFilesAndFolders(query, maxResults = 20) {
           foundCount++;
         }
 
-        // Recurse if directory
         if (dirent.isDirectory()) {
           await searchDir(fullPath, depth + 1);
         }
       }
     } catch (e) {
-      // Ignore permission denied etc
+      logger.debug(`Directory traversal error: ${e.message}`);
     }
   };
 
   try {
-    if (process.env.DEBUG) {
-      console.log('[TaskService] Starting native Node.js search for:', query);
-    }
-    // Serialized execution to prevent race conditions on foundCount
     for (const dir of searchDirs) {
       await searchDir(dir, 0);
     }
-    if (process.env.DEBUG) {
-      console.log(`[TaskService] Search complete: ${files.length} files, ${folders.length} folders`);
-    }
   } catch (e) {
-    console.error('[TaskService] Node search error:', e.message);
+    logger.error(`File search error: ${e.message}`);
   }
 
   return { files, folders };
@@ -227,11 +297,9 @@ async function performSearch(query) {
 
 async function launchApplication(appName) {
   try {
-    // First, search for the application shortcut
     const apps = await searchApplications(appName);
 
     if (apps.length > 0) {
-      // Found a matching app, open its shortcut path
       const result = await shell.openPath(apps[0].path);
       if (result) {
         return `Error launching ${appName}: ${result}`;
@@ -239,7 +307,6 @@ async function launchApplication(appName) {
       return `Launching ${apps[0].name}`;
     }
 
-    // Fallback: try to run it as a command (for apps like "notepad", "calc")
     const { exec } = require("child_process");
     return new Promise((resolve) => {
       exec(`start "" "${appName.replace(/"/g, '\\"')}"`, { windowsHide: true }, (error) => {
@@ -265,11 +332,8 @@ function openFile(filePath) {
       const normalizedHome = path.normalize(canonicalHome).toLowerCase();
       const homePrefix = path.normalize(canonicalHome + path.sep).toLowerCase();
 
-      // Platform aware system checks (Windows)
       let isAllowed = false;
-      // Strict security: Broad allowlist removed. Access restricted to Home Directory by homepage below.
 
-      // Allow if system path OR inside home directory
       if (!isAllowed && normalizedPath !== normalizedHome && !normalizedPath.startsWith(homePrefix)) {
         reject(new Error(`Access denied: path escapes home directory`));
         return;
@@ -343,8 +407,10 @@ async function processResponse(response) {
         else if (actionName === "listen") result = "Listening";
         else if (actionName === "systemControl") result = await executeSystemControl(params);
         else if (actionName === "openUrl") result = await openUrl(params.url);
-        // runCommand action removed for security - arbitrary command execution is not allowed
         else if (actionName === "getSystemInfo") result = await getSystemInfo();
+        else if (actionName === "getTime") result = getCurrentTime();
+        // runPowerShell and runCommand actions removed for security - arbitrary script execution is not allowed
+        // Use dedicated actions like getSystemInfo instead
         return { actionName, result };
       } catch (e) {
         return { actionName, error: e.toString() };
@@ -480,4 +546,6 @@ module.exports = {
   executeSystemControl,
   openUrl,
   getSystemInfo,
+  getCurrentTime,
+  // runSafePowerShell is internal only - not exported for security
 };

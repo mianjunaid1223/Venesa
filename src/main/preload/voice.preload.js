@@ -36,7 +36,8 @@ contextBridge.exposeInMainWorld('voiceApi', {
             'stt-result',
             'stt-partial-result',
             'voice-audio-ready',
-            'auto-close-voice'
+            'auto-close-voice',
+            'action-complete'
         ];
         if (validChannels.includes(channel)) {
             // Verify func is a function before registering
