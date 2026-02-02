@@ -163,7 +163,12 @@ async function sendQuery(query, image = null, mode = 'text') {
       }
 
       const response = await result.response;
-      return response.text();
+      const responseText = response.text();
+      
+      // Report success so key stays primary
+      keyPool.reportSuccess('gemini', apiKey);
+      
+      return responseText;
 
     } catch (error) {
       lastError = error;

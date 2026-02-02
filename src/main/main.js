@@ -1,5 +1,4 @@
-// Load environment variables first
-require('dotenv').config();
+require("dotenv").config();
 
 const {
   app,
@@ -22,14 +21,13 @@ const wakeWordService = require("../core/wake-word-service.js");
 let mainWindow;
 let setupWindow;
 let voiceWindow;
-let backgroundAudioWindow = null; // Hidden window for background mic
+let backgroundAudioWindow = null;
 const startHidden = process.argv.includes("--hidden");
 
 const WINDOW_WIDTH = 680;
 const MIN_HEIGHT = 60;
 const MAX_HEIGHT = 500;
 
-// Animation state - module level for access from createWindow blur handler
 const ANIMATION_DURATION = 150;
 const ANIMATION_STEPS = 12;
 let animationInProgress = false;
@@ -38,7 +36,6 @@ let animationTimeout = null;
 
 const easeOutCubic = (t) => 1 - Math.pow(1 - t, 3);
 
-// Helper to cancel any ongoing animation
 const cancelAnimation = () => {
   if (animationTimeout) {
     clearTimeout(animationTimeout);
@@ -118,7 +115,6 @@ function createWindow() {
   });
 
   mainWindow.on("blur", () => {
-    // Cancel any ongoing animation before hiding
     cancelAnimation();
     const bounds = mainWindow.getBounds();
     mainWindow.setBounds({
@@ -136,18 +132,56 @@ function createWindow() {
   });
 }
 
+const http = require("http");
+const url = require("url");
+
+let modelServer = null;
+let modelServerPort = 0;
+
+function startModelServer(modelTarGzPath) {
+  return new Promise((resolve) => {
+    modelServer = http.createServer((req, res) => {
+      console.log(`[ModelServer] Request: ${req.url}`);
+
+      fs.readFile(modelTarGzPath, (err, data) => {
+        if (err) {
+          console.log(`[ModelServer] Error reading model: ${err.message}`);
+          res.writeHead(404);
+          res.end("Not found");
+          return;
+        }
+        res.setHeader("Access-Control-Allow-Origin", "*");
+        res.setHeader("Content-Type", "application/gzip");
+        res.setHeader("Content-Length", data.length);
+        res.writeHead(200);
+        res.end(data);
+      });
+    });
+
+    const onError = (err) => {
+      modelServer.removeListener('error', onError);
+      reject(err);
+    };
+    modelServer.on('error', onError);
+
+    modelServer.listen(0, "127.0.0.1", () => {
+      modelServer.removeListener('error', onError);
+      modelServerPort = modelServer.address().port;
+      console.log(`[Main] Model server started on port ${modelServerPort}`);
+      resolve(modelServerPort);
+    });
+  });
+}
+
 app.whenReady().then(async () => {
-  // Only enable auto-start if user preference allows
-  // Check for settings file or environment variable
-  const settingsPath = path.join(os.homedir(), '.venesa-settings.json');
+  const settingsPath = path.join(os.homedir(), ".venesa-settings.json");
   let autoStartEnabled = false;
   try {
     if (fs.existsSync(settingsPath)) {
-      const settings = JSON.parse(fs.readFileSync(settingsPath, 'utf8'));
-      autoStartEnabled = settings.openAtLogin !== false; // Default true if not specified
+      const settings = JSON.parse(fs.readFileSync(settingsPath, "utf8"));
+      autoStartEnabled = settings.openAtLogin !== false;
     }
   } catch (e) {
-    // Default to true on error
     autoStartEnabled = true;
   }
 
@@ -159,8 +193,6 @@ app.whenReady().then(async () => {
     });
   }
 
-  // Initialize API key pool at startup (VALIDATE FIRST before showing UI)
-  // This ensures keys are checked once at startup as requested
   await gemini.initializeAPI();
 
   if (gemini.needsSetup()) {
@@ -168,23 +200,21 @@ app.whenReady().then(async () => {
   } else {
     createWindow();
 
-    // Initialize STT service
     sttService.initialize();
 
-    // Start background wake word detection
     startBackgroundWakeWordDetection();
   }
 
-  // Auto-grant permissions (microphone only from trusted origins)
-  const { session } = require('electron');
-  session.defaultSession.setPermissionRequestHandler((webContents, permission, callback) => {
-    // Only auto-approve microphone access (required for voice features)
-    if (permission === 'media') {
-      return callback(true);
-    }
-    // Deny other permissions - user must explicitly approve
-    callback(false);
-  });
+  const { session } = require("electron");
+  session.defaultSession.setPermissionRequestHandler(
+    (webContents, permission, callback) => {
+      if (permission === "media") {
+        return callback(true);
+      }
+
+      callback(false);
+    },
+  );
 
   globalShortcut.register("Alt+Space", () => {
     if (gemini.needsSetup()) {
@@ -231,7 +261,6 @@ app.whenReady().then(async () => {
     if (success) {
       gemini.initializeAPI();
 
-      // Update login settings if changed
       if (settings.openAtLogin !== undefined) {
         app.setLoginItemSettings({
           openAtLogin: settings.openAtLogin,
@@ -250,7 +279,6 @@ app.whenReady().then(async () => {
         if (!mainWindow || mainWindow.isDestroyed()) {
           createWindow();
 
-          // Initialize voice services after setup
           sttService.initialize();
           startBackgroundWakeWordDetection();
         }
@@ -275,29 +303,27 @@ app.whenReady().then(async () => {
 
   ipcMain.on("send-to-gemini", async (event, query) => {
     try {
-      // Check if sender is valid before proceeding
       if (!event.sender || event.sender.isDestroyed()) {
-        console.warn('[Main] send-to-gemini: Sender destroyed before processing');
+        console.warn(
+          "[Main] send-to-gemini: Sender destroyed before processing",
+        );
         return;
       }
 
       const rawResponse = await gemini.sendQuery(query);
 
-      // Check sender again after async operation
       if (!event.sender || event.sender.isDestroyed()) {
-        console.warn('[Main] send-to-gemini: Sender destroyed after query');
+        console.warn("[Main] send-to-gemini: Sender destroyed after query");
         return;
       }
 
-      // Process response centrally (executes actions)
-      const { cleanResponse, results } = await taskExecutor.processResponse(rawResponse);
+      const { cleanResponse, results } =
+        await taskExecutor.processResponse(rawResponse);
 
-      // Send the clean text response to renderer
       if (!event.sender.isDestroyed()) {
         event.sender.send("gemini-response", cleanResponse);
       }
 
-      // Send execution results back to renderer
       if (results && results.length > 0) {
         for (const res of results) {
           if (event.sender.isDestroyed()) break;
@@ -335,15 +361,13 @@ app.whenReady().then(async () => {
       if (appInfo.type === "shortcut" && appInfo.path) {
         await shell.openPath(appInfo.path);
       } else if (appInfo.appId) {
-        // Validate appId to prevent command injection
-        // AppUserModelId should only contain safe characters: letters, numbers, dots, underscores
         const safeAppIdPattern = /^[a-zA-Z0-9._!\-]+$/;
         if (!safeAppIdPattern.test(appInfo.appId)) {
           console.error("Invalid appId format:", appInfo.appId);
           return;
         }
         const { execFile } = require("child_process");
-        // Use execFile with args array to prevent shell injection
+
         execFile("explorer.exe", [`shell:AppsFolder\\${appInfo.appId}`], {
           windowsHide: true,
         });
@@ -360,7 +384,7 @@ app.whenReady().then(async () => {
     if (!path.isAbsolute(filePath)) {
       fullPath = path.join(os.homedir(), filePath);
     }
-    shell.openPath(fullPath).catch(() => { });
+    shell.openPath(fullPath).catch(() => {});
   });
 
   ipcMain.on("show-file-in-folder", (event, filePath) => {
@@ -376,22 +400,18 @@ app.whenReady().then(async () => {
     if (!path.isAbsolute(folderPath)) {
       fullPath = path.join(os.homedir(), folderPath);
     }
-    shell.openPath(fullPath).catch(() => { });
+    shell.openPath(fullPath).catch(() => {});
   });
 
-  // Open URLs in external browser
   ipcMain.on("open-external-url", (event, url) => {
     if (url && (url.startsWith("http://") || url.startsWith("https://"))) {
       shell.openExternal(url);
     }
   });
 
-
   const animateWindowHeight = (fromHeight, toHeight) => {
-    // Cancel any in-progress animation to allow the new one
     cancelAnimation();
 
-    // Guard: ensure mainWindow exists and is not destroyed
     if (!mainWindow || mainWindow.isDestroyed()) {
       return;
     }
@@ -402,7 +422,6 @@ app.whenReady().then(async () => {
     let currentStep = 0;
 
     const animate = () => {
-      // Check if window still exists
       if (!mainWindow || mainWindow.isDestroyed()) {
         cancelAnimation();
         return;
@@ -420,7 +439,11 @@ app.whenReady().then(async () => {
         height: newHeight,
       });
 
-      if (currentStep < ANIMATION_STEPS && mainWindow && !mainWindow.isDestroyed()) {
+      if (
+        currentStep < ANIMATION_STEPS &&
+        mainWindow &&
+        !mainWindow.isDestroyed()
+      ) {
         animationTimeout = setTimeout(animate, stepDuration);
       } else {
         animationInProgress = false;
@@ -444,7 +467,7 @@ app.whenReady().then(async () => {
     if (mainWindow) {
       const newHeight = Math.max(
         MIN_HEIGHT,
-        Math.min(Math.round(contentHeight), MAX_HEIGHT)
+        Math.min(Math.round(contentHeight), MAX_HEIGHT),
       );
       targetHeight = newHeight;
 
@@ -455,14 +478,12 @@ app.whenReady().then(async () => {
     }
   });
 
-  // === WINDOW MANAGEMENT HELPERS ===
   function closeAllFeatureWindows() {
     if (mainWindow && !mainWindow.isDestroyed() && mainWindow.isVisible()) {
       mainWindow.hide();
     }
   }
 
-  // === VOICE WINDOW ===
   function createVoiceWindow() {
     if (voiceWindow && !voiceWindow.isDestroyed()) return;
 
@@ -489,24 +510,25 @@ app.whenReady().then(async () => {
 
     voiceWindow.loadFile(path.join(__dirname, "../renderer/voice.window.html"));
 
-    // Handle renderer crashes
-    voiceWindow.webContents.on('render-process-gone', (event, details) => {
-      console.error('[VoiceWindow] Renderer crashed:', details.reason);
-      // Recreate the window on crash
+    voiceWindow.webContents.on("render-process-gone", (event, details) => {
+      console.error("[VoiceWindow] Renderer crashed:", details.reason);
+
       voiceWindow = null;
     });
 
-    voiceWindow.webContents.on('crashed', (event, killed) => {
-      console.error('[VoiceWindow] WebContents crashed, killed:', killed);
+    voiceWindow.webContents.on("crashed", (event, killed) => {
+      console.error("[VoiceWindow] WebContents crashed, killed:", killed);
       voiceWindow = null;
     });
 
-    // Clicking outside (blur) or Esc hides the window
     voiceWindow.on("blur", () => {
-      // Snappier delay to close when clicking outside
       setTimeout(() => {
-        if (voiceWindow && !voiceWindow.isDestroyed() && voiceWindow.isVisible()) {
-          console.log('[Main] hideVoiceWindow triggered by: blur event');
+        if (
+          voiceWindow &&
+          !voiceWindow.isDestroyed() &&
+          voiceWindow.isVisible()
+        ) {
+          console.log("[Main] hideVoiceWindow triggered by: blur event");
           hideVoiceWindow();
         }
       }, 100);
@@ -518,132 +540,139 @@ app.whenReady().then(async () => {
   }
 
   function showVoiceWindow() {
-    // If window doesn't exist or was destroyed, recreate it
     if (!voiceWindow || voiceWindow.isDestroyed()) {
       createVoiceWindow();
     }
 
     closeAllFeatureWindows();
 
-    // Guard to ensure start-listening is only sent once
     let startListeningSent = false;
 
-    // Helper to safely send IPC only when webContents is ready
     const safeSend = (channel, data) => {
       try {
-        if (voiceWindow && !voiceWindow.isDestroyed() && voiceWindow.webContents && !voiceWindow.webContents.isDestroyed()) {
+        if (
+          voiceWindow &&
+          !voiceWindow.isDestroyed() &&
+          voiceWindow.webContents &&
+          !voiceWindow.webContents.isDestroyed()
+        ) {
           voiceWindow.webContents.send(channel, data);
         }
-      } catch (err) {
-        // Silently ignore - "Render frame was disposed" errors are expected during window transitions
-      }
+      } catch (err) {}
     };
 
     sttService.start((type, text) => {
-      if (type === 'text') {
-        safeSend('stt-result', text);
-      } else if (type === 'partial') {
-        safeSend('stt-partial-result', text);
+      if (type === "text") {
+        safeSend("stt-result", text);
+      } else if (type === "partial") {
+        safeSend("stt-partial-result", text);
       }
     });
 
     const sendStartListening = () => {
       if (!startListeningSent) {
         startListeningSent = true;
-        safeSend('start-listening');
+        safeSend("start-listening");
       }
     };
 
     if (voiceWindow.webContents.isLoading()) {
-      voiceWindow.webContents.once('did-finish-load', sendStartListening);
+      voiceWindow.webContents.once("did-finish-load", sendStartListening);
     } else {
-      setTimeout(sendStartListening, 50);
+      sendStartListening();
     }
 
     voiceWindow.show();
     voiceWindow.focus();
+    console.log("[Main] Voice window shown and focused");
   }
 
   function hideVoiceWindow() {
-    // Helper to safely send IPC without crashing
     const safeSendToVoice = (channel, data) => {
       try {
-        if (voiceWindow && !voiceWindow.isDestroyed() &&
-          voiceWindow.webContents && !voiceWindow.webContents.isDestroyed()) {
+        if (
+          voiceWindow &&
+          !voiceWindow.isDestroyed() &&
+          voiceWindow.webContents &&
+          !voiceWindow.webContents.isDestroyed()
+        ) {
           voiceWindow.webContents.send(channel, data);
         }
-      } catch (e) {
-        // Silently ignore - "Render frame was disposed" errors are expected during window close
-      }
+      } catch (e) {}
     };
 
     if (voiceWindow && !voiceWindow.isDestroyed()) {
       voiceWindow.hide();
       sttService.stop();
 
-      // Send auto-close-voice to voice window to ensure full reset
-      safeSendToVoice('auto-close-voice');
+      safeSendToVoice("auto-close-voice");
 
-      // Resume wake word detection with a small delay to ensure voice window mic is released
-      setTimeout(() => {
-        wakeWordService.resume();
-        // Resume background audio mic
-        if (backgroundAudioWindow && !backgroundAudioWindow.isDestroyed()) {
-          try {
-            if (backgroundAudioWindow.webContents && !backgroundAudioWindow.webContents.isDestroyed()) {
-              backgroundAudioWindow.webContents.send("resume-detection");
-            }
-          } catch (e) { /* ignore */ }
-        }
-      }, 100);
+      wakeWordService.resume();
+      if (backgroundAudioWindow && !backgroundAudioWindow.isDestroyed()) {
+        try {
+          if (
+            backgroundAudioWindow.webContents &&
+            !backgroundAudioWindow.webContents.isDestroyed()
+          ) {
+            backgroundAudioWindow.webContents.send("resume-detection");
+          }
+        } catch (e) {}
+      }
     }
   }
 
-  // IPC Handlers
   ipcMain.on("close-voice-window", () => {
-    console.log('[Main] hideVoiceWindow triggered by: close-voice-window IPC');
+    console.log("[Main] hideVoiceWindow triggered by: close-voice-window IPC");
     hideVoiceWindow();
   });
   ipcMain.on("auto-close-voice", () => {
-    console.log('[Main] hideVoiceWindow triggered by: auto-close-voice IPC');
+    console.log("[Main] hideVoiceWindow triggered by: auto-close-voice IPC");
     hideVoiceWindow();
   });
 
-  // Duplicate handlers for launch-app, open-folder, open-file removed
-  // Original handlers with full validation exist at lines 296-343
-
-  ipcMain.on("open-voice-window", () => { showVoiceWindow(); });
-
-  // Warm up the window at startup
-  createVoiceWindow();
-
-  // Cache for screen capture
-  let cachedScreenCapture = null;
-
-  ipcMain.on("voice-window-ready", () => {
-    // This IPC handler is now largely redundant as STT starts with showVoiceWindow
-    // but can be kept for any other 'ready' signals if needed.
-    // The actual STT start logic is now in showVoiceWindow().
+  ipcMain.on("open-voice-window", () => {
+    showVoiceWindow();
   });
 
-  // Helper: Determine if query needs visual context
+  createVoiceWindow();
+
+  let cachedScreenCapture = null;
+
+  ipcMain.on("voice-window-ready", () => {});
+
   function needsVisualContext(query) {
     if (!query) return false;
 
     const visualKeywords = [
-      'show', 'see', 'look', 'screen', 'display', 'what is', 'what\'s',
-      'read', 'visible', 'image', 'picture', 'window', 'find on',
-      'what do you see', 'describe', 'tell me about', 'on my screen',
-      'this', 'that', 'here', 'there'
+      "show",
+      "see",
+      "look",
+      "screen",
+      "display",
+      "what is",
+      "what's",
+      "read",
+      "visible",
+      "image",
+      "picture",
+      "window",
+      "find on",
+      "what do you see",
+      "describe",
+      "tell me about",
+      "on my screen",
+      "this",
+      "that",
+      "here",
+      "there",
     ];
 
     const lowerQuery = query.toLowerCase().trim();
-    return visualKeywords.some(keyword => lowerQuery.includes(keyword));
+    return visualKeywords.some((keyword) => lowerQuery.includes(keyword));
   }
 
   ipcMain.on("voice-query", async (event, payload) => {
     try {
-      // OPTIMIZATION: Only send image if query suggests visual context is needed
       let imageToSend = null;
 
       if (needsVisualContext(payload.query)) {
@@ -653,7 +682,9 @@ app.whenReady().then(async () => {
       let finalQuery = payload.query;
 
       if (payload.previousResults && Array.isArray(payload.previousResults)) {
-        const listStr = payload.previousResults.map(r => `${r.index}. ${r.name} (${r.type})`).join(', ');
+        const listStr = payload.previousResults
+          .map((r) => `${r.index}. ${r.name} (${r.type})`)
+          .join(", ");
         finalQuery = `[CONTEXT: User is viewing these search results: ${listStr}] User said: "${payload.query}"
         
         INSTRUCTION: 
@@ -662,56 +693,91 @@ app.whenReady().then(async () => {
         3. If user asks something new (e.g. "what is the weather"), ignore the list and answer the new question.
         
         Hidden paths data for your reference:
-        ${JSON.stringify(payload.previousResults.map(r => ({ index: r.index, path: r.path })))}`;
+        ${JSON.stringify(payload.previousResults.map((r) => ({ index: r.index, path: r.path })))}`;
       }
 
-      const rawResponse = await gemini.sendQuery(finalQuery, imageToSend, 'voice');
-      console.log('[Main] Voice query:', payload.query);
-      console.log('[Main] Raw Gemini response:', rawResponse);
+      const rawResponse = await gemini.sendQuery(
+        finalQuery,
+        imageToSend,
+        "voice",
+      );
+      console.log("[Main] Voice query:", payload.query);
+      console.log("[Main] Raw Gemini response:", rawResponse);
 
-      const { cleanResponse, results } = await taskExecutor.processResponse(rawResponse);
-      console.log('[Main] Parsed results:', JSON.stringify(results));
+      const { cleanResponse, results } =
+        await taskExecutor.processResponse(rawResponse);
+      console.log("[Main] Parsed results:", JSON.stringify(results));
 
-      let finalResponse = cleanResponse.replace(/\[NEED_SCREEN\]/g, '').trim();
+      let finalResponse = cleanResponse.replace(/\[NEED_SCREEN\]/g, "").trim();
 
       let hasSearchResults = false;
       let searchResultData = null;
       let shouldListenAgain = false;
 
-      // Process results and aggregate feedback
       let feedback = [];
       if (results && results.length > 0) {
         for (const res of results) {
-          if (res.actionName === 'searchFiles' && res.result) {
+          if (res.actionName === "searchFiles" && res.result) {
             try {
-              searchResultData = typeof res.result === 'string' ? JSON.parse(res.result) : res.result;
-              const hasItems = (searchResultData.apps?.length || 0) + (searchResultData.files?.length || 0) + (searchResultData.folders?.length || 0) > 0;
+              searchResultData =
+                typeof res.result === "string"
+                  ? JSON.parse(res.result)
+                  : res.result;
+              const hasItems =
+                (searchResultData.apps?.length || 0) +
+                  (searchResultData.files?.length || 0) +
+                  (searchResultData.folders?.length || 0) >
+                0;
               if (hasItems) hasSearchResults = true;
               else feedback.push("I couldn't find any matching files or apps.");
             } catch (e) {
-              console.error('[Main] Search parse error:', e);
+              console.error("[Main] Search parse error:", e);
             }
-          } else if (res.actionName === 'getSystemInfo' && res.result) {
+          } else if (res.actionName === "getSystemInfo" && res.result) {
             try {
-              const info = typeof res.result === 'string' ? JSON.parse(res.result) : res.result;
+              const info =
+                typeof res.result === "string"
+                  ? JSON.parse(res.result)
+                  : res.result;
               if (info && !info.error) {
-                feedback.push(`CPU is at ${info.cpu}, RAM is ${info.ramUsed} of ${info.ramTotal}GB, battery is at ${info.battery}, and uptime is ${info.uptime}.`);
+                feedback.push(
+                  `CPU is at ${info.cpu}, RAM is ${info.ramUsed} of ${info.ramTotal}GB, battery is at ${info.battery}, and uptime is ${info.uptime}.`,
+                );
               }
-            } catch (e) { }
-          } else if (res.actionName === 'systemControl' && res.result) {
-            if (res.result.toLowerCase().includes('error')) feedback.push(`System control failed: ${res.result}`);
-          } else if (res.actionName === 'listen') {
+            } catch (e) {}
+          } else if (res.actionName === "getTime" && res.result) {
+            try {
+              const timeInfo =
+                typeof res.result === "string"
+                  ? JSON.parse(res.result)
+                  : res.result;
+              if (timeInfo && timeInfo.full) {
+                feedback.push(`It's ${timeInfo.full}.`);
+              }
+            } catch (e) {}
+          } else if (res.actionName === "runPowerShell" && res.result) {
+            try {
+              const psResult =
+                typeof res.result === "string"
+                  ? res.result
+                  : JSON.stringify(res.result);
+              if (psResult && !psResult.includes("error")) {
+                feedback.push(psResult);
+              }
+            } catch (e) {}
+          } else if (res.actionName === "systemControl" && res.result) {
+            if (res.result.toLowerCase().includes("error"))
+              feedback.push(`System control failed: ${res.result}`);
+          } else if (res.actionName === "listen") {
             shouldListenAgain = true;
           }
         }
       }
 
-      // Append all feedback to the natural language response
       if (feedback.length > 0) {
         finalResponse = (finalResponse + " " + feedback.join(" ")).trim();
       }
 
-      // Handle search results with smart responses
       if (hasSearchResults && searchResultData) {
         const apps = searchResultData.apps || [];
         const files = searchResultData.files || [];
@@ -719,39 +785,49 @@ app.whenReady().then(async () => {
         const totalCount = apps.length + files.length + folders.length;
 
         const allResults = [];
-        apps.forEach(app => allResults.push({ name: app.name, type: 'app', data: app }));
-        folders.forEach(folder => allResults.push({ name: path.basename(folder), type: 'folder', data: folder }));
-        files.forEach(file => allResults.push({ name: path.basename(file), type: 'file', data: file }));
+        apps.forEach((app) =>
+          allResults.push({ name: app.name, type: "app", data: app }),
+        );
+        folders.forEach((folder) =>
+          allResults.push({
+            name: path.basename(folder),
+            type: "folder",
+            data: folder,
+          }),
+        );
+        files.forEach((file) =>
+          allResults.push({
+            name: path.basename(file),
+            type: "file",
+            data: file,
+          }),
+        );
         const displayResults = allResults.slice(0, 5);
 
-        // ALWAYS send results to UI to match "textmode pipeline"
         if (!event.sender.isDestroyed()) {
           event.sender.send("voice-search-results", {
             results: displayResults,
             totalCount,
-            waitingForSelection: true
+            waitingForSelection: true,
           });
         }
 
-        // Set response but let the UI show the results
         if (totalCount > 0) {
-          finalResponse = `I found ${totalCount} match${totalCount > 1 ? 'es' : ''}. Which one would you like?`;
+          finalResponse = `I found ${totalCount} match${totalCount > 1 ? "es" : ""}. Which one would you like?`;
           shouldListenAgain = true;
         } else {
           finalResponse = "I couldn't find any matching files or apps.";
         }
       }
 
-      // Ensure we have some response
-      if (!finalResponse || finalResponse.trim() === '') {
-        finalResponse = 'Done.';
+      if (!finalResponse || finalResponse.trim() === "") {
+        finalResponse = "Done.";
       }
 
-      // Send text response IMMEDIATELY
       if (!event.sender.isDestroyed()) {
         event.sender.send("voice-response", {
           text: finalResponse,
-          audio: null // Will be sent separately
+          audio: null,
         });
       }
 
@@ -762,103 +838,123 @@ app.whenReady().then(async () => {
           if (voiceWindow && !voiceWindow.isDestroyed()) {
             hideVoiceWindow();
           }
-        }, 1500); // Close after speaking
+        }, 1500);
       }
 
       if (shouldListenAgain && !event.sender.isDestroyed()) {
         event.sender.send("continue-listening");
       }
 
-      // Synthesize TTS in parallel - send when ready
       if (ttsService.isAvailable() && finalResponse.length > 0) {
-        ttsService.synthesizeToDataURL(finalResponse)
-          .then(audioDataUrl => {
+        ttsService
+          .synthesizeToDataURL(finalResponse)
+          .then((audioDataUrl) => {
             if (!event.sender.isDestroyed()) {
               event.sender.send("voice-audio-ready", audioDataUrl);
             }
           })
-          .catch(ttsError => { });
+          .catch((ttsError) => {});
       }
     } catch (error) {
       if (!event.sender.isDestroyed()) {
-        event.sender.send("voice-response", { text: `Error: ${error}`, audio: null });
+        event.sender.send("voice-response", {
+          text: `Error: ${error}`,
+          audio: null,
+        });
       }
     }
   });
 
-  // Handle audio data from renderer (Web Audio API)
   ipcMain.on("audio-data", (event, audioBuffer) => {
     if (sttService && sttService.isListening) {
       sttService.feedAudio(Buffer.from(audioBuffer));
     }
   });
 
-  // Handle restart STT request from voice window (for continue-listening)
   ipcMain.on("restart-stt", (event) => {
-    console.log('[Main] Restarting STT service for continued listening');
+    console.log("[Main] Restarting STT service for continued listening");
 
     const safeSend = (channel, data) => {
       try {
-        if (voiceWindow && !voiceWindow.isDestroyed() && voiceWindow.webContents && !voiceWindow.webContents.isDestroyed()) {
+        if (
+          voiceWindow &&
+          !voiceWindow.isDestroyed() &&
+          voiceWindow.webContents &&
+          !voiceWindow.webContents.isDestroyed()
+        ) {
           voiceWindow.webContents.send(channel, data);
         }
-      } catch (err) { /* ignore */ }
+      } catch (err) {}
     };
 
     sttService.start((type, text) => {
-      if (type === 'text') {
-        safeSend('stt-result', text);
-      } else if (type === 'partial') {
-        safeSend('stt-partial-result', text);
+      if (type === "text") {
+        safeSend("stt-result", text);
+      } else if (type === "partial") {
+        safeSend("stt-partial-result", text);
       }
     });
   });
 
-  // Handle file selection from voice window - send to Gemini with context
   ipcMain.on("voice-file-action", async (event, payload) => {
     try {
-      if (!payload || !payload.selectedItem || typeof payload.selectedItem !== 'object') {
-        console.error('[Main] Invalid voice-file-action payload');
+      if (
+        !payload ||
+        !payload.selectedItem ||
+        typeof payload.selectedItem !== "object"
+      ) {
+        console.error("[Main] Invalid voice-file-action payload");
         if (!event.sender.isDestroyed()) {
-          event.sender.send("voice-response", { text: "Error: Invalid selection data", audio: null });
+          event.sender.send("voice-response", {
+            text: "Error: Invalid selection data",
+            audio: null,
+          });
         }
         return;
       }
 
       const { originalQuery, selectedItem } = payload;
       if (process.env.DEBUG) {
-        console.log('[Main] voice-file-action received');
+        console.log("[Main] voice-file-action received");
       }
 
       const contextQuery = `The user said "${originalQuery}" and selected a ${selectedItem.type} named "${selectedItem.name}". The full path is "${selectedItem.path}". Based on the original request, what action should I take? If the user was searching for something to open/launch, open it. If they wanted to find/locate it, show it in the folder. Respond with the action to take.`;
 
-      const rawResponse = await gemini.sendQuery(contextQuery, null, 'voice');
-      const { cleanResponse, results } = await taskExecutor.processResponse(rawResponse);
+      const rawResponse = await gemini.sendQuery(contextQuery, null, "voice");
+      const { cleanResponse, results } =
+        await taskExecutor.processResponse(rawResponse);
 
       let actionTaken = false;
       let finalResponse = cleanResponse;
 
-      // Check if Gemini returned an action, otherwise default to opening
       if (results && results.length > 0) {
         for (const res of results) {
-          if (res.actionName === 'openFile' || res.actionName === 'launchApplication') {
+          if (
+            res.actionName === "openFile" ||
+            res.actionName === "launchApplication"
+          ) {
             actionTaken = true;
             break;
           }
         }
       }
 
-      // If no specific action was taken by Gemini, default to opening the item
       if (!actionTaken) {
-        let openError = '';
-        if (selectedItem.type === 'app') {
+        let openError = "";
+        if (selectedItem.type === "app") {
           if (selectedItem.data && selectedItem.data.path) {
             openError = await shell.openPath(selectedItem.data.path);
           } else {
             try {
-              const launchResult = await taskExecutor.launchApplication(selectedItem.name);
-              // Use returned error message if available, as launchApplication might return strings like "Error ..."
-              if (launchResult && (launchResult.startsWith('Error') || launchResult.startsWith('Could not'))) {
+              const launchResult = await taskExecutor.launchApplication(
+                selectedItem.name,
+              );
+
+              if (
+                launchResult &&
+                (launchResult.startsWith("Error") ||
+                  launchResult.startsWith("Could not"))
+              ) {
                 openError = launchResult;
               }
             } catch (err) {
@@ -866,13 +962,13 @@ app.whenReady().then(async () => {
             }
           }
           if (!openError) finalResponse = `Opening ${selectedItem.name}.`;
-        } else if (selectedItem.type === 'folder') {
+        } else if (selectedItem.type === "folder") {
           const folderPath = path.isAbsolute(selectedItem.path)
             ? selectedItem.path
             : path.join(os.homedir(), selectedItem.path);
           openError = await shell.openPath(folderPath);
           if (!openError) finalResponse = `Opening ${selectedItem.name}.`;
-        } else if (selectedItem.type === 'file') {
+        } else if (selectedItem.type === "file") {
           const filePath = path.isAbsolute(selectedItem.path)
             ? selectedItem.path
             : path.join(os.homedir(), selectedItem.path);
@@ -881,77 +977,68 @@ app.whenReady().then(async () => {
         }
 
         if (openError) {
-          console.error('[Main] Failed to open path:', openError);
+          console.error("[Main] Failed to open path:", openError);
           finalResponse = `I couldn't open that item.`;
         }
       }
 
-      // Send response to voice window
       if (!event.sender.isDestroyed()) {
+        event.sender.send("action-complete");
         event.sender.send("voice-response", {
           text: finalResponse,
-          audio: null
+          audio: null,
         });
       }
 
-      // Synthesize TTS
       if (ttsService.isAvailable() && finalResponse.length > 0) {
-        ttsService.synthesizeToDataURL(finalResponse)
-          .then(audioDataUrl => {
+        ttsService
+          .synthesizeToDataURL(finalResponse)
+          .then((audioDataUrl) => {
             if (!event.sender.isDestroyed()) {
               event.sender.send("voice-audio-ready", audioDataUrl);
             }
           })
-          .catch(ttsError => { });
+          .catch((ttsError) => {});
       }
-
-      // Auto close after action
-      setTimeout(() => {
-        if (voiceWindow && !voiceWindow.isDestroyed()) {
-          hideVoiceWindow();
-        }
-      }, 2000);
-
     } catch (error) {
-      console.error('[Main] voice-file-action error:', error);
+      console.error("[Main] voice-file-action error:", error);
       if (!event.sender.isDestroyed()) {
-        event.sender.send("voice-response", { text: `Error: ${error.message}`, audio: null });
+        event.sender.send("voice-response", {
+          text: `Error: ${error.message}`,
+          audio: null,
+        });
       }
     }
   });
 
-  // Handle voice audio from voice window for ElevenLabs STT
   ipcMain.on("voice-audio", async (event, data) => {
     try {
       const { buffer, mimeType } = data;
       const audioBuffer = Buffer.from(buffer);
 
       const transcribedText = await ttsService.transcribe(audioBuffer, {
-        filename: 'audio.webm',
-        contentType: mimeType || 'audio/webm'
+        filename: "audio.webm",
+        contentType: mimeType || "audio/webm",
       });
 
-      console.log('[Main] STT result:', transcribedText);
-      event.sender.send('stt-result', transcribedText);
-
+      console.log("[Main] STT result:", transcribedText);
+      event.sender.send("stt-result", transcribedText);
     } catch (error) {
-      console.error('[Main] Voice audio processing error:', error);
-      event.sender.send('stt-result', '');
+      console.error("[Main] Voice audio processing error:", error);
+      event.sender.send("stt-result", "");
     }
   });
-
-
 
   ipcMain.on("capture-region", async (event, rect) => {
     try {
       const sources = await desktopCapturer.getSources({
-        types: ['screen'],
-        thumbnailSize: { width: 1920, height: 1080 }
+        types: ["screen"],
+        thumbnailSize: { width: 1920, height: 1080 },
       });
 
       if (sources.length > 0) {
         const thumbnail = sources[0].thumbnail;
-        // For now, send the full screen - region cropping would need canvas
+
         const imageData = thumbnail.toDataURL();
         event.sender.send("screen-captured", imageData);
       }
@@ -960,23 +1047,19 @@ app.whenReady().then(async () => {
     }
   });
 
-  // Global shortcut for voice (Ctrl+Shift+V for testing, wake word later)
   globalShortcut.register("Ctrl+Shift+V", async () => {
     if (gemini.needsSetup()) return;
     await captureScreenForVoice();
     showVoiceWindow();
   });
 
-  // Escape to close voice window - only when voice window is visible
   globalShortcut.register("Escape", () => {
-    // Only act on Escape when voice window is visible
     if (voiceWindow && !voiceWindow.isDestroyed() && voiceWindow.isVisible()) {
-      console.log('[Main] hideVoiceWindow triggered by: Escape key');
+      console.log("[Main] hideVoiceWindow triggered by: Escape key");
       hideVoiceWindow();
     }
   });
 
-  // === WAKE WORD DETECTION ===
   function createBackgroundAudioWindow() {
     if (backgroundAudioWindow && !backgroundAudioWindow.isDestroyed()) return;
 
@@ -989,11 +1072,12 @@ app.whenReady().then(async () => {
         preload: path.join(__dirname, "preload/background.preload.js"),
         contextIsolation: true,
         nodeIntegration: false,
-        webSecurity: false,
       },
     });
 
-    backgroundAudioWindow.loadFile(path.join(__dirname, "../renderer/background.window.html"));
+    backgroundAudioWindow.loadFile(
+      path.join(__dirname, "../renderer/background.window.html"),
+    );
 
     backgroundAudioWindow.on("closed", () => {
       backgroundAudioWindow = null;
@@ -1002,61 +1086,82 @@ app.whenReady().then(async () => {
 
   function startBackgroundWakeWordDetection() {
     if (!wakeWordService.initialize()) {
-      console.error('[Main] Vosk model not found');
+      console.error(
+        "[Main] Wake word models not found, skipping wake word detection",
+      );
       return;
     }
 
     createBackgroundAudioWindow();
 
+    // Remove existing listeners to prevent duplicate handlers on repeated calls
+    ipcMain.removeAllListeners("wake-word-detected");
+    ipcMain.removeAllListeners("background-audio-ready");
     ipcMain.removeAllListeners("get-model-paths");
-    ipcMain.on("get-model-paths", (event) => {
-      const modelPath = wakeWordService.getVoskModelPath();
-      event.sender.send("model-path", modelPath);
-    });
+    ipcMain.removeAllListeners("console-log");
+    ipcMain.removeAllListeners("console-error");
+    ipcMain.removeAllListeners("resume-failed");
 
     ipcMain.on("wake-word-detected", (event, data) => {
-      wakeWordService.handleDetection(data.wakeWord);
-    });
+      console.log("[Main] Wake word detected, opening voice window");
 
-    wakeWordService.start((wakeWord) => {
-      console.log('[Main] Wake word triggered');
+      wakeWordService.pause();
+      if (backgroundAudioWindow && !backgroundAudioWindow.isDestroyed()) {
+        backgroundAudioWindow.webContents.send("pause-detection");
+      }
+
+      showVoiceWindow();
       captureScreenForVoice();
-
-      const MIC_RELEASE_TIMEOUT = 3000;
-      let micReleaseHandler = null;
-      let timeoutId = null;
-
-      const showWindowAndCleanup = () => {
-        if (timeoutId) clearTimeout(timeoutId);
-        if (micReleaseHandler) ipcMain.removeListener("mic-released", micReleaseHandler);
-        showVoiceWindow();
-      };
-
-      micReleaseHandler = () => showWindowAndCleanup();
-      ipcMain.once("mic-released", micReleaseHandler);
-
-      timeoutId = setTimeout(() => {
-        ipcMain.removeListener("mic-released", micReleaseHandler);
-        showVoiceWindow();
-      }, MIC_RELEASE_TIMEOUT);
 
       if (backgroundAudioWindow && !backgroundAudioWindow.isDestroyed()) {
         backgroundAudioWindow.webContents.send("play-acknowledgment");
       }
     });
 
-    ipcMain.on("background-audio-ready", () => console.log('[Main] Background audio ready'));
-    ipcMain.on("console-log", (event, msg) => console.log(`[BackgroundAudio] ${msg}`));
-    ipcMain.on("console-error", (event, msg) => console.error(`[BackgroundAudio] ${msg}`));
-    ipcMain.on("resume-failed", () => console.error('[Main] Wake word resume failed'));
+    wakeWordService.start(() => {});
+
+    ipcMain.on("background-audio-ready", () => {
+      console.log("[Main] Background audio window ready");
+    });
+
+    ipcMain.on("get-model-paths", async (event) => {
+      const modelDirPath = wakeWordService.getVoskModelPath();
+      if (modelDirPath && !event.sender.isDestroyed()) {
+        const modelTarGzPath = path.join(
+          path.dirname(modelDirPath),
+          "vosk-model.tar.gz",
+        );
+
+        if (!modelServer) {
+          await startModelServer(modelTarGzPath);
+        }
+
+        const modelUrl = `http://127.0.0.1:${modelServerPort}/model.tar.gz`;
+        console.log(`[Main] Serving model from: ${modelTarGzPath}`);
+        event.sender.send("model-path", modelUrl);
+      }
+    });
+
+    ipcMain.on("console-log", (event, msg) => {
+      console.log(`[BackgroundAudio] ${msg}`);
+    });
+
+    ipcMain.on("console-error", (event, msg) => {
+      console.error(`[BackgroundAudio] ${msg}`);
+    });
+
+    ipcMain.on("resume-failed", () => {
+      console.error(
+        "[Main] Wake word detection failed to resume - mic may be in use",
+      );
+    });
   }
 
-  // Capture screen helper
   async function captureScreenForVoice() {
     try {
       const sources = await desktopCapturer.getSources({
-        types: ['screen'],
-        thumbnailSize: { width: 1280, height: 720 } // Slightly smaller for speed
+        types: ["screen"],
+        thumbnailSize: { width: 1280, height: 720 },
       });
 
       if (sources.length > 0) {
@@ -1064,20 +1169,17 @@ app.whenReady().then(async () => {
       }
     } catch (error) {
       cachedScreenCapture = null;
-      console.error('[Main] Screen capture failed:', error);
+      console.error("[Main] Screen capture failed:", error);
     }
   }
 
   const handleCapture = async (event) => {
     try {
-      // Ensure we have a capture
       if (!cachedScreenCapture) {
         await captureScreenForVoice();
       }
 
-      // Use cached capture if available
       if (cachedScreenCapture) {
-        // Check if sender still exists before sending
         if (!event.sender.isDestroyed()) {
           event.sender.send("screen-captured", cachedScreenCapture);
         }
@@ -1087,12 +1189,9 @@ app.whenReady().then(async () => {
     }
   };
 
-  // Handle capture-screen from voice window
   ipcMain.on("capture-screen", handleCapture);
 });
 
-// Export the wake word function at module level
-// Note: The actual function is defined inside app.whenReady() but we export a reference
 let _startBackgroundWakeWordDetection = null;
 
 module.exports = {
@@ -1100,5 +1199,5 @@ module.exports = {
     if (_startBackgroundWakeWordDetection) {
       _startBackgroundWakeWordDetection();
     }
-  }
+  },
 };

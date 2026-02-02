@@ -1413,15 +1413,15 @@
 
       window.voiceApi.receive("start-listening", async () => {
         resetListenCounter();
-        // Activation sound is played by background window, don't play again
+        // Activation sound played by background window already
         startListening();
       });
 
       window.voiceApi.receive("stop-listening", () => stopListening());
 
-      // Signal that action is complete - don't listen again, just close
+      // When an action is executed (file opened etc), don't listen again
       window.voiceApi.receive("action-complete", () => {
-        console.log("[VoiceWindow] Action complete - will close after audio");
+        console.log("[VoiceWindow] Action complete - closing after audio");
         shouldListenAgain = false;
       });
 

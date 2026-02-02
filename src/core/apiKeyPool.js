@@ -4,19 +4,19 @@ const logger = require('./logger');
 
 const ENV_PATH = path.join(process.cwd(), '.env');
 
-// Simplified pool with primary/candidate system - no runtime validation
+// Pool with primary/candidate system and rate limit tracking
 const pool = {
     gemini: { 
         keys: [],
-        primary: null,      // Main key to use
-        candidate: null,    // Backup if primary rate limited
-        currentIndex: 0
+        primary: null,      // Main key to use (validated working)
+        candidate: null,    // Backup key
+        rateLimitedUntil: new Map()  // Track rate limit cooldowns
     },
     elevenlabs: { 
         keys: [],
         primary: null,
         candidate: null,
-        currentIndex: 0
+        rateLimitedUntil: new Map()
     }
 };
 
@@ -47,38 +47,41 @@ function loadKeysFromEnv() {
     });
 }
 
-// Fast validation - just check if key format is valid + quick API ping
-async function quickValidateGemini(key) {
+// Validate Gemini key - returns status: 'working', 'rate_limited', or 'invalid'
+async function validateGeminiKey(key) {
     try {
         const { GoogleGenerativeAI } = require('@google/generative-ai');
         const genAI = new GoogleGenerativeAI(key);
         const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
-        await model.generateContent('1');
-        return { valid: true, key };
+        await model.generateContent('hi');
+        return { status: 'working', key };
     } catch (e) {
         const msg = e.message || '';
+        const status = e.status;
         // 429 = rate limited but key is valid
-        if (e.status === 429 || msg.includes('429') || msg.includes('quota')) {
-            return { valid: true, rateLimited: true, key };
+        if (status === 429 || msg.includes('429') || msg.includes('quota') || msg.includes('rate')) {
+            return { status: 'rate_limited', key };
         }
         // Auth errors = invalid key
-        if (e.status === 401 || e.status === 403 || msg.includes('API key')) {
-            return { valid: false, key };
+        if (status === 401 || status === 403 || msg.includes('API key') || msg.includes('authentication')) {
+            return { status: 'invalid', key };
         }
-        // Network errors - assume key is valid
-        return { valid: true, key };
+        // Network/other errors - assume working
+        return { status: 'working', key };
     }
 }
 
-async function quickValidateElevenLabs(key) {
+async function validateElevenLabsKey(key) {
     try {
         const response = await fetch('https://api.elevenlabs.io/v1/models', {
             headers: { 'xi-api-key': key }
         });
-        return { valid: response.ok || response.status === 429, key };
+        if (response.ok) return { status: 'working', key };
+        if (response.status === 429) return { status: 'rate_limited', key };
+        if (response.status === 401 || response.status === 403) return { status: 'invalid', key };
+        return { status: 'working', key };
     } catch (e) {
-        // Network error - assume valid
-        return { valid: true, key };
+        return { status: 'working', key };
     }
 }
 
@@ -93,47 +96,57 @@ async function initialize() {
     const geminiCount = pool.gemini.keys.length;
     const elevenCount = pool.elevenlabs.keys.length;
     
-    logger.info(`Found ${geminiCount} Gemini keys, ${elevenCount} ElevenLabs keys - validating in parallel...`);
+    logger.info(`Found ${geminiCount} Gemini keys, ${elevenCount} ElevenLabs keys - validating...`);
 
-    // PARALLEL validation - all at once, no delays
+    // Validate all keys in parallel
     const [geminiResults, elevenLabsResults] = await Promise.all([
-        Promise.all(pool.gemini.keys.map(quickValidateGemini)),
-        Promise.all(pool.elevenlabs.keys.map(quickValidateElevenLabs))
+        Promise.all(pool.gemini.keys.map(validateGeminiKey)),
+        Promise.all(pool.elevenlabs.keys.map(validateElevenLabsKey))
     ]);
 
-    // Select primary and candidate for Gemini
-    const validGemini = geminiResults.filter(r => r.valid);
-    const availableGemini = validGemini.filter(r => !r.rateLimited);
-    const rateLimitedGemini = validGemini.filter(r => r.rateLimited);
+    // Categorize Gemini keys
+    const workingGemini = geminiResults.filter(r => r.status === 'working').map(r => r.key);
+    const rateLimitedGemini = geminiResults.filter(r => r.status === 'rate_limited').map(r => r.key);
+    const validGemini = [...workingGemini, ...rateLimitedGemini]; // All non-invalid keys
     
-    if (availableGemini.length > 0) {
-        pool.gemini.primary = availableGemini[0].key;
-        pool.gemini.candidate = availableGemini[1]?.key || rateLimitedGemini[0]?.key || null;
+    // Set primary to a WORKING key if available, else rate-limited
+    if (workingGemini.length > 0) {
+        pool.gemini.primary = workingGemini[0];
+        pool.gemini.candidate = workingGemini[1] || rateLimitedGemini[0] || null;
+        logger.info(`Gemini primary: ${maskKey(pool.gemini.primary)} (working)`);
     } else if (rateLimitedGemini.length > 0) {
-        // All keys rate limited - pick first two, they'll recover
-        pool.gemini.primary = rateLimitedGemini[0].key;
-        pool.gemini.candidate = rateLimitedGemini[1]?.key || null;
-        logger.warn('All Gemini keys are currently rate limited - will retry with them');
+        pool.gemini.primary = rateLimitedGemini[0];
+        pool.gemini.candidate = rateLimitedGemini[1] || null;
+        logger.warn(`All Gemini keys rate limited - using ${maskKey(pool.gemini.primary)}`);
+        // Mark as rate limited with 60s cooldown
+        rateLimitedGemini.forEach(key => {
+            pool.gemini.rateLimitedUntil.set(key, Date.now() + 60000);
+        });
     }
-    
-    pool.gemini.keys = validGemini.map(r => r.key);
+    pool.gemini.keys = validGemini;
 
-    // Select primary and candidate for ElevenLabs  
-    const validEleven = elevenLabsResults.filter(r => r.valid);
-    if (validEleven.length > 0) {
-        pool.elevenlabs.primary = validEleven[0].key;
-        pool.elevenlabs.candidate = validEleven[1]?.key || null;
+    // Categorize ElevenLabs keys
+    const workingEleven = elevenLabsResults.filter(r => r.status === 'working').map(r => r.key);
+    const rateLimitedEleven = elevenLabsResults.filter(r => r.status === 'rate_limited').map(r => r.key);
+    const validEleven = [...workingEleven, ...rateLimitedEleven];
+    
+    if (workingEleven.length > 0) {
+        pool.elevenlabs.primary = workingEleven[0];
+        pool.elevenlabs.candidate = workingEleven[1] || rateLimitedEleven[0] || null;
+    } else if (rateLimitedEleven.length > 0) {
+        pool.elevenlabs.primary = rateLimitedEleven[0];
+        pool.elevenlabs.candidate = rateLimitedEleven[1] || null;
     }
-    pool.elevenlabs.keys = validEleven.map(r => r.key);
+    pool.elevenlabs.keys = validEleven;
 
     initialized = true;
     
-    logger.info(`Key pool ready - Gemini: ${pool.gemini.keys.length} valid (primary: ${maskKey(pool.gemini.primary)}), ElevenLabs: ${pool.elevenlabs.keys.length} valid`);
+    logger.info(`Key pool ready - Gemini: ${validGemini.length} valid (${workingGemini.length} working), ElevenLabs: ${validEleven.length} valid`);
     
     return true;
 }
 
-// Fast key getter - no validation, just return primary or rotate
+// Get a working key, avoiding rate-limited ones
 function getNextKey(service) {
     if (!service || typeof service !== 'string') return null;
     if (!initialized) {
@@ -145,21 +158,58 @@ function getNextKey(service) {
     const s = pool[service];
     if (!s || s.keys.length === 0) return null;
 
-    // Return primary if available
-    if (s.primary) return s.primary;
+    const now = Date.now();
     
-    // Fallback: round-robin through all keys
-    const key = s.keys[s.currentIndex];
-    s.currentIndex = (s.currentIndex + 1) % s.keys.length;
-    return key;
+    // Check if primary is usable (not rate limited or cooldown expired)
+    if (s.primary) {
+        const rateLimitExpiry = s.rateLimitedUntil.get(s.primary);
+        if (!rateLimitExpiry || now >= rateLimitExpiry) {
+            s.rateLimitedUntil.delete(s.primary);
+            return s.primary;
+        }
+    }
+    
+    // Primary is rate limited, try candidate
+    if (s.candidate) {
+        const rateLimitExpiry = s.rateLimitedUntil.get(s.candidate);
+        if (!rateLimitExpiry || now >= rateLimitExpiry) {
+            s.rateLimitedUntil.delete(s.candidate);
+            // Swap candidate to primary since primary is rate limited
+            const temp = s.primary;
+            s.primary = s.candidate;
+            s.candidate = temp;
+            logger.info(`Swapped to candidate key: ${maskKey(s.primary)}`);
+            return s.primary;
+        }
+    }
+    
+    // Both primary and candidate rate limited, find any available key
+    for (const key of s.keys) {
+        const rateLimitExpiry = s.rateLimitedUntil.get(key);
+        if (!rateLimitExpiry || now >= rateLimitExpiry) {
+            s.rateLimitedUntil.delete(key);
+            s.primary = key;
+            logger.info(`Found available key: ${maskKey(key)}`);
+            return key;
+        }
+    }
+    
+    // All keys rate limited - return primary anyway (will retry)
+    logger.warn(`All ${service} keys rate limited, returning primary anyway`);
+    return s.primary;
 }
 
 function reportSuccess(service, key) {
-    // Promote successful key to primary if it wasn't
     if (!service || typeof service !== 'string') return;
     service = service.toLowerCase();
     const s = pool[service];
-    if (s && key && s.primary !== key) {
+    if (!s || !key) return;
+    
+    // Clear rate limit status on success
+    s.rateLimitedUntil.delete(key);
+    
+    // Promote successful key to primary if different
+    if (s.primary !== key) {
         s.candidate = s.primary;
         s.primary = key;
     }
@@ -179,20 +229,25 @@ function reportError(service, key, error) {
                         errorMsg.includes('quota') || errorMsg.includes('rate');
     
     if (isRateLimit) {
-        logger.warn(`Rate limited key: ${maskKey(key)}`);
-        // Swap to candidate
-        if (s.primary === key && s.candidate) {
-            logger.info(`Swapping to candidate key: ${maskKey(s.candidate)}`);
-            const temp = s.primary;
-            s.primary = s.candidate;
-            s.candidate = temp;
-        } else if (s.keys.length > 1) {
-            // Rotate to next key
-            s.currentIndex = (s.currentIndex + 1) % s.keys.length;
-            s.primary = s.keys[s.currentIndex];
-            logger.info(`Rotated to next key: ${maskKey(s.primary)}`);
+        logger.warn(`Rate limited: ${maskKey(key)} - cooling down 60s`);
+        s.rateLimitedUntil.set(key, Date.now() + 60000); // 60 second cooldown
+        
+        // Try to find a non-rate-limited key
+        const now = Date.now();
+        for (const k of s.keys) {
+            if (k !== key) {
+                const expiry = s.rateLimitedUntil.get(k);
+                if (!expiry || now >= expiry) {
+                    s.rateLimitedUntil.delete(k);
+                    s.candidate = s.primary;
+                    s.primary = k;
+                    logger.info(`Rotated to available key: ${maskKey(k)}`);
+                    return { keyHandled: true, action: 'rotated', newKey: k };
+                }
+            }
         }
-        return { keyHandled: true, action: 'rotated' };
+        
+        return { keyHandled: true, action: 'marked_rate_limited' };
     }
     
     // Check for auth errors (401/403)
@@ -203,9 +258,11 @@ function reportError(service, key, error) {
     if (isAuthError) {
         logger.warn(`Removing invalid key: ${maskKey(key)}`);
         s.keys = s.keys.filter(k => k !== key);
+        s.rateLimitedUntil.delete(key);
+        
         if (s.primary === key) {
             s.primary = s.candidate || s.keys[0] || null;
-            s.candidate = s.keys.length > 1 ? s.keys[1] : null;
+            s.candidate = s.keys.find(k => k !== s.primary) || null;
         }
         if (s.candidate === key) {
             s.candidate = s.keys.find(k => k !== s.primary) || null;
@@ -227,7 +284,9 @@ function getStats() {
         gemini: pool.gemini.keys.length,
         elevenlabs: pool.elevenlabs.keys.length,
         geminiPrimary: maskKey(pool.gemini.primary),
-        elevenLabsPrimary: maskKey(pool.elevenlabs.primary)
+        elevenLabsPrimary: maskKey(pool.elevenlabs.primary),
+        geminiRateLimited: pool.gemini.rateLimitedUntil.size,
+        elevenlabsRateLimited: pool.elevenlabs.rateLimitedUntil.size
     };
 }
 

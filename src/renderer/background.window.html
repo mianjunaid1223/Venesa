@@ -17,15 +17,16 @@
         let recognizer = null;
         let model = null;
         let isPaused = false;
+        let resumeCooldown = false; // Ignore detections right after resume
         let Vosk = window.Vosk;
 
         const log = (msg) => window.backgroundAudioApi.send('console-log', msg);
         const logError = (msg) => window.backgroundAudioApi.send('console-error', msg);
 
-        async function initializeVosk(modelPath) {
+        async function initializeVosk(modelUrl) {
             try {
-                const fileUrl = 'file:///' + modelPath.replace(/\\/g, '/');
-                log('Loading Vosk model from: ' + fileUrl);
+                // modelUrl is now an HTTP URL served by main process
+                log('Loading Vosk model from: ' + modelUrl);
 
                 if (!Vosk) {
                     // In case it wasn't valid immediately, try to get it again or wait
@@ -38,7 +39,7 @@
                 }
 
                 // Vosk.createModel expects a URL.
-                model = await Vosk.createModel(fileUrl);
+                model = await Vosk.createModel(modelUrl);
                 recognizer = new model.KaldiRecognizer(SAMPLE_RATE);
 
                 recognizer.on('result', (event) => {
@@ -62,7 +63,7 @@
         }
 
         function checkWakeWord(text) {
-            if (isPaused || !text) return;
+            if (isPaused || resumeCooldown || !text) return;
 
             // Support both string and object formats (Vosk sometimes returns JSON)
             let cleanText = "";
@@ -109,15 +110,17 @@
                 workletNode.port.onmessage = (event) => {
                     if (event.data.type === 'audio' && recognizer && !isPaused) {
                         const float32 = event.data.buffer;
-                        const int16 = new Int16Array(float32.length);
-                        for (let i = 0; i < float32.length; i++) {
-                            int16[i] = Math.max(-32768, Math.min(32767, Math.floor(float32[i] * 32768)));
-                        }
-                        recognizer.acceptWaveform(int16);
+                        // acceptWaveformFloat expects Float32Array with values -1.0 to 1.0
+                        recognizer.acceptWaveformFloat(float32, SAMPLE_RATE);
                     }
                 };
 
                 source.connect(workletNode);
+                // Connect to a muted GainNode to keep audio graph active without audible playback (prevents feedback)
+                const mutedGain = audioContext.createGain();
+                mutedGain.gain.value = 0;
+                workletNode.connect(mutedGain);
+                mutedGain.connect(audioContext.destination);
                 log('Mic started');
             } catch (error) {
                 logError('Mic error: ' + error.message);
@@ -151,7 +154,13 @@
 
         window.backgroundAudioApi.receive('play-acknowledgment', () => playAck());
         window.backgroundAudioApi.receive('pause-detection', () => { isPaused = true; stopMic(); });
-        window.backgroundAudioApi.receive('resume-detection', async () => { isPaused = false; if (recognizer) await startMic(); });
+        window.backgroundAudioApi.receive('resume-detection', async () => {
+            isPaused = false;
+            resumeCooldown = true; // Ignore detections for a short period after resume
+            if (recognizer) await startMic();
+            // Clear cooldown after 1 second to avoid false triggers from leftover audio
+            setTimeout(() => { resumeCooldown = false; log('Detection cooldown ended'); }, 1000);
+        });
 
         window.backgroundAudioApi.receive('model-path', async (modelPath) => {
             if (await initializeVosk(modelPath)) {
