@@ -1150,6 +1150,13 @@
         } catch (e) { }
         workletNode = null;
       }
+      if (scriptProcessor) {
+        try {
+          scriptProcessor.disconnect();
+          scriptProcessor.onaudioprocess = null;
+        } catch (e) { }
+        scriptProcessor = null;
+      }
       if (mediaStream) {
         mediaStream.getTracks().forEach((t) => t.stop());
         mediaStream = null;

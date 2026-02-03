@@ -6,9 +6,9 @@ module.exports = {
       voiceId: "EXAVITQu4vr4xnSDxMaL",
       model: "eleven_turbo_v2_5",
       outputFormat: "mp3_44100_128",
-      stability: 0.5,
-      similarityBoost: 0.8,
-      style: 0.2,
+      stability: 0.7,
+      similarityBoost: 0.7,
+      style: 0.5,
       useSpeakerBoost: true,
     },
 
@@ -22,7 +22,7 @@ module.exports = {
   },
 
   gemini: {
-    model: "gemini-2.5-flash",
+    model: "gemini-2.5-flash-lite",
     generationConfig: {
       temperature: 0.7,
       topP: 0.9,

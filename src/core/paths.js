@@ -81,11 +81,22 @@ function getEnvPath() {
  * Get path to logs directory
  * Logs should be written to user data directory in production
  */
+let cachedLogsPath = null;
+
 function getLogsPath() {
+    if (cachedLogsPath) return cachedLogsPath;
+
     if (isPackaged()) {
-        return path.join(app.getPath('userData'), 'logs');
+        if (app.isReady()) {
+            cachedLogsPath = path.join(app.getPath('userData'), 'logs');
+            return cachedLogsPath;
+        }
+        // Fallback to resources/logs if app not ready (don't cache fallback)
+        return path.join(getBasePath(), 'logs');
     }
-    return path.join(getBasePath(), 'logs');
+
+    cachedLogsPath = path.join(getBasePath(), 'logs');
+    return cachedLogsPath;
 }
 
 module.exports = {

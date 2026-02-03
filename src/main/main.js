@@ -201,17 +201,31 @@ function startModelServer(modelTarGzPath) {
 app.whenReady().then(async () => {
   // Register protocol handler for assets
   protocol.handle('venesa-asset', (request) => {
-    const filePath = request.url.replace('venesa-asset://', '');
-    const assetsPath = getAssetsPath();
-    const fullPath = path.join(assetsPath, filePath);
+    let filePath = request.url.replace('venesa-asset://', '');
+    try {
+      filePath = decodeURIComponent(filePath);
+    } catch (e) {
+      // Ignore decoding errors
+    }
 
-    // Security: ensure the path stays within assets directory
-    const normalizedPath = path.normalize(fullPath);
-    if (!normalizedPath.startsWith(assetsPath)) {
+    const assetsPath = path.resolve(getAssetsPath());
+    const fullPath = path.resolve(assetsPath, filePath);
+
+    // Robust check using path.relative
+    const relativePath = path.relative(assetsPath, fullPath);
+
+    // Check if path goes up using .. or is on a different drive/absolute
+    // We check for '..' exactly or '..' followed by separator
+    const isTraversal = relativePath === '..' ||
+      relativePath.startsWith(`..${path.sep}`) ||
+      path.isAbsolute(relativePath);
+
+    if (isTraversal) {
+      console.warn(`[Main] Blocked potential path traversal: ${filePath}`);
       return new Response('Forbidden', { status: 403 });
     }
 
-    return net.fetch(`file://${normalizedPath}`);
+    return net.fetch(`file://${fullPath}`);
   });
 
   const settingsPath = path.join(os.homedir(), ".venesa-settings.json");
@@ -1174,7 +1188,11 @@ app.whenReady().then(async () => {
 
         // Check if model file exists
         if (!fs.existsSync(modelTarGzPath)) {
-          console.error(`[Main] Model file not found: ${modelTarGzPath}`);
+          const errMsg = `Model file not found: ${modelTarGzPath}`;
+          console.error(`[Main] ${errMsg}`);
+          if (!event.sender.isDestroyed()) {
+            event.sender.send('model-path-error', { error: errMsg, path: modelTarGzPath });
+          }
           return;
         }
 

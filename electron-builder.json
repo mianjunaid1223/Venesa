@@ -28,10 +28,6 @@
             "filter": [
                 "**/*"
             ]
-        },
-        {
-            "from": ".env",
-            "to": ".env"
         }
     ],
     "asar": true,
@@ -47,8 +43,7 @@
                 ]
             }
         ],
-        "icon": "assets/icon.ico",
-        "publisherName": "Venesa"
+        "icon": "assets/icon.ico"
     },
     "nsis": {
         "oneClick": false,

@@ -8,7 +8,7 @@ const keyPool = require("./apiKeyPool");
 const SETTINGS_PATH = path.join(os.homedir(), ".venesa-settings.json");
 
 const DEFAULT_SETTINGS = {
-  modelName: "gemini-2.5-flash",
+  modelName: "gemini-2.5-flash-lite",
   userName: "User",
   openAtLogin: true,
 };
@@ -164,10 +164,10 @@ async function sendQuery(query, image = null, mode = 'text') {
 
       const response = await result.response;
       const responseText = response.text();
-      
+
       // Report success so key stays primary
       keyPool.reportSuccess('gemini', apiKey);
-      
+
       return responseText;
 
     } catch (error) {

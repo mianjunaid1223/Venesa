@@ -53,7 +53,7 @@ async function validateGeminiKey(key) {
     try {
         const { GoogleGenerativeAI } = require('@google/generative-ai');
         const genAI = new GoogleGenerativeAI(key);
-        const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
+        const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash-lite' });
         await model.generateContent('hi');
         return { status: 'working', key };
     } catch (e) {

@@ -159,7 +159,7 @@ Settings are stored in `~/.venesa-settings.json`:
 
 ```json
 {
-  "modelName": "gemini-2.5-flash",
+  "modelName": "gemini-2.5-flash-lite",
   "userName": "User"
 }
 ```

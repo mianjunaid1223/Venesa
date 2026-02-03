@@ -41,7 +41,12 @@ function createMultipartBody(fields, file) {
 
     // Add file
     if (file) {
-        parts.push(Buffer.from(`--${boundary}\r\nContent-Disposition: form-data; name="${file.name}"; filename="${file.filename}"\r\nContent-Type: ${file.contentType}\r\n\r\n`));
+        // Sanitize filename to prevent header injection
+        let safeFilename = (file.filename || 'file').replace(/[\r\n]/g, '');
+        safeFilename = safeFilename.replace(/"/g, '%22');
+        if (!safeFilename) safeFilename = 'file';
+
+        parts.push(Buffer.from(`--${boundary}\r\nContent-Disposition: form-data; name="${file.name}"; filename="${safeFilename}"\r\nContent-Type: ${file.contentType}\r\n\r\n`));
         parts.push(file.buffer);
         parts.push(Buffer.from('\r\n'));
     }
