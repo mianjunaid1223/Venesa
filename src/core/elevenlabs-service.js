@@ -27,25 +27,66 @@ function pcmToWav(pcmBuffer) {
     return Buffer.concat([header, pcmBuffer]);
 }
 
+/**
+ * Manually constructs a multipart/form-data body buffer to avoid dependency issues.
+ */
+function createMultipartBody(fields, file) {
+    const boundary = 'VenesaBoundary' + Date.now().toString(16);
+    const parts = [];
+
+    // Add fields
+    for (const [key, value] of Object.entries(fields)) {
+        parts.push(Buffer.from(`--${boundary}\r\nContent-Disposition: form-data; name="${key}"\r\n\r\n${value}\r\n`));
+    }
+
+    // Add file
+    if (file) {
+        parts.push(Buffer.from(`--${boundary}\r\nContent-Disposition: form-data; name="${file.name}"; filename="${file.filename}"\r\nContent-Type: ${file.contentType}\r\n\r\n`));
+        parts.push(file.buffer);
+        parts.push(Buffer.from('\r\n'));
+    }
+
+    // End boundary
+    parts.push(Buffer.from(`--${boundary}--\r\n`));
+
+    return {
+        body: Buffer.concat(parts),
+        boundary: boundary
+    };
+}
+
 async function transcribe(audioBuffer, options = {}) {
     let apiKey = await keyPool.getNextKey('elevenlabs');
     if (!apiKey) throw new Error('No valid ElevenLabs API keys available');
 
     const { filename = 'audio.wav', contentType = 'audio/wav' } = options;
-    const FormData = require('form-data');
 
-    // Simple retry loop (max 2 attempts) to handle potential sudden key death
+    // Simple retry loop (max 2 attempts)
     for (let i = 0; i < 2; i++) {
         try {
-            const form = new FormData();
-            form.append('file', audioBuffer, { filename, contentType });
-            form.append('model_id', servicesConfig.elevenlabs.stt.model);
-            form.append('language_code', servicesConfig.elevenlabs.stt.language);
+            // Manually construct the multipart form data
+            const fields = {
+                'model_id': servicesConfig.elevenlabs.stt.model,
+                'language_code': servicesConfig.elevenlabs.stt.language
+            };
+
+            const file = {
+                name: 'file',
+                filename: filename,
+                contentType: contentType,
+                buffer: audioBuffer
+            };
+
+            const { body, boundary } = createMultipartBody(fields, file);
 
             const response = await fetch('https://api.elevenlabs.io/v1/speech-to-text', {
                 method: 'POST',
-                headers: { 'xi-api-key': apiKey, ...form.getHeaders() },
-                body: form.getBuffer()
+                headers: {
+                    'xi-api-key': apiKey,
+                    'Content-Type': `multipart/form-data; boundary=${boundary}`,
+                    'Content-Length': body.length.toString()
+                },
+                body: body
             });
 
             if (!response.ok) {

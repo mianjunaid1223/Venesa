@@ -1,5 +1,6 @@
 const path = require('path');
 const fs = require('fs');
+const paths = require('./paths');
 
 let isInitialized = false;
 let isPaused = false;
@@ -7,7 +8,7 @@ let onWakeWordCallback = null;
 let voskModelPath = null;
 
 function getModelPath() {
-    const modelDir = path.join(__dirname, '../../models/vosk-model-small-en-us-0.15');
+    const modelDir = paths.getVoskModelPath('vosk-model-small-en-us-0.15');
     if (fs.existsSync(modelDir)) {
         return modelDir;
     }

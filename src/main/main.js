@@ -1,7 +1,11 @@
-require("dotenv").config();
+// Load environment variables from correct location
+const { app, protocol, net } = require('electron');
+const envPath = app.isPackaged
+  ? require('path').join(process.resourcesPath, '.env')
+  : require('path').join(__dirname, '../../.env');
+require("dotenv").config({ path: envPath });
 
 const {
-  app,
   BrowserWindow,
   globalShortcut,
   ipcMain,
@@ -17,6 +21,27 @@ const taskExecutor = require("../core/task-service.js");
 const sttService = require("../core/stt-service.js");
 const ttsService = require("../core/elevenlabs-service.js");
 const wakeWordService = require("../core/wake-word-service.js");
+
+// Get assets path based on environment
+function getAssetsPath() {
+  if (app.isPackaged) {
+    return path.join(process.resourcesPath, 'assets');
+  }
+  return path.join(__dirname, '../../assets');
+}
+
+// Register custom protocol for assets before app is ready
+protocol.registerSchemesAsPrivileged([
+  {
+    scheme: 'venesa-asset',
+    privileges: {
+      secure: true,
+      supportFetchAPI: true,
+      bypassCSP: true,
+      stream: true,
+    },
+  },
+]);
 
 let mainWindow;
 let setupWindow;
@@ -174,6 +199,21 @@ function startModelServer(modelTarGzPath) {
 }
 
 app.whenReady().then(async () => {
+  // Register protocol handler for assets
+  protocol.handle('venesa-asset', (request) => {
+    const filePath = request.url.replace('venesa-asset://', '');
+    const assetsPath = getAssetsPath();
+    const fullPath = path.join(assetsPath, filePath);
+
+    // Security: ensure the path stays within assets directory
+    const normalizedPath = path.normalize(fullPath);
+    if (!normalizedPath.startsWith(assetsPath)) {
+      return new Response('Forbidden', { status: 403 });
+    }
+
+    return net.fetch(`file://${normalizedPath}`);
+  });
+
   const settingsPath = path.join(os.homedir(), ".venesa-settings.json");
   let autoStartEnabled = false;
   try {
@@ -384,7 +424,7 @@ app.whenReady().then(async () => {
     if (!path.isAbsolute(filePath)) {
       fullPath = path.join(os.homedir(), filePath);
     }
-    shell.openPath(fullPath).catch(() => {});
+    shell.openPath(fullPath).catch(() => { });
   });
 
   ipcMain.on("show-file-in-folder", (event, filePath) => {
@@ -400,7 +440,7 @@ app.whenReady().then(async () => {
     if (!path.isAbsolute(folderPath)) {
       fullPath = path.join(os.homedir(), folderPath);
     }
-    shell.openPath(fullPath).catch(() => {});
+    shell.openPath(fullPath).catch(() => { });
   });
 
   ipcMain.on("open-external-url", (event, url) => {
@@ -558,7 +598,7 @@ app.whenReady().then(async () => {
         ) {
           voiceWindow.webContents.send(channel, data);
         }
-      } catch (err) {}
+      } catch (err) { }
     };
 
     sttService.start((type, text) => {
@@ -598,7 +638,7 @@ app.whenReady().then(async () => {
         ) {
           voiceWindow.webContents.send(channel, data);
         }
-      } catch (e) {}
+      } catch (e) { }
     };
 
     if (voiceWindow && !voiceWindow.isDestroyed()) {
@@ -616,7 +656,7 @@ app.whenReady().then(async () => {
           ) {
             backgroundAudioWindow.webContents.send("resume-detection");
           }
-        } catch (e) {}
+        } catch (e) { }
       }
     }
   }
@@ -638,7 +678,7 @@ app.whenReady().then(async () => {
 
   let cachedScreenCapture = null;
 
-  ipcMain.on("voice-window-ready", () => {});
+  ipcMain.on("voice-window-ready", () => { });
 
   function needsVisualContext(query) {
     if (!query) return false;
@@ -725,8 +765,8 @@ app.whenReady().then(async () => {
                   : res.result;
               const hasItems =
                 (searchResultData.apps?.length || 0) +
-                  (searchResultData.files?.length || 0) +
-                  (searchResultData.folders?.length || 0) >
+                (searchResultData.files?.length || 0) +
+                (searchResultData.folders?.length || 0) >
                 0;
               if (hasItems) hasSearchResults = true;
               else feedback.push("I couldn't find any matching files or apps.");
@@ -744,7 +784,7 @@ app.whenReady().then(async () => {
                   `CPU is at ${info.cpu}, RAM is ${info.ramUsed} of ${info.ramTotal}GB, battery is at ${info.battery}, and uptime is ${info.uptime}.`,
                 );
               }
-            } catch (e) {}
+            } catch (e) { }
           } else if (res.actionName === "getTime" && res.result) {
             try {
               const timeInfo =
@@ -754,7 +794,7 @@ app.whenReady().then(async () => {
               if (timeInfo && timeInfo.full) {
                 feedback.push(`It's ${timeInfo.full}.`);
               }
-            } catch (e) {}
+            } catch (e) { }
           } else if (res.actionName === "runPowerShell" && res.result) {
             try {
               const psResult =
@@ -764,7 +804,7 @@ app.whenReady().then(async () => {
               if (psResult && !psResult.includes("error")) {
                 feedback.push(psResult);
               }
-            } catch (e) {}
+            } catch (e) { }
           } else if (res.actionName === "systemControl" && res.result) {
             if (res.result.toLowerCase().includes("error"))
               feedback.push(`System control failed: ${res.result}`);
@@ -853,7 +893,7 @@ app.whenReady().then(async () => {
               event.sender.send("voice-audio-ready", audioDataUrl);
             }
           })
-          .catch((ttsError) => {});
+          .catch((ttsError) => { });
       }
     } catch (error) {
       if (!event.sender.isDestroyed()) {
@@ -884,7 +924,7 @@ app.whenReady().then(async () => {
         ) {
           voiceWindow.webContents.send(channel, data);
         }
-      } catch (err) {}
+      } catch (err) { }
     };
 
     sttService.start((type, text) => {
@@ -998,7 +1038,7 @@ app.whenReady().then(async () => {
               event.sender.send("voice-audio-ready", audioDataUrl);
             }
           })
-          .catch((ttsError) => {});
+          .catch((ttsError) => { });
       }
     } catch (error) {
       console.error("[Main] voice-file-action error:", error);
@@ -1118,7 +1158,7 @@ app.whenReady().then(async () => {
       }
     });
 
-    wakeWordService.start(() => {});
+    wakeWordService.start(() => { });
 
     ipcMain.on("background-audio-ready", () => {
       console.log("[Main] Background audio window ready");
@@ -1131,6 +1171,12 @@ app.whenReady().then(async () => {
           path.dirname(modelDirPath),
           "vosk-model.tar.gz",
         );
+
+        // Check if model file exists
+        if (!fs.existsSync(modelTarGzPath)) {
+          console.error(`[Main] Model file not found: ${modelTarGzPath}`);
+          return;
+        }
 
         if (!modelServer) {
           await startModelServer(modelTarGzPath);

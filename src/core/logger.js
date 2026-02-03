@@ -1,59 +1,46 @@
-const winston = require('winston');
-const path = require('path');
-const fs = require('fs');
-const os = require('os');
+/**
+ * Simple logger for Venesa - console-based for production compatibility
+ */
 
-const logsDir = process.env.LOG_DIR || path.join(path.dirname(__dirname), '..', 'logs');
-try {
-    fs.mkdirSync(logsDir, { recursive: true });
-} catch (error) {
-    console.error(`[Logger] Failed to create logs directory '${logsDir}': ${error.message}`);
-    process.exit(1);
+const levels = {
+    error: 0,
+    warn: 1,
+    info: 2,
+    debug: 3
+};
+
+const currentLevel = process.env.NODE_ENV === 'development' ? 'debug' : 'info';
+
+function shouldLog(level) {
+    return levels[level] <= levels[currentLevel];
 }
 
-// Define log format
-const logFormat = winston.format.combine(
-    winston.format.timestamp({ format: 'YYYY-MM-DD HH:mm:ss' }),
-    winston.format.errors({ stack: true }),
-    winston.format.printf(({ timestamp, level, message, stack }) => {
-        return `${timestamp} ${level}: ${stack || message}`;
-    })
-);
+function formatMessage(level, message) {
+    const timestamp = new Date().toISOString().replace('T', ' ').substring(0, 19);
+    return `${timestamp} ${level}: ${message}`;
+}
 
-// Create logger instance
-const logger = winston.createLogger({
-    level: process.env.NODE_ENV === 'development' ? 'debug' : 'info',
-    format: logFormat,
-    transports: [
-        // Console output
-        new winston.transports.Console({
-            format: winston.format.combine(
-                winston.format.colorize(),
-                logFormat
-            )
-        }),
-        // File output with rotation
-        new winston.transports.File({
-            filename: path.join(logsDir, 'error.log'),
-            level: 'error',
-            maxsize: 5 * 1024 * 1024, // 5MB
-            maxFiles: 5
-        }),
-        new winston.transports.File({
-            filename: path.join(logsDir, 'combined.log'),
-            maxsize: 5 * 1024 * 1024, // 5MB
-            maxFiles: 5
-        })
-    ],
-    exitOnError: false
-});
-
-// Add metadata for debugging
-logger.defaultMeta = {
-    service: 'venesa',
-    version: require('../../package.json').version,
-    platform: os.platform(),
-    arch: os.arch()
+const logger = {
+    error: (message, ...args) => {
+        if (shouldLog('error')) {
+            console.error(formatMessage('error', message), ...args);
+        }
+    },
+    warn: (message, ...args) => {
+        if (shouldLog('warn')) {
+            console.warn(formatMessage('warn', message), ...args);
+        }
+    },
+    info: (message, ...args) => {
+        if (shouldLog('info')) {
+            console.log(formatMessage('info', message), ...args);
+        }
+    },
+    debug: (message, ...args) => {
+        if (shouldLog('debug')) {
+            console.log(formatMessage('debug', message), ...args);
+        }
+    }
 };
 
 module.exports = logger;

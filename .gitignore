@@ -3,6 +3,11 @@ node_modules/
 
 # Build outputs
 dist/
+dist2/
+dist3/
+dist4/
+release/
+build_output/
 out/
 
 # Logs (generated at runtime)

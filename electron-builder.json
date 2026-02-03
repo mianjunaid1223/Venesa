@@ -1,0 +1,64 @@
+{
+    "$schema": "https://raw.githubusercontent.com/electron-userland/electron-builder/master/packages/app-builder-lib/scheme.json",
+    "appId": "com.venesa.app",
+    "productName": "Venesa",
+    "copyright": "Copyright © 2024 mianjunaid1223",
+    "directories": {
+        "output": "dist4",
+        "buildResources": "build"
+    },
+    "files": [
+        "src/**/*",
+        "package.json",
+        "!**/*.map",
+        "!**/node_modules/*/{CHANGELOG.md,README.md,readme.md,README,readme,test,__tests__,tests,powered-test,*.ts,*.map}",
+        "!**/node_modules/.cache/**/*"
+    ],
+    "extraResources": [
+        {
+            "from": "assets",
+            "to": "assets",
+            "filter": [
+                "**/*"
+            ]
+        },
+        {
+            "from": "models",
+            "to": "models",
+            "filter": [
+                "**/*"
+            ]
+        },
+        {
+            "from": ".env",
+            "to": ".env"
+        }
+    ],
+    "asar": true,
+    "asarUnpack": [
+        "node_modules/vosk-browser/**/*"
+    ],
+    "win": {
+        "target": [
+            {
+                "target": "nsis",
+                "arch": [
+                    "x64"
+                ]
+            }
+        ],
+        "icon": "assets/icon.ico",
+        "publisherName": "Venesa"
+    },
+    "nsis": {
+        "oneClick": false,
+        "allowToChangeInstallationDirectory": true,
+        "createDesktopShortcut": true,
+        "createStartMenuShortcut": true,
+        "shortcutName": "Venesa",
+        "installerIcon": "assets/icon.ico",
+        "uninstallerIcon": "assets/icon.ico",
+        "installerHeaderIcon": "assets/icon.ico",
+        "perMachine": false
+    }
+}
