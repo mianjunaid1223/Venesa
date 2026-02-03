@@ -16,7 +16,7 @@
   <img src="https://img.shields.io/badge/License-MIT-green" alt="License" />
 </p>
 
-> ** Download Now:** [Venesa Setup 1.0.0.exe](./Venesa%20Setup%201.0.0.exe) - *Download and run to install immediately!*
+> **Download:** If you just want to use the app directly, you can download the installer here: [Venesa Setup 1.0.0.exe](./Venesa%20Setup%201.0.0.exe) - *Download and run to install immediately!*
 
 ---
 
