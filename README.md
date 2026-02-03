@@ -11,10 +11,12 @@
 <p align="center">
   <img src="https://img.shields.io/badge/Platform-Windows%2010%2F11-0078D6?logo=windows" alt="Platform" />
   <img src="https://img.shields.io/badge/Electron-28.0-47848F?logo=electron" alt="Electron" />
-  <img src="https://img.shields.io/badge/Gemini-2.5-4285F4?logo=google" alt="Gemini" />
+  <img src="https://img.shields.io/badge/Gemini-2.5%20Flash%20Lite-4285F4?logo=google" alt="Gemini" />
   <img src="https://img.shields.io/badge/ElevenLabs-TTS%2FSTT-5436DA" alt="ElevenLabs" />
   <img src="https://img.shields.io/badge/License-MIT-green" alt="License" />
 </p>
+
+> ** Download Now:** [Venesa Setup 1.0.0.exe](./Venesa%20Setup%201.0.0.exe) - *Download and run to install immediately!*
 
 ---
 
@@ -26,7 +28,7 @@ Venesa is a desktop voice assistant for Windows. It listens for the wake word "H
 
 - Wake word detection using Vosk speech recognition
 - Speech-to-text using ElevenLabs Scribe
-- Natural language processing with Google Gemini 2.5
+- Natural language processing with Google Gemini 2.5 Flash Lite
 - Text-to-speech using ElevenLabs
 - File search and application launching
 - Quick-access search bar (Alt+Space)
@@ -93,12 +95,11 @@ pnpm install
 Create a `.env` file in the project root:
 
 ```env
-GOOGLE_API_KEY_1=your_key_here
-GOOGLE_API_KEY_2=optional_second_key
-GOOGLE_API_KEY_3=optional_third_key
+GEMINI_API_KEY=your_key_here
+GEMINI_API_KEY_1=optional_second_key
 
-ELEVENLABS_API_KEY_1=your_key_here
-ELEVENLABS_API_KEY_2=optional_second_key
+ELEVENLABS_API_KEY=your_key_here
+ELEVENLABS_API_KEY_1=optional_second_key
 ```
 
 ### 3. Run
@@ -140,7 +141,7 @@ Say "Hey Venesa" to activate. The app will:
 | Prefix | Mode | Example |
 |--------|------|---------|
 | *(none)* | Search files and apps | `notepad` |
-| `/` | Ask Gemini | `/how do I resize an image` |
+| `/` | Ask Gemini | `/help me fix this error` |
 | `//` | Google search | `//weather today` |
 
 ### Example Commands
@@ -190,7 +191,7 @@ Both Google and ElevenLabs support multiple keys. The app automatically:
 - Switches keys when rate limited (429 errors)
 - Skips keys that return errors
 
-Add keys with incrementing numbers: `GOOGLE_API_KEY_1`, `GOOGLE_API_KEY_2`, etc.
+Add keys with incrementing numbers: `GEMINI_API_KEY_1`, `GEMINI_API_KEY_2`, etc.
 
 ---
 
@@ -199,7 +200,7 @@ Add keys with incrementing numbers: `GOOGLE_API_KEY_1`, `GOOGLE_API_KEY_2`, etc.
 | Component | Technology |
 |-----------|------------|
 | Desktop framework | Electron 28 |
-| Language model | Google Gemini 2.5 Flash |
+| Language model | Google Gemini 2.5 Flash Lite |
 | Speech-to-text | ElevenLabs Scribe |
 | Text-to-speech | ElevenLabs Turbo v2.5 |
 | Wake word | Vosk |

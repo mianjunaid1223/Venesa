@@ -23,74 +23,11 @@ const DOCUMENT_EXTENSIONS = new Set([
 
 const POWERSHELL_TIMEOUT_MS = 20000;
 
-function runPowerShell(script, timeoutMs = POWERSHELL_TIMEOUT_MS) {
-  return new Promise((resolve, reject) => {
-    const tempFile = path.join(os.tmpdir(), `venesa-search-${Date.now()}-${Math.random().toString(36).slice(2)}.ps1`);
-    let isResolved = false;
-    let timeoutId = null;
+const psSession = require('./powershell-session');
 
-    try {
-      fs.writeFileSync(tempFile, script, "utf8");
-    } catch (e) {
-      reject(new Error(`Failed to write temp script: ${e.message}`));
-      return;
-    }
 
-    // Create a clean environment without venv activation that might interfere
-    const cleanEnv = { ...process.env };
-    // Remove Python virtual environment variables that could interfere
-    delete cleanEnv.VIRTUAL_ENV;
-    delete cleanEnv.PYTHONHOME;
-    // Ensure we use system PowerShell path
-    const systemRoot = process.env.SystemRoot || 'C:\\Windows';
-    const psPath = path.join(systemRoot, 'System32', 'WindowsPowerShell', 'v1.0', 'powershell.exe');
-
-    const ps = spawn(
-      fs.existsSync(psPath) ? psPath : "powershell",
-      ["-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-File", tempFile],
-      { windowsHide: true, env: cleanEnv }
-    );
-
-    let stdout = "";
-    let stderr = "";
-
-    const cleanup = () => {
-      if (timeoutId) clearTimeout(timeoutId);
-      try { fs.unlinkSync(tempFile); } catch (e) { /* ignore */ }
-    };
-
-    const done = (fn) => {
-      if (isResolved) return;
-      isResolved = true;
-      cleanup();
-      fn();
-    };
-
-    // Timeout handler
-    timeoutId = setTimeout(() => {
-      done(() => {
-        try { ps.kill('SIGTERM'); } catch (e) { /* ignore */ }
-        reject(new Error(`PowerShell timed out after ${timeoutMs}ms`));
-      });
-    }, timeoutMs);
-
-    ps.stdout.on("data", (data) => (stdout += data.toString()));
-    ps.stderr.on("data", (data) => (stderr += data.toString()));
-
-    ps.on("close", (code) => {
-      done(() => {
-        if (code === 0) {
-          resolve(stdout.trim());
-        } else {
-          reject(new Error(stderr || `PowerShell exited with code ${code}`));
-        }
-      });
-    });
-
-    ps.on("error", (error) => {
-      done(() => reject(error));
-    });
-  });
+async function runPowerShell(script, timeoutMs = POWERSHELL_TIMEOUT_MS) {
+  return psSession.execute(script, timeoutMs);
 }
 
 // Get current time in a friendly format
@@ -355,7 +292,7 @@ function openFile(filePath) {
 }
 
 async function processResponse(response) {
-  const actionRegex = /\[action:\s*(\w+)(?:,\s*([^\]]+))?\]/gi;
+  const actionRegex = /\[action:\s*(\w+)(?:,\s*((?:[^\]]|\[[^\]]*\])+))?\]/gi;
   let match;
   let cleanResponse = response;
   const executionPromises = [];
@@ -409,8 +346,14 @@ async function processResponse(response) {
         else if (actionName === "openUrl") result = await openUrl(params.url);
         else if (actionName === "getSystemInfo") result = await getSystemInfo();
         else if (actionName === "getTime") result = getCurrentTime();
-        // runPowerShell and runCommand actions removed for security - arbitrary script execution is not allowed
-        // Use dedicated actions like getSystemInfo instead
+        else if (actionName === "runPowerShell") result = await runSafePowerShell(params.script);
+        else if (actionName === "getClipboard") result = await runPowerShell('Get-Clipboard');
+        else if (actionName === "setClipboard") {
+          const safeText = escapePowerShellQuery(params.text);
+          result = await runPowerShell(`Set-Clipboard -Value "${safeText}"`);
+        }
+        else if (actionName === "listProcesses") result = await runPowerShell('Get-Process | Sort-Object CPU -Descending | Select-Object -First 10 -Property Id, ProcessName, CPU, WorkingSet | ConvertTo-Json -Compress');
+
         return { actionName, result };
       } catch (e) {
         return { actionName, error: e.toString() };

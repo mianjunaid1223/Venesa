@@ -785,10 +785,18 @@
         document.head.appendChild(style);
       }
 
-      window.api.send("save-settings", {
-        modelName: "gemini-2.5-flash-lite",
-        userName: userName,
-      });
+      if (window.api && typeof window.api.send === "function") {
+        window.api.send("save-settings", {
+          modelName: "gemini-2.5-flash-lite",
+          userName: userName,
+        });
+      } else {
+        console.error("API not available, cannot save settings");
+        const btn = document.getElementById("finishBtn");
+        btn.innerHTML = "Error: API API Unavailable";
+        btn.disabled = false;
+        btn.style.opacity = "1";
+      }
     }
 
     window.api.receive("settings-saved", (success) => {

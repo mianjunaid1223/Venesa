@@ -123,7 +123,8 @@ async function sendQuery(query, image = null, mode = 'text') {
     ? `[USER SPOKE VIA VOICE] ${query}`
     : `[USER TYPED IN TEXT MODE] ${query}`;
 
-  const maxRetries = 3;
+  const stats = keyPool.getStats();
+  const maxRetries = Math.max(3, stats.gemini || 0);
   let lastError = null;
 
   for (let attempt = 0; attempt < maxRetries; attempt++) {

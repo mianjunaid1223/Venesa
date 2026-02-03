@@ -180,7 +180,7 @@ spawn("python", [
 
 ### LLM Service
 
-**Technology:** Google Gemini 2.5 Flash
+**Technology:** Google Gemini 2.5 Flash Lite
 
 **System Prompt:** Defined in `src/config/system-prompt.js`
 
@@ -208,6 +208,7 @@ spawn("python", [
 - Runtime key removal on 401/403
 - Automatic failover on rate limits (429)
 - Separate pools for Gemini and ElevenLabs
+- Support for detailed quota tracking
 
 **Implementation:**
 
@@ -230,10 +231,11 @@ spawn("python", [
 
 **Security:**
 
-- Path traversal protection
-- Home directory restriction
-- URL scheme whitelist (http/https)
-- PowerShell input sanitization
+- **Command Allowlisting:** Only specific, pre-approved PowerShell commands are allowed.
+- **Input Sanitization:** user inputs are escaped before being interpolated into commands.
+- **Path Traversal Protection:** File access is restricted to safe directories.
+- **URL Scheme Whitelist:** Only `http` and `https` schemes are permitted.
+- **Safe Clipboard Handling:** Clipboard operations use dedicated, escaped handlers.
 
 ### Logger
 
@@ -286,6 +288,7 @@ Centralized in `src/config/`:
 - AI behavior rules
 - Action command reference
 - Voice vs text mode handling
+- Security guidelines for handling secrets
 
 ## Error Handling
 
@@ -342,17 +345,18 @@ Centralized in `src/config/`:
 
 ## Security Considerations
 
+**PowerShell & System Commands:**
+
+- **Strict Allowlist (`SAFE_PS_PATTERNS`):** Commands must match verified regex patterns (e.g., `Get-CimInstance`, `Get-Process`).
+- **Blocked Patterns (`DANGEROUS_PS_PATTERNS`):** Explicitly blocks obfuscation, network downloads, execution aliases (`iex`, `invoke-expression`), and destructive commands (`Remove-`, `Stop-`).
+- **Secret Protection:** System prompts are instructed never to output secrets (e.g., WiFi passwords) in plaintext.
+- **Sanitization:** All dynamic arguments are sanitized to prevent command injection.
+
 **File Access:**
 
 - Restricted to home directory
 - Path normalization and validation
 - No arbitrary path traversal
-
-**System Commands:**
-
-- PowerShell input sanitization
-- Temporary script files (auto-cleanup)
-- Timeout protection (20s)
 
 **Network:**
 

@@ -99,11 +99,21 @@ async function initialize() {
 
     logger.info(`Found ${geminiCount} Gemini keys, ${elevenCount} ElevenLabs keys - validating...`);
 
-    // Validate all keys in parallel
-    const [geminiResults, elevenLabsResults] = await Promise.all([
-        Promise.all(pool.gemini.keys.map(validateGeminiKey)),
-        Promise.all(pool.elevenlabs.keys.map(validateElevenLabsKey))
-    ]);
+    // Validate keys in batches to avoid self-inflicted rate limits
+    const processInBatches = async (items, fn, batchSize = 3) => {
+        const results = [];
+        for (let i = 0; i < items.length; i += batchSize) {
+            const batch = items.slice(i, i + batchSize);
+            const batchResults = await Promise.all(batch.map(fn));
+            results.push(...batchResults);
+            // Small delay between batches
+            if (i + batchSize < items.length) await new Promise(r => setTimeout(r, 1000));
+        }
+        return results;
+    };
+
+    const geminiResults = await processInBatches(pool.gemini.keys, validateGeminiKey);
+    const elevenLabsResults = await processInBatches(pool.elevenlabs.keys, validateElevenLabsKey);
 
     // Categorize Gemini keys
     const workingGemini = geminiResults.filter(r => r.status === 'working').map(r => r.key);

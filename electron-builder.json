@@ -2,7 +2,7 @@
     "$schema": "https://raw.githubusercontent.com/electron-userland/electron-builder/master/packages/app-builder-lib/scheme.json",
     "appId": "com.venesa.app",
     "productName": "Venesa",
-    "copyright": "Copyright © 2024 mianjunaid1223",
+    "copyright": "Copyright © 2026 mianjunaid1223",
     "directories": {
         "output": "dist4",
         "buildResources": "build"
@@ -27,6 +27,13 @@
             "to": "models",
             "filter": [
                 "**/*"
+            ]
+        },
+        {
+            "from": ".env",
+            "to": ".",
+            "filter": [
+                ".env"
             ]
         }
     ],

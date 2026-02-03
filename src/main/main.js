@@ -4,6 +4,7 @@ const envPath = app.isPackaged
   ? require('path').join(process.resourcesPath, '.env')
   : require('path').join(__dirname, '../../.env');
 require("dotenv").config({ path: envPath });
+app.commandLine.appendSwitch("autoplay-policy", "no-user-gesture-required");
 
 const {
   BrowserWindow,
@@ -37,7 +38,6 @@ protocol.registerSchemesAsPrivileged([
     privileges: {
       secure: true,
       supportFetchAPI: true,
-      bypassCSP: true,
       stream: true,
     },
   },

@@ -42,11 +42,17 @@ function createMultipartBody(fields, file) {
     // Add file
     if (file) {
         // Sanitize filename to prevent header injection
-        let safeFilename = (file.filename || 'file').replace(/[\r\n]/g, '');
-        safeFilename = safeFilename.replace(/"/g, '%22');
+        let safeFilename = (file.filename || 'file').replace(/[\r\n"]/g, '');
         if (!safeFilename) safeFilename = 'file';
 
-        parts.push(Buffer.from(`--${boundary}\r\nContent-Disposition: form-data; name="${file.name}"; filename="${safeFilename}"\r\nContent-Type: ${file.contentType}\r\n\r\n`));
+        // Sanitize name and contentType similarly
+        let safeName = (file.name || 'file').replace(/[\r\n"]/g, '');
+        if (!safeName) safeName = 'file';
+
+        let safeContentType = (file.contentType || 'application/octet-stream').replace(/[\r\n"]/g, '');
+        if (!safeContentType) safeContentType = 'application/octet-stream';
+
+        parts.push(Buffer.from(`--${boundary}\r\nContent-Disposition: form-data; name="${safeName}"; filename="${safeFilename}"\r\nContent-Type: ${safeContentType}\r\n\r\n`));
         parts.push(file.buffer);
         parts.push(Buffer.from('\r\n'));
     }
@@ -66,8 +72,10 @@ async function transcribe(audioBuffer, options = {}) {
 
     const { filename = 'audio.wav', contentType = 'audio/wav' } = options;
 
-    // Simple retry loop (max 2 attempts)
-    for (let i = 0; i < 2; i++) {
+    const stats = keyPool.getStats();
+    const maxRetries = Math.max(2, stats.elevenlabs || 0);
+
+    for (let i = 0; i < maxRetries; i++) {
         try {
             // Manually construct the multipart form data
             const fields = {
@@ -109,7 +117,7 @@ async function transcribe(audioBuffer, options = {}) {
 
         } catch (error) {
             logger.error(`STT error: ${error.message}`);
-            if (i === 1) throw error;
+            if (i === maxRetries - 1) throw error;
         }
     }
 }
@@ -120,7 +128,10 @@ async function synthesizeToDataURL(text) {
     let apiKey = await keyPool.getNextKey('elevenlabs');
     if (!apiKey) throw new Error('No valid ElevenLabs API keys available');
 
-    for (let i = 0; i < 2; i++) {
+    const stats = keyPool.getStats();
+    const maxRetries = Math.max(2, stats.elevenlabs || 0);
+
+    for (let i = 0; i < maxRetries; i++) {
         try {
             const ttsConfig = servicesConfig.elevenlabs.tts;
             const response = await fetch(
@@ -156,7 +167,7 @@ async function synthesizeToDataURL(text) {
             return `data:audio/mpeg;base64,${buffer.toString('base64')}`;
         } catch (error) {
             logger.error(`TTS error: ${error.message}`);
-            if (i === 1) throw error;
+            if (i === maxRetries - 1) throw error;
         }
     }
 }

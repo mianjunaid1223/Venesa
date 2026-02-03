@@ -91,8 +91,9 @@ function getLogsPath() {
             cachedLogsPath = path.join(app.getPath('userData'), 'logs');
             return cachedLogsPath;
         }
-        // Fallback to resources/logs if app not ready (don't cache fallback)
-        return path.join(getBasePath(), 'logs');
+        // Fallback to resources/logs if app not ready (cache fallback so it stays consistent)
+        cachedLogsPath = path.join(getBasePath(), 'logs');
+        return cachedLogsPath;
     }
 
     cachedLogsPath = path.join(getBasePath(), 'logs');
