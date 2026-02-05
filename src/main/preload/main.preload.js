@@ -39,11 +39,11 @@ contextBridge.exposeInMainWorld('api', {
     if (validChannels.includes(channel)) {
       const handler = (event, ...args) => func(...args);
       ipcRenderer.on(channel, handler);
-      // Return unsubscribe function
+
       return () => {
         ipcRenderer.removeListener(channel, handler);
       };
     }
-    return () => { }; // Return no-op if invalid channel
+    return () => { };
   }
 });

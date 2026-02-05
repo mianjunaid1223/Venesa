@@ -714,7 +714,7 @@
     const VoiceState = {
       IDLE: "idle",
       LISTENING: "listening",
-      PROCESSING: "processing",
+      PROCESSING: "thinking",
       SHOWING_RESULTS: "showing_results",
       AWAITING_SELECTION: "awaiting_selection",
       SPEAKING: "speaking",
@@ -812,7 +812,7 @@
           break;
         case VoiceState.PROCESSING:
           blobEl.className = "ai processing";
-          statusEl.textContent = "Processing";
+          statusEl.textContent = "Thinking";
           break;
         case VoiceState.SHOWING_RESULTS:
           blobEl.className = "ai";

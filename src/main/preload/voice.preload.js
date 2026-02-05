@@ -40,7 +40,7 @@ contextBridge.exposeInMainWorld('voiceApi', {
             'action-complete'
         ];
         if (validChannels.includes(channel)) {
-            // Verify func is a function before registering
+
             if (typeof func !== 'function') {
                 console.warn(`[VoicePreload] receive: callback for '${channel}' is not a function`);
                 return () => { };

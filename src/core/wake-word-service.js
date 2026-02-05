@@ -50,34 +50,16 @@ function resume() {
     console.log('[WakeWord] Resumed');
 }
 
-function handleDetection(text) {
+
+
+function handleDetection(data) {
     if (isPaused || !onWakeWordCallback) return false;
 
-    if (typeof text !== 'string') {
-        if (text && text.wakeWord) {
-            isPaused = true;
-            onWakeWordCallback('hey_venessa');
-            return true;
-        }
-        return false;
-    }
 
-    const cleanText = text.toLowerCase().trim();
-    const wakePatterns = [
-        /hey\s*v[ei]n[aeiou]?s+[aeu]/i,
-        /hey\s*vanessa/i,
-        /hey\s*venesa/i,
-        /hey\s*venus/i,
-        /a\s*v[ei]n[aeiou]?s+[aeu]/i
-    ];
-
-    for (const pattern of wakePatterns) {
-        if (pattern.test(cleanText)) {
-            console.log('[WakeWord] Detected:', cleanText);
-            isPaused = true;
-            onWakeWordCallback('hey_venessa');
-            return true;
-        }
+    if (data && data.wakeWord) {
+        isPaused = true;
+        onWakeWordCallback(data.wakeWord);
+        return true;
     }
     return false;
 }

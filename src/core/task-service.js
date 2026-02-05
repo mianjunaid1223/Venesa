@@ -30,7 +30,7 @@ async function runPowerShell(script, timeoutMs = POWERSHELL_TIMEOUT_MS) {
   return psSession.execute(script, timeoutMs);
 }
 
-// Get current time in a friendly format
+
 function getCurrentTime() {
   const now = new Date();
   const timeStr = now.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
@@ -38,35 +38,36 @@ function getCurrentTime() {
   return JSON.stringify({ time: timeStr, date: dateStr, full: `${timeStr} on ${dateStr}` });
 }
 
-// Safe PowerShell execution for read-only info gathering
-// SECURITY: Uses strict allowlist - script must start with an allowed pattern
+
+
 const SAFE_PS_PATTERNS = [
-  /^Get-CimInstance/i,    // WMI queries (read-only)
-  /^Get-Process/i,        // Process listing
-  /^Get-Service/i,        // Service listing
-  /^Get-ChildItem/i,      // Directory listing
-  /^Get-Content/i,        // File reading
-  /^Get-Date/i,           // Date/time
-  /^Get-Location/i,       // Current directory
-  /^\$env:/i,             // Environment variable reads
-  /^\[math\]::/i,         // Math operations
+  /^Get-CimInstance/i,
+  /^Get-Process/i,
+  /^Get-Service/i,
+  /^Get-ChildItem/i,
+  /^Get-Content/i,
+  /^Get-Date/i,
+  /^Get-Location/i,
+
+  /^\$env:/i,
+  /^\[math\]::/i,
 ];
 
-// Dangerous patterns that bypass allowlist - always blocked
+
 const DANGEROUS_PS_PATTERNS = [
-  // Encoded/obfuscated execution
+
   /-enc/i, /-encodedcommand/i, /-e\s/i,
-  // Download/network patterns
+
   /webclient/i, /net\./i, /downloadstring/i, /downloadfile/i,
   /invoke-webrequest/i, /iwr\s/i, /curl/i, /wget/i,
-  // Code execution patterns
+
   /invoke-expression/i, /iex\s/i, /invoke-command/i, /icm\s/i,
   /scriptblock/i, /\[scriptblock\]/i, /::create/i,
-  // Reflection/dynamic code
+
   /reflection/i, /\[type\]/i, /gettype/i, /assembly/i,
-  // Call operator and concatenation tricks
+
   /&\s*\$/i, /&\s*\(/i, /&\s*['"]/, /\+\s*['"].*['"]\s*\+/i,
-  // Destructive commands
+
   /remove-/i, /delete-/i, /set-/i, /new-/i, /stop-/i, /start-/i,
   /clear-/i, /install-/i, /uninstall-/i, /update-/i, /add-/i,
   /format-/i, /mount-/i, /dismount-/i, /restart-/i, /shutdown/i,
@@ -74,8 +75,8 @@ const DANGEROUS_PS_PATTERNS = [
   /powershell/i, /pwsh/i, /cmd\.exe/i, /cmd\s/i,
 ];
 
-// Internal function - only called by trusted internal code paths (getSystemInfo, executeSystemControl)
-// NOT exposed via action handler to prevent arbitrary script injection
+
+
 async function runSafePowerShell(script) {
   if (!script || typeof script !== 'string') {
     return JSON.stringify({ error: "No script provided" });
@@ -83,21 +84,21 @@ async function runSafePowerShell(script) {
 
   const trimmedScript = script.trim();
 
-  // SECURITY: First check for dangerous patterns (always blocked)
+
   for (const pattern of DANGEROUS_PS_PATTERNS) {
     if (pattern.test(trimmedScript)) {
       return JSON.stringify({ error: "Command contains blocked pattern" });
     }
   }
 
-  // SECURITY: Verify script starts with an allowed safe pattern (allowlist)
+
   const isAllowed = SAFE_PS_PATTERNS.some(pattern => pattern.test(trimmedScript));
   if (!isAllowed) {
     return JSON.stringify({ error: "Command not in allowlist" });
   }
 
   try {
-    const result = await runPowerShell(script, 10000); // 10 second timeout
+    const result = await runPowerShell(script, 10000);
     return result;
   } catch (e) {
     return JSON.stringify({ error: e.message });
@@ -304,14 +305,14 @@ async function processResponse(response) {
     const params = {};
 
     if (paramsStr) {
-      // Improved parameter parsing to handle values with commas
-      // Capture key: value pairs non-greedily until the next key or end of string
+
+
       const paramRegex = /(\w+):\s*(.+?)(?=\s*,\s*\w+:|$)/g;
       let pMatch;
       while ((pMatch = paramRegex.exec(paramsStr)) !== null) {
         const key = pMatch[1].trim();
         let val = pMatch[2].trim();
-        // Remove trailing comma if captured
+
         if (val.endsWith(',')) val = val.slice(0, -1).trim();
 
         if ((val.startsWith('"') && val.endsWith('"')) || (val.startsWith("'") && val.endsWith("'"))) {
@@ -320,7 +321,7 @@ async function processResponse(response) {
         params[key] = val;
       }
 
-      // Fallback for cases where regex might fail but simple split works
+
       if (Object.keys(params).length === 0 && paramsStr.includes(':')) {
         paramsStr.split(',').forEach(pair => {
           const [key, ...valParts] = pair.split(':');
@@ -388,7 +389,7 @@ async function executeSystemControl(params) {
   const command = params.command;
   const value = parseInt(params.value || params.level || 0);
 
-  // Build scripts dynamically to ensure value is properly interpolated
+
   const getScript = () => {
     switch (command) {
       case 'volumeUp':
@@ -461,7 +462,7 @@ async function openUrl(url) {
 
   let fullUrl;
   try {
-    // If no scheme present, prepend https://
+
     if (!/^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(url)) {
       fullUrl = 'https://' + url;
     } else {
@@ -490,5 +491,5 @@ module.exports = {
   openUrl,
   getSystemInfo,
   getCurrentTime,
-  // runSafePowerShell is internal only - not exported for security
+
 };

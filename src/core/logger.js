@@ -1,6 +1,4 @@
-/**
- * Simple logger for Venesa - console-based for production compatibility
- */
+
 
 const levels = {
     error: 0,

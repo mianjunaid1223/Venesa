@@ -5,13 +5,13 @@ const paths = require('./paths');
 
 const ENV_PATH = paths.getEnvPath();
 
-// Pool with primary/candidate system and rate limit tracking
+
 const pool = {
     gemini: {
         keys: [],
-        primary: null,      // Main key to use (validated working)
-        candidate: null,    // Backup key
-        rateLimitedUntil: new Map()  // Track rate limit cooldowns
+        primary: null,
+        candidate: null,
+        rateLimitedUntil: new Map()
     },
     elevenlabs: {
         keys: [],
@@ -48,7 +48,7 @@ function loadKeysFromEnv() {
     });
 }
 
-// Validate Gemini key - returns status: 'working', 'rate_limited', or 'invalid'
+
 async function validateGeminiKey(key) {
     try {
         const { GoogleGenerativeAI } = require('@google/generative-ai');
@@ -59,15 +59,15 @@ async function validateGeminiKey(key) {
     } catch (e) {
         const msg = e.message || '';
         const status = e.status;
-        // 429 = rate limited but key is valid
+
         if (status === 429 || msg.includes('429') || msg.includes('quota') || msg.includes('rate')) {
             return { status: 'rate_limited', key };
         }
-        // Auth errors = invalid key
+
         if (status === 401 || status === 403 || msg.includes('API key') || msg.includes('authentication')) {
             return { status: 'invalid', key };
         }
-        // Network/other errors - assume working
+
         return { status: 'working', key };
     }
 }
@@ -99,14 +99,14 @@ async function initialize() {
 
     logger.info(`Found ${geminiCount} Gemini keys, ${elevenCount} ElevenLabs keys - validating...`);
 
-    // Validate keys in batches to avoid self-inflicted rate limits
+
     const processInBatches = async (items, fn, batchSize = 3) => {
         const results = [];
         for (let i = 0; i < items.length; i += batchSize) {
             const batch = items.slice(i, i + batchSize);
             const batchResults = await Promise.all(batch.map(fn));
             results.push(...batchResults);
-            // Small delay between batches
+
             if (i + batchSize < items.length) await new Promise(r => setTimeout(r, 1000));
         }
         return results;
@@ -115,12 +115,12 @@ async function initialize() {
     const geminiResults = await processInBatches(pool.gemini.keys, validateGeminiKey);
     const elevenLabsResults = await processInBatches(pool.elevenlabs.keys, validateElevenLabsKey);
 
-    // Categorize Gemini keys
+
     const workingGemini = geminiResults.filter(r => r.status === 'working').map(r => r.key);
     const rateLimitedGemini = geminiResults.filter(r => r.status === 'rate_limited').map(r => r.key);
-    const validGemini = [...workingGemini, ...rateLimitedGemini]; // All non-invalid keys
+    const validGemini = [...workingGemini, ...rateLimitedGemini];
 
-    // Set primary to a WORKING key if available, else rate-limited
+
     if (workingGemini.length > 0) {
         pool.gemini.primary = workingGemini[0];
         pool.gemini.candidate = workingGemini[1] || rateLimitedGemini[0] || null;
@@ -129,14 +129,14 @@ async function initialize() {
         pool.gemini.primary = rateLimitedGemini[0];
         pool.gemini.candidate = rateLimitedGemini[1] || null;
         logger.warn(`All Gemini keys rate limited - using ${maskKey(pool.gemini.primary)}`);
-        // Mark as rate limited with 60s cooldown
+
         rateLimitedGemini.forEach(key => {
             pool.gemini.rateLimitedUntil.set(key, Date.now() + 60000);
         });
     }
     pool.gemini.keys = validGemini;
 
-    // Categorize ElevenLabs keys
+
     const workingEleven = elevenLabsResults.filter(r => r.status === 'working').map(r => r.key);
     const rateLimitedEleven = elevenLabsResults.filter(r => r.status === 'rate_limited').map(r => r.key);
     const validEleven = [...workingEleven, ...rateLimitedEleven];
@@ -157,7 +157,7 @@ async function initialize() {
     return true;
 }
 
-// Get a working key, avoiding rate-limited ones
+
 function getNextKey(service) {
     if (!service || typeof service !== 'string') return null;
     if (!initialized) {
@@ -171,7 +171,7 @@ function getNextKey(service) {
 
     const now = Date.now();
 
-    // Check if primary is usable (not rate limited or cooldown expired)
+
     if (s.primary) {
         const rateLimitExpiry = s.rateLimitedUntil.get(s.primary);
         if (!rateLimitExpiry || now >= rateLimitExpiry) {
@@ -180,12 +180,12 @@ function getNextKey(service) {
         }
     }
 
-    // Primary is rate limited, try candidate
+
     if (s.candidate) {
         const rateLimitExpiry = s.rateLimitedUntil.get(s.candidate);
         if (!rateLimitExpiry || now >= rateLimitExpiry) {
             s.rateLimitedUntil.delete(s.candidate);
-            // Swap candidate to primary since primary is rate limited
+
             const temp = s.primary;
             s.primary = s.candidate;
             s.candidate = temp;
@@ -194,7 +194,7 @@ function getNextKey(service) {
         }
     }
 
-    // Both primary and candidate rate limited, find any available key
+
     for (const key of s.keys) {
         const rateLimitExpiry = s.rateLimitedUntil.get(key);
         if (!rateLimitExpiry || now >= rateLimitExpiry) {
@@ -205,7 +205,7 @@ function getNextKey(service) {
         }
     }
 
-    // All keys rate limited - return primary anyway (will retry)
+
     logger.warn(`All ${service} keys rate limited, returning primary anyway`);
     return s.primary;
 }
@@ -216,10 +216,10 @@ function reportSuccess(service, key) {
     const s = pool[service];
     if (!s || !key) return;
 
-    // Clear rate limit status on success
+
     s.rateLimitedUntil.delete(key);
 
-    // Promote successful key to primary if different
+
     if (s.primary !== key) {
         s.candidate = s.primary;
         s.primary = key;
@@ -235,15 +235,15 @@ function reportError(service, key, error) {
     const errorMsg = error?.message || '';
     const status = error?.status;
 
-    // Check for rate limit (429)
+
     const isRateLimit = status === 429 || errorMsg.includes('429') ||
         errorMsg.includes('quota') || errorMsg.includes('rate');
 
     if (isRateLimit) {
         logger.warn(`Rate limited: ${maskKey(key)} - cooling down 60s`);
-        s.rateLimitedUntil.set(key, Date.now() + 60000); // 60 second cooldown
+        s.rateLimitedUntil.set(key, Date.now() + 60000);
 
-        // Try to find a non-rate-limited key
+
         const now = Date.now();
         for (const k of s.keys) {
             if (k !== key) {
@@ -261,7 +261,7 @@ function reportError(service, key, error) {
         return { keyHandled: true, action: 'marked_rate_limited' };
     }
 
-    // Check for auth errors (401/403) or leaked keys
+
     const isAuthError = (status === 401 || status === 403) ||
         errorMsg.includes('401') || errorMsg.includes('403') ||
         errorMsg.includes('API key') || errorMsg.includes('authentication') ||

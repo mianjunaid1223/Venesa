@@ -62,6 +62,17 @@
             }
         }
 
+        // Wake word patterns - THE ONLY PLACE these are used
+        // Keep in sync with src/config/wake-word.config.js (reference only)
+        const wakePatterns = [
+            /hey\s*v[ei]n[aeiou]?s+[aeu]/i,   // "hey venesa/venessa" variations
+            /hey\s*vanessa/i,                  // "hey vanessa"
+            /hi\s*v[ei]n[aeiou]?s+[aeu]/i,    // "hi venesa" variations
+            /hi\s*vanessa/i,                   // "hi vanessa"
+            /\bv[ei]n[aeiou]?s+[aeu]\b/i,     // Just "venesa/venessa" standalone
+            /\bvanessa\b/i,                    // Just "vanessa" standalone
+        ];
+
         function checkWakeWord(text) {
             if (isPaused || resumeCooldown || !text) return;
 
@@ -75,14 +86,7 @@
                 return;
             }
 
-            const patterns = [
-                /hey\s*v[ei]n[aeiou]?s+[aeu]/i,
-                /hey\s*vanessa/i,
-                /hey\s*venesa/i,
-                /hey\s*venus/i
-            ];
-
-            for (const pattern of patterns) {
+            for (const pattern of wakePatterns) {
                 if (pattern.test(cleanText)) {
                     log('Wake word: ' + cleanText);
                     isPaused = true;

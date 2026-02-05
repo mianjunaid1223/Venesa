@@ -27,25 +27,23 @@ function pcmToWav(pcmBuffer) {
     return Buffer.concat([header, pcmBuffer]);
 }
 
-/**
- * Manually constructs a multipart/form-data body buffer to avoid dependency issues.
- */
+
 function createMultipartBody(fields, file) {
     const boundary = 'VenesaBoundary' + Date.now().toString(16);
     const parts = [];
 
-    // Add fields
+
     for (const [key, value] of Object.entries(fields)) {
         parts.push(Buffer.from(`--${boundary}\r\nContent-Disposition: form-data; name="${key}"\r\n\r\n${value}\r\n`));
     }
 
-    // Add file
+
     if (file) {
-        // Sanitize filename to prevent header injection
+
         let safeFilename = (file.filename || 'file').replace(/[\r\n"]/g, '');
         if (!safeFilename) safeFilename = 'file';
 
-        // Sanitize name and contentType similarly
+
         let safeName = (file.name || 'file').replace(/[\r\n"]/g, '');
         if (!safeName) safeName = 'file';
 
@@ -57,7 +55,7 @@ function createMultipartBody(fields, file) {
         parts.push(Buffer.from('\r\n'));
     }
 
-    // End boundary
+
     parts.push(Buffer.from(`--${boundary}--\r\n`));
 
     return {
@@ -77,7 +75,7 @@ async function transcribe(audioBuffer, options = {}) {
 
     for (let i = 0; i < maxRetries; i++) {
         try {
-            // Manually construct the multipart form data
+
             const fields = {
                 'model_id': servicesConfig.elevenlabs.stt.model,
                 'language_code': servicesConfig.elevenlabs.stt.language
