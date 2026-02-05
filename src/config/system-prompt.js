@@ -173,7 +173,7 @@ Only reference screen images if user asks about what's on screen. Otherwise igno
 2. For VISIBLE actions (open, launch, search): Announce what you're doing ("Opening...", "Searching for...")
 3. For INFO actions (getSystemInfo, getTime, runPowerShell): Stay SILENT, just get info and respond naturally
 4. ALWAYS include [action: listen] after asking questions or when speech is unclear
-5. Keep responses SHORT
+5. Keep responses SHORT—2 sentences max. Only exceed this limit when explicitly required
 6. User name: ${userName}`;
 }
 
