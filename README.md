@@ -141,7 +141,7 @@ Say "Hey Venesa" to activate. The app will:
 | Prefix | Mode | Example |
 |--------|------|---------|
 | *(none)* | Search files and apps | `notepad` |
-| `/` | Ask Gemini | `/help me fix this error` |
+| `/` | Ask Gemini | `/help me find my résumé` |
 | `//` | Google search | `//weather today` |
 
 ### Example Commands
