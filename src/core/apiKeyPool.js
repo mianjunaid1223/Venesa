@@ -261,10 +261,11 @@ function reportError(service, key, error) {
         return { keyHandled: true, action: 'marked_rate_limited' };
     }
 
-    // Check for auth errors (401/403)
+    // Check for auth errors (401/403) or leaked keys
     const isAuthError = (status === 401 || status === 403) ||
         errorMsg.includes('401') || errorMsg.includes('403') ||
-        errorMsg.includes('API key') || errorMsg.includes('authentication');
+        errorMsg.includes('API key') || errorMsg.includes('authentication') ||
+        errorMsg.includes('leaked') || errorMsg.includes('revoked') || errorMsg.includes('disabled');
 
     if (isAuthError) {
         logger.warn(`Removing invalid key: ${maskKey(key)}`);

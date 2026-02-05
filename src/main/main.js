@@ -239,13 +239,12 @@ app.whenReady().then(async () => {
     autoStartEnabled = true;
   }
 
-  if (autoStartEnabled) {
-    app.setLoginItemSettings({
-      openAtLogin: true,
-      path: app.getPath("exe"),
-      args: ["--hidden"],
-    });
-  }
+  // Always set login item settings based on user preference
+  app.setLoginItemSettings({
+    openAtLogin: autoStartEnabled,
+    path: app.getPath("exe"),
+    args: autoStartEnabled ? ["--hidden"] : [],
+  });
 
   await gemini.initializeAPI();
 

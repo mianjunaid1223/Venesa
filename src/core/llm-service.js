@@ -79,11 +79,18 @@ function getAPIInstance(apiKey) {
 
   const genAI = new GoogleGenerativeAI(apiKey);
 
+  const tools = [
+    {
+      googleSearch: {}
+    }
+  ];
+
   const model = genAI.getGenerativeModel({
     model: currentSettings.modelName,
     systemInstruction: {
       parts: [{ text: getSystemPrompt(currentSettings.userName) }]
-    }
+    },
+    tools: tools
   });
 
   const chat = model.startChat({ history: [] });
@@ -105,6 +112,10 @@ function getErrorMessage(error) {
 
   if (status === 429 || message.includes("429") || message.includes("quota")) {
     return "Rate limit reached. Switching to next available key...";
+  }
+
+  if (message.includes("leaked") || message.includes("revoked") || message.includes("disabled")) {
+    return "API key was reported as compromised. Trying next key...";
   }
 
   if (status === 401 || status === 403 || message.includes("API key")) {
