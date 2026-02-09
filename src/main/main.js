@@ -5,6 +5,8 @@ const envPath = app.isPackaged
   : require('path').join(__dirname, '../../.env');
 require("dotenv").config({ path: envPath });
 app.commandLine.appendSwitch("autoplay-policy", "no-user-gesture-required");
+app.commandLine.appendSwitch("disable-gpu-cache");
+app.commandLine.appendSwitch("disable-http-cache");
 
 const {
   BrowserWindow,

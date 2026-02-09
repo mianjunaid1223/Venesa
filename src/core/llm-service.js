@@ -70,9 +70,12 @@ const getSystemPrompt = require('../config/system-prompt');
 
 let currentSettings = null;
 
-function getAPIInstance(apiKey) {
-  if (apiInstances.has(apiKey)) {
-    return apiInstances.get(apiKey);
+function getAPIInstance(apiKey, mode = 'text') {
+  // Create unique key for each api key + mode combination
+  const instanceKey = `${apiKey}_${mode}`;
+
+  if (apiInstances.has(instanceKey)) {
+    return apiInstances.get(instanceKey);
   }
 
   currentSettings = loadSettings();
@@ -85,10 +88,11 @@ function getAPIInstance(apiKey) {
     }
   ];
 
+  // Use mode-specific system prompt
   const model = genAI.getGenerativeModel({
     model: currentSettings.modelName,
     systemInstruction: {
-      parts: [{ text: getSystemPrompt(currentSettings.userName) }]
+      parts: [{ text: getSystemPrompt(currentSettings.userName, mode) }]
     },
     tools: tools
   });
@@ -96,7 +100,7 @@ function getAPIInstance(apiKey) {
   const chat = model.startChat({ history: [] });
 
   const instance = { genAI, model, chat };
-  apiInstances.set(apiKey, instance);
+  apiInstances.set(instanceKey, instance);
 
   return instance;
 }
@@ -130,9 +134,7 @@ function getErrorMessage(error) {
 }
 
 async function sendQuery(query, image = null, mode = 'text') {
-  const contextualQuery = mode === 'voice'
-    ? `[USER SPOKE VIA VOICE] ${query}`
-    : `[USER TYPED IN TEXT MODE] ${query}`;
+  // No need for mode prefix - we use separate system prompts for each mode
 
   const stats = keyPool.getStats();
   const maxRetries = Math.max(3, stats.gemini || 0);
@@ -146,17 +148,17 @@ async function sendQuery(query, image = null, mode = 'text') {
     }
 
     try {
-      const { chat } = getAPIInstance(apiKey);
+      const { chat } = getAPIInstance(apiKey, mode);
       let result;
 
       if (image) {
         if (!image.startsWith('data:') || !image.includes(';base64,')) {
-          result = await chat.sendMessage(contextualQuery);
+          result = await chat.sendMessage(query);
         } else {
           const base64Data = image.substring(image.indexOf(',') + 1);
 
           if (!base64Data) {
-            result = await chat.sendMessage(contextualQuery);
+            result = await chat.sendMessage(query);
           } else {
             const match = image.match(/^data:([^;]+);base64,/);
             const mimeType = match ? match[1] : 'image/png';
@@ -167,11 +169,11 @@ async function sendQuery(query, image = null, mode = 'text') {
                 mimeType: mimeType
               }
             };
-            result = await chat.sendMessage([contextualQuery, imagePart]);
+            result = await chat.sendMessage([query, imagePart]);
           }
         }
       } else {
-        result = await chat.sendMessage(contextualQuery);
+        result = await chat.sendMessage(query);
       }
 
       const response = await result.response;
@@ -187,7 +189,7 @@ async function sendQuery(query, image = null, mode = 'text') {
       logger.error(`LLM error with key: ${error.message}`);
 
       keyPool.reportError('gemini', apiKey, error);
-      apiInstances.delete(apiKey);
+      apiInstances.delete(`${apiKey}_${mode}`);
     }
   }
 
