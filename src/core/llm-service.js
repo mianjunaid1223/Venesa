@@ -88,13 +88,15 @@ function getAPIInstance(apiKey, mode = 'text') {
     }
   ];
 
-  // Use mode-specific system prompt
+  const servicesConfig = require('../config/services.config');
+
   const model = genAI.getGenerativeModel({
     model: currentSettings.modelName,
     systemInstruction: {
       parts: [{ text: getSystemPrompt(currentSettings.userName, mode) }]
     },
-    tools: tools
+    tools: tools,
+    generationConfig: servicesConfig.gemini.generationConfig
   });
 
   const chat = model.startChat({ history: [] });

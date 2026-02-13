@@ -825,6 +825,33 @@ app.whenReady().then(async () => {
               feedback.push(`System control failed: ${res.result}`);
           } else if (res.actionName === "listen") {
             shouldListenAgain = true;
+          } else if (res.actionName === "listRunningApps" && res.result) {
+            try {
+              const apps = typeof res.result === 'string' ? JSON.parse(res.result) : res.result;
+              if (Array.isArray(apps) && apps.length > 0) {
+                const appNames = apps.map(a => a.name).join(', ');
+                feedback.push(`You have ${apps.length} app${apps.length > 1 ? 's' : ''} open: ${appNames}.`);
+              } else {
+                feedback.push('No visible apps are running right now.');
+              }
+            } catch (e) { }
+          } else if (res.actionName === "closeApp" && res.result) {
+            try {
+              const closeResult = typeof res.result === 'string' ? JSON.parse(res.result) : res.result;
+              if (closeResult.success && closeResult.closed) {
+                const names = Array.isArray(closeResult.closed) ? closeResult.closed.join(', ') : closeResult.closed;
+                feedback.push(`Closed ${names}.`);
+              } else if (closeResult.error) {
+                feedback.push(closeResult.error);
+              }
+            } catch (e) { }
+          } else if (res.actionName === "closeAllApps" && res.result) {
+            try {
+              const closeResult = typeof res.result === 'string' ? JSON.parse(res.result) : res.result;
+              if (closeResult.success) {
+                feedback.push(`Closed ${closeResult.count || 0} app${(closeResult.count || 0) !== 1 ? 's' : ''}.`);
+              }
+            } catch (e) { }
           }
         }
       }

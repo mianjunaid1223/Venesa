@@ -4,7 +4,7 @@ module.exports = {
 
     tts: {
       voiceId: "EXAVITQu4vr4xnSDxMaL",
-      model: "eleven_turbo_v2_5",
+      model: "eleven_flash_v2_5",
       outputFormat: "mp3_44100_128",
       stability: 0.7,
       similarityBoost: 0.7,
@@ -27,7 +27,7 @@ module.exports = {
       temperature: 0.7,
       topP: 0.9,
       topK: 40,
-      maxOutputTokens: 800,
+      maxOutputTokens: 250,
       candidateCount: 1,
     },
     safetySettings: [

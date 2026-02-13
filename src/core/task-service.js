@@ -106,6 +106,108 @@ async function runSafePowerShell(script) {
 }
 
 
+async function listRunningApps() {
+  const psScript = `
+$ErrorActionPreference = 'SilentlyContinue'
+[Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+$systemApps = @('TextInputHost','ApplicationFrameHost','SystemSettings','ShellExperienceHost','SearchUI','SearchApp','StartMenuExperienceHost','LockApp','Windows.WARP.JITService','svchost','csrss','smss','wininit','services','lsass','winlogon','dwm','taskhostw','sihost','ctfmon','RuntimeBroker','backgroundTaskHost','SecurityHealthSystray','SecurityHealthService','dllhost','conhost','fontdrvhost','WmiPrvSE','spoolsv','dasHost','MsMpEng','NisSrv','SgrmBroker','TabTip','TabTip32','UserOOBEBroker','WidgetService','Widgets')
+Get-Process | Where-Object {
+  $_.MainWindowTitle -ne '' -and
+  $systemApps -notcontains $_.ProcessName
+} | Select-Object -Property ProcessName, Id, MainWindowTitle, @{Name='MemoryMB';Expression={[math]::round($_.WorkingSet64/1MB,1)}} |
+Sort-Object ProcessName -Unique |
+ConvertTo-Json -Compress
+`;
+  try {
+    const output = await runPowerShell(psScript);
+    if (output && output !== 'null') {
+      const parsed = JSON.parse(output);
+      const apps = Array.isArray(parsed) ? parsed : [parsed];
+      return JSON.stringify(apps.map(a => ({
+        name: a.ProcessName,
+        title: a.MainWindowTitle,
+        pid: a.Id,
+        memoryMB: a.MemoryMB
+      })));
+    }
+  } catch (e) {
+    logger.error(`listRunningApps error: ${e.message}`);
+  }
+  return JSON.stringify([]);
+}
+
+
+async function closeApp(appName) {
+  if (!appName || typeof appName !== 'string') {
+    return JSON.stringify({ error: 'No app name provided' });
+  }
+
+  const safeAppName = escapePowerShellQuery(appName);
+  const psScript = `
+$ErrorActionPreference = 'SilentlyContinue'
+[Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+$procs = Get-Process | Where-Object {
+  ($_.ProcessName -like '*${safeAppName}*' -or $_.MainWindowTitle -like '*${safeAppName}*') -and
+  $_.MainWindowTitle -ne ''
+}
+if ($procs) {
+  $closed = @()
+  foreach ($p in $procs) {
+    $name = $p.ProcessName
+    try {
+      $p.CloseMainWindow() | Out-Null
+      $closed += $name
+    } catch {
+      try { Stop-Process -Id $p.Id -Force } catch {}
+      $closed += $name
+    }
+  }
+  @{ success = $true; closed = ($closed | Select-Object -Unique) } | ConvertTo-Json -Compress
+} else {
+  @{ success = $false; error = "No running app found matching '${safeAppName}'" } | ConvertTo-Json -Compress
+}
+`;
+
+  try {
+    const output = await runPowerShell(psScript);
+    return output || JSON.stringify({ success: false, error: 'No output' });
+  } catch (e) {
+    return JSON.stringify({ error: e.message });
+  }
+}
+
+
+async function closeAllApps() {
+  const psScript = `
+$ErrorActionPreference = 'SilentlyContinue'
+[Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+$systemApps = @('explorer','TextInputHost','ApplicationFrameHost','SystemSettings','ShellExperienceHost','SearchUI','SearchApp','StartMenuExperienceHost','LockApp','svchost','csrss','smss','wininit','services','lsass','winlogon','dwm','taskhostw','sihost','ctfmon','RuntimeBroker','backgroundTaskHost','SecurityHealthSystray','SecurityHealthService','dllhost','conhost','fontdrvhost','WmiPrvSE','spoolsv','dasHost','MsMpEng','NisSrv','SgrmBroker','TabTip','TabTip32','UserOOBEBroker','WidgetService','Widgets','Venesa','electron')
+$procs = Get-Process | Where-Object {
+  $_.MainWindowTitle -ne '' -and
+  $systemApps -notcontains $_.ProcessName
+}
+$closed = @()
+foreach ($p in $procs) {
+  try {
+    $p.CloseMainWindow() | Out-Null
+    $closed += $p.ProcessName
+  } catch {
+    try { Stop-Process -Id $p.Id -Force } catch {}
+    $closed += $p.ProcessName
+  }
+}
+@{ success = $true; closed = ($closed | Select-Object -Unique); count = $closed.Count } | ConvertTo-Json -Compress
+`;
+
+  try {
+    const output = await runPowerShell(psScript);
+    return output || JSON.stringify({ success: true, closed: [], count: 0 });
+  } catch (e) {
+    return JSON.stringify({ error: e.message });
+  }
+}
+
+
 function getRelativePath(fullPath) {
   if (fullPath.startsWith(HOME_DIR)) {
     return fullPath.substring(HOME_DIR.length + 1);
@@ -354,6 +456,9 @@ async function processResponse(response) {
           result = await runPowerShell(`Set-Clipboard -Value "${safeText}"`);
         }
         else if (actionName === "listProcesses") result = await runPowerShell('Get-Process | Sort-Object CPU -Descending | Select-Object -First 10 -Property Id, ProcessName, CPU, WorkingSet | ConvertTo-Json -Compress');
+        else if (actionName === "listRunningApps") result = await listRunningApps();
+        else if (actionName === "closeApp") result = await closeApp(params.appName);
+        else if (actionName === "closeAllApps") result = await closeAllApps();
 
         return { actionName, result };
       } catch (e) {
@@ -491,5 +596,7 @@ module.exports = {
   openUrl,
   getSystemInfo,
   getCurrentTime,
-
+  listRunningApps,
+  closeApp,
+  closeAllApps,
 };

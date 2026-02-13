@@ -1,11 +1,12 @@
 const elevenlabsService = require('./elevenlabs-service.js');
 
 const CONFIG = {
-    SPEECH_THRESHOLD: 0.01,
+    SPEECH_THRESHOLD: 0.025,
     SILENCE_DURATION: 1200,
-    MIN_RECORDING: 600,
+    MIN_RECORDING: 800,
     MAX_RECORDING: 10000,
-    PRE_ROLL_FRAMES: 5
+    PRE_ROLL_FRAMES: 5,
+    MIN_SPEECH_RMS: 0.015
 };
 
 let isListening = false;
@@ -92,6 +93,18 @@ function feedAudio(data) {
     }
 }
 
+function calculateBufferRMS(buffer) {
+    if (!buffer || buffer.length < 2) return 0;
+    const int16 = new Int16Array(buffer.buffer, buffer.byteOffset, buffer.length / 2);
+    if (int16.length === 0) return 0;
+    let sum = 0;
+    for (let i = 0; i < int16.length; i++) {
+        const val = int16[i] / 32768.0;
+        sum += val * val;
+    }
+    return Math.sqrt(sum / int16.length);
+}
+
 async function processBuffer() {
     if (audioChunks.length === 0) {
         resetState();
@@ -107,13 +120,21 @@ async function processBuffer() {
         return;
     }
 
+    const avgRMS = calculateBufferRMS(fullBuffer);
+    if (avgRMS < CONFIG.MIN_SPEECH_RMS) {
+        console.log(`[STT] Audio too quiet (RMS: ${avgRMS.toFixed(4)}), skipping upload`);
+        resetState();
+        isProcessing = false;
+        return;
+    }
+
     isProcessing = true;
     resetState();
 
     if (userCallback) userCallback('partial', 'Processing...');
 
     try {
-        console.log(`[STT] Uploading ${fullBuffer.length} bytes`);
+        console.log(`[STT] Uploading ${fullBuffer.length} bytes (RMS: ${avgRMS.toFixed(4)})`);
         const wavBuffer = elevenlabsService.pcmToWav(fullBuffer);
         const text = await elevenlabsService.transcribe(wavBuffer);
 
