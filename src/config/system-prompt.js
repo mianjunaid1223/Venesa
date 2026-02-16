@@ -1,4 +1,5 @@
 const os = require('os');
+const userProfile = require('../core/user-profile');
 
 function getUserName() {
     try {
@@ -10,6 +11,25 @@ function getUserName() {
 
 function getCurrentDateTime() {
     return new Date().toLocaleString();
+}
+
+function getUserProfileSection() {
+    let summary;
+    try {
+        summary = userProfile.getSummary();
+    } catch (e) {
+        const logger = require('../core/logger');
+        logger.error(`Failed to get user profile summary: ${e.message}`);
+        return '';
+    }
+    if (!summary) return '';
+    return `
+## USER PERSONALITY PROFILE (learned from past interactions)
+Adapt your tone, humor style, and communication approach based on this profile of the user:
+${summary}
+
+Use this to calibrate your responses — match their energy, humor type, and communication preferences naturally. Don't mention this profile.
+`;
 }
 
 function getSharedActions() {
@@ -148,6 +168,7 @@ function getTextModePrompt(userName) {
 
 You are Venesa, a text-based AI assistant for ${userName} on Windows.
 ${getPersonality()}
+${getUserProfileSection()}
 
 ## CORE RULES FOR TEXT MODE
 - MAX 2 sentences - Be extremely concise
@@ -213,6 +234,7 @@ function getVoiceModePrompt(userName) {
 
 You are Venesa, a voice-controlled AI assistant for ${userName} on Windows.
 ${getPersonality()}
+${getUserProfileSection()}
 
 ## CORE RULES FOR VOICE MODE
 - MAX 2 sentences - Be extremely concise (responses are spoken aloud)

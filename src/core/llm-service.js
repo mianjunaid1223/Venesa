@@ -4,6 +4,7 @@ const fs = require("fs");
 const os = require("os");
 const logger = require('./logger');
 const keyPool = require("./apiKeyPool");
+const userProfile = require("./user-profile");
 
 const SETTINGS_PATH = path.join(os.homedir(), ".venesa-settings.json");
 
@@ -13,7 +14,7 @@ const DEFAULT_SETTINGS = {
   openAtLogin: true,
 };
 
-const apiInstances = new Map();
+
 
 function loadSettings() {
   try {
@@ -71,13 +72,6 @@ const getSystemPrompt = require('../config/system-prompt');
 let currentSettings = null;
 
 function getAPIInstance(apiKey, mode = 'text') {
-  // Create unique key for each api key + mode combination
-  const instanceKey = `${apiKey}_${mode}`;
-
-  if (apiInstances.has(instanceKey)) {
-    return apiInstances.get(instanceKey);
-  }
-
   currentSettings = loadSettings();
 
   const genAI = new GoogleGenerativeAI(apiKey);
@@ -101,14 +95,11 @@ function getAPIInstance(apiKey, mode = 'text') {
 
   const chat = model.startChat({ history: [] });
 
-  const instance = { genAI, model, chat };
-  apiInstances.set(instanceKey, instance);
-
-  return instance;
+  return { genAI, model, chat };
 }
 
 function initializeAPI() {
-  apiInstances.clear();
+  userProfile.load();
   return keyPool.initialize();
 }
 
@@ -181,8 +172,17 @@ async function sendQuery(query, image = null, mode = 'text') {
       const response = await result.response;
       const responseText = response.text();
 
-
       keyPool.reportSuccess('gemini', apiKey);
+
+      try {
+        await userProfile.addInteraction(query, responseText);
+      } catch (profileErr) {
+        logger.error(`Failed to record interaction: ${profileErr.message}`);
+      }
+
+      if (userProfile.shouldUpdate()) {
+        triggerProfileUpdate(apiKey);
+      }
 
       return responseText;
 
@@ -191,7 +191,7 @@ async function sendQuery(query, image = null, mode = 'text') {
       logger.error(`LLM error with key: ${error.message}`);
 
       keyPool.reportError('gemini', apiKey, error);
-      apiInstances.delete(`${apiKey}_${mode}`);
+
     }
   }
 
@@ -207,8 +207,48 @@ function getPoolStats() {
 }
 
 function refreshKeyPool() {
-  apiInstances.clear();
   return keyPool.initialize();
+}
+
+async function triggerProfileUpdate(apiKey) {
+  const prompt = userProfile.getUpdatePrompt();
+  if (!prompt) return;
+
+  userProfile.setUpdateInProgress();
+
+  let key = null;
+  try {
+    key = apiKey || await keyPool.getNextKey('gemini');
+    if (!key) {
+      userProfile.updateSummary(null);
+      return;
+    }
+
+    const genAI = new GoogleGenerativeAI(key);
+    const servicesConfig = require('../config/services.config');
+
+    const model = genAI.getGenerativeModel({
+      model: currentSettings?.modelName || "gemini-2.5-flash-lite",
+      generationConfig: {
+        ...servicesConfig.gemini.generationConfig,
+        maxOutputTokens: 300,
+      },
+    });
+
+    const result = await model.generateContent(prompt);
+    const response = await result.response;
+    const summary = response.text();
+
+    userProfile.updateSummary(summary);
+    keyPool.reportSuccess('gemini', key);
+    logger.info("[LLM] User profile updated successfully");
+  } catch (e) {
+    logger.error(`Profile update failed: ${e.message}`);
+    if (key) {
+      keyPool.reportError('gemini', key, e);
+    }
+    userProfile.updateSummary(null);
+  }
 }
 
 module.exports = {

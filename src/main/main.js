@@ -852,6 +852,25 @@ app.whenReady().then(async () => {
                 feedback.push(`Closed ${closeResult.count || 0} app${(closeResult.count || 0) !== 1 ? 's' : ''}.`);
               }
             } catch (e) { }
+          } else if (res.actionName === "getClipboard" && res.result) {
+            try {
+              const content = typeof res.result === 'string' ? res.result : String(res.result);
+              const MAX_PREVIEW = 30;
+              const snippet = content.length > MAX_PREVIEW
+                ? content.substring(0, MAX_PREVIEW) + '[…]'
+                : content;
+              feedback.push(`Clipboard content retrieved (${content.length} chars): ${snippet}`);
+              if (process.env.DEBUG) {
+                console.log('[Main][DEBUG] Full clipboard content:', content);
+              }
+            } catch (e) { }
+          } else if (res.actionName === "setClipboard" && res.result) {
+            try {
+              feedback.push('Text copied to clipboard successfully.');
+              if (process.env.DEBUG) {
+                console.log('[Main][DEBUG] setClipboard result:', res.result);
+              }
+            } catch (e) { }
           }
         }
       }

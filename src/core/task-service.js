@@ -1,5 +1,5 @@
 const { spawn } = require("child_process");
-const { shell } = require("electron");
+const { shell, clipboard } = require("electron");
 const os = require("os");
 const path = require("path");
 const fs = require("fs");
@@ -450,10 +450,24 @@ async function processResponse(response) {
         else if (actionName === "getSystemInfo") result = await getSystemInfo();
         else if (actionName === "getTime") result = getCurrentTime();
         else if (actionName === "runPowerShell") result = await runSafePowerShell(params.script);
-        else if (actionName === "getClipboard") result = await runPowerShell('Get-Clipboard');
+        else if (actionName === "getClipboard") {
+          try {
+            result = clipboard.readText() || "(clipboard is empty)";
+          } catch (e) {
+            result = "Failed to read clipboard.";
+          }
+        }
         else if (actionName === "setClipboard") {
-          const safeText = escapePowerShellQuery(params.text);
-          result = await runPowerShell(`Set-Clipboard -Value "${safeText}"`);
+          if (!params.text || typeof params.text !== 'string' || !params.text.trim()) {
+            result = "No text to copy.";
+          } else {
+            try {
+              clipboard.writeText(params.text);
+              result = "Copied to clipboard.";
+            } catch (e) {
+              result = "Failed to write to clipboard.";
+            }
+          }
         }
         else if (actionName === "listProcesses") result = await runPowerShell('Get-Process | Sort-Object CPU -Descending | Select-Object -First 10 -Property Id, ProcessName, CPU, WorkingSet | ConvertTo-Json -Compress');
         else if (actionName === "listRunningApps") result = await listRunningApps();
