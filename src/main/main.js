@@ -21,6 +21,7 @@ const os = require("os");
 const fs = require("fs");
 const gemini = require("../core/llm-service.js");
 const taskExecutor = require("../core/task-service.js");
+const orchestrator = require("../core/task-orchestrator.js");
 const sttService = require("../core/stt-service.js");
 const ttsService = require("../core/elevenlabs-service.js");
 const wakeWordService = require("../core/wake-word-service.js");
@@ -356,6 +357,76 @@ app.whenReady().then(async () => {
     event.sender.send("hide-settings-panel");
   });
 
+  function formatTextResult(res) {
+    if (!res || !res.result) return null;
+    try {
+      if (res.actionName === 'calculate') {
+        const calc = typeof res.result === 'string' ? JSON.parse(res.result) : res.result;
+        if (calc && calc.result) return `= ${calc.result}`;
+      }
+      if (res.actionName === 'getSystemInfo') {
+        const info = typeof res.result === 'string' ? JSON.parse(res.result) : res.result;
+        if (info && !info.error) {
+          return `CPU: ${info.cpu}, RAM: ${info.ramUsed}/${info.ramTotal}GB, Battery: ${info.battery}`;
+        }
+      }
+      if (res.actionName === 'getTime') {
+        const t = typeof res.result === 'string' ? JSON.parse(res.result) : res.result;
+        if (t && t.full) return t.full;
+      }
+      if (res.actionName === 'getDiskInfo') {
+        const disks = typeof res.result === 'string' ? JSON.parse(res.result) : res.result;
+        const arr = Array.isArray(disks) ? disks : [disks];
+        return arr.map(d => `${d.DeviceID} ${d.FreeGB}/${d.SizeGB}GB free`).join(', ');
+      }
+      if (res.actionName === 'getNetworkInfo') {
+        const netInfo = typeof res.result === 'string' ? JSON.parse(res.result) : res.result;
+        if (netInfo && netInfo.ip && Array.isArray(netInfo.ip)) {
+          return netInfo.ip.map(i => `${i.InterfaceAlias}: ${i.IPAddress}`).join(', ');
+        }
+      }
+    } catch (e) { }
+    return null;
+  }
+
+  function formatSilentResult(res) {
+    if (!res || !res.result) return null;
+    try {
+      if (res.actionName === 'getSystemInfo') {
+        const info = typeof res.result === 'string' ? JSON.parse(res.result) : res.result;
+        if (info && !info.error) {
+          return `CPU: ${info.cpu}, RAM: ${info.ramUsed}/${info.ramTotal}GB, Battery: ${info.battery}, Uptime: ${info.uptime}`;
+        }
+      }
+      if (res.actionName === 'getTime') {
+        const t = typeof res.result === 'string' ? JSON.parse(res.result) : res.result;
+        if (t && t.full) return `It's ${t.full}.`;
+      }
+      if (res.actionName === 'calculate') {
+        const calc = typeof res.result === 'string' ? JSON.parse(res.result) : res.result;
+        if (calc && calc.result) return `The answer is ${calc.result}.`;
+      }
+      if (res.actionName === 'listProcesses') {
+        const procs = typeof res.result === 'string' ? JSON.parse(res.result) : res.result;
+        if (Array.isArray(procs)) {
+          return procs.slice(0, 5).map(p => p.ProcessName).join(', ') + ' are using the most CPU.';
+        }
+      }
+      if (res.actionName === 'getDiskInfo') {
+        const disks = typeof res.result === 'string' ? JSON.parse(res.result) : res.result;
+        const arr = Array.isArray(disks) ? disks : [disks];
+        return arr.map(d => `${d.DeviceID} ${d.FreeGB}/${d.SizeGB}GB free (${d.UsedPercent}% used)`).join(', ');
+      }
+      if (res.actionName === 'getNetworkInfo') {
+        const netInfo = typeof res.result === 'string' ? JSON.parse(res.result) : res.result;
+        if (netInfo && netInfo.ip && Array.isArray(netInfo.ip)) {
+          return netInfo.ip.map(i => `${i.InterfaceAlias}: ${i.IPAddress}`).join(', ');
+        }
+      }
+    } catch (e) { }
+    return null;
+  }
+
   ipcMain.on("send-to-gemini", async (event, query) => {
     try {
       if (!event.sender || event.sender.isDestroyed()) {
@@ -375,8 +446,23 @@ app.whenReady().then(async () => {
       const { cleanResponse, results } =
         await taskExecutor.processResponse(rawResponse);
 
+      let finalText = cleanResponse;
+      const resultFeedback = [];
+
+      if (results && results.length > 0) {
+        for (const res of results) {
+          if (event.sender.isDestroyed()) break;
+          const fb = formatTextResult(res);
+          if (fb) resultFeedback.push(fb);
+        }
+      }
+
+      if (resultFeedback.length > 0) {
+        finalText = (finalText + ' ' + resultFeedback.join(' ')).trim();
+      }
+
       if (!event.sender.isDestroyed()) {
-        event.sender.send("gemini-response", cleanResponse);
+        event.sender.send("gemini-response", finalText);
       }
 
       if (results && results.length > 0) {
@@ -772,6 +858,14 @@ app.whenReady().then(async () => {
       let feedback = [];
       if (results && results.length > 0) {
         for (const res of results) {
+          if (res.marker === 'silently' && !res.error) {
+            // silent steps: only surface data for info actions
+            const silentFb = formatSilentResult(res);
+            if (silentFb) feedback.push(silentFb);
+            continue;
+          }
+          if (res.skipped) continue;
+
           if (res.actionName === "searchFiles" && res.result) {
             try {
               searchResultData =
@@ -821,7 +915,7 @@ app.whenReady().then(async () => {
               }
             } catch (e) { }
           } else if (res.actionName === "systemControl" && res.result) {
-            if (res.result.toLowerCase().includes("error"))
+            if (typeof res.result === 'string' && res.result.toLowerCase().includes("error"))
               feedback.push(`System control failed: ${res.result}`);
           } else if (res.actionName === "listen") {
             shouldListenAgain = true;
@@ -869,6 +963,45 @@ app.whenReady().then(async () => {
               feedback.push('Text copied to clipboard successfully.');
               if (process.env.DEBUG) {
                 console.log('[Main][DEBUG] setClipboard result:', res.result);
+              }
+            } catch (e) { }
+          } else if (res.actionName === "googleSearch" && res.result) {
+            // Google search opened in browser — no extra spoken feedback needed
+          } else if (res.actionName === "youtubeSearch" && res.result) {
+            // YouTube search opened in browser
+          } else if (res.actionName === "getWeather" && res.result) {
+            // Weather opened in browser
+          } else if (res.actionName === "calculate" && res.result) {
+            try {
+              const calc = typeof res.result === 'string' ? JSON.parse(res.result) : res.result;
+              if (calc && calc.result) {
+                feedback.push(`The answer is ${calc.result}.`);
+              } else if (calc && calc.error) {
+                feedback.push(`Couldn't compute that.`);
+              }
+            } catch (e) { }
+          } else if (res.actionName === "setReminder" && res.result) {
+            // Reminder confirmation comes from the result string
+          } else if (res.actionName === "getNetworkInfo" && res.result) {
+            try {
+              const netInfo = typeof res.result === 'string' ? JSON.parse(res.result) : res.result;
+              if (netInfo && netInfo.ip && Array.isArray(netInfo.ip)) {
+                const ips = netInfo.ip.map(i => `${i.InterfaceAlias}: ${i.IPAddress}`).join(', ');
+                feedback.push(`Network: ${ips}`);
+              }
+            } catch (e) { }
+          } else if (res.actionName === "getDiskInfo" && res.result) {
+            try {
+              const disks = typeof res.result === 'string' ? JSON.parse(res.result) : res.result;
+              const diskArr = Array.isArray(disks) ? disks : [disks];
+              const diskStr = diskArr.map(d => `${d.DeviceID} ${d.FreeGB}/${d.SizeGB}GB free (${d.UsedPercent}% used)`).join(', ');
+              feedback.push(`Storage: ${diskStr}`);
+            } catch (e) { }
+          } else if (res.actionName === "takeScreenshot" && res.result) {
+            try {
+              const ss = typeof res.result === 'string' ? JSON.parse(res.result) : res.result;
+              if (ss && ss.success) {
+                feedback.push(`Screenshot saved.`);
               }
             } catch (e) { }
           }

@@ -4,6 +4,8 @@ const os = require("os");
 const path = require("path");
 const fs = require("fs");
 const logger = require('./logger');
+const registry = require('./task-registry');
+const orchestrator = require('./task-orchestrator');
 
 const HOME_DIR = os.homedir();
 
@@ -394,96 +396,6 @@ function openFile(filePath) {
   });
 }
 
-async function processResponse(response) {
-  const actionRegex = /\[action:\s*(\w+)(?:,\s*((?:[^\]]|\[[^\]]*\])+))?\]/gi;
-  let match;
-  let cleanResponse = response;
-  const executionPromises = [];
-
-  while ((match = actionRegex.exec(response)) !== null) {
-    cleanResponse = cleanResponse.replace(match[0], "").trim();
-    const actionName = match[1].trim();
-    const paramsStr = match[2] ? match[2].trim() : "";
-    const params = {};
-
-    if (paramsStr) {
-
-
-      const paramRegex = /(\w+):\s*(.+?)(?=\s*,\s*\w+:|$)/g;
-      let pMatch;
-      while ((pMatch = paramRegex.exec(paramsStr)) !== null) {
-        const key = pMatch[1].trim();
-        let val = pMatch[2].trim();
-
-        if (val.endsWith(',')) val = val.slice(0, -1).trim();
-
-        if ((val.startsWith('"') && val.endsWith('"')) || (val.startsWith("'") && val.endsWith("'"))) {
-          val = val.slice(1, -1);
-        }
-        params[key] = val;
-      }
-
-
-      if (Object.keys(params).length === 0 && paramsStr.includes(':')) {
-        paramsStr.split(',').forEach(pair => {
-          const [key, ...valParts] = pair.split(':');
-          if (key && valParts.length) {
-            let val = valParts.join(':').trim();
-            if ((val.startsWith('"') && val.endsWith('"')) || (val.startsWith("'") && val.endsWith("'"))) {
-              val = val.slice(1, -1);
-            }
-            params[key.trim()] = val;
-          }
-        });
-      }
-    }
-
-    executionPromises.push((async () => {
-      try {
-        let result;
-        if (actionName === "launchApplication") result = await launchApplication(params.appName);
-        else if (actionName === "openFile") result = await openFile(params.filePath);
-        else if (actionName === "searchFiles") result = await performSearch(params.query);
-        else if (actionName === "listen") result = "Listening";
-        else if (actionName === "systemControl") result = await executeSystemControl(params);
-        else if (actionName === "openUrl") result = await openUrl(params.url);
-        else if (actionName === "getSystemInfo") result = await getSystemInfo();
-        else if (actionName === "getTime") result = getCurrentTime();
-        else if (actionName === "runPowerShell") result = await runSafePowerShell(params.script);
-        else if (actionName === "getClipboard") {
-          try {
-            result = clipboard.readText() || "(clipboard is empty)";
-          } catch (e) {
-            result = "Failed to read clipboard.";
-          }
-        }
-        else if (actionName === "setClipboard") {
-          if (!params.text || typeof params.text !== 'string' || !params.text.trim()) {
-            result = "No text to copy.";
-          } else {
-            try {
-              clipboard.writeText(params.text);
-              result = "Copied to clipboard.";
-            } catch (e) {
-              result = "Failed to write to clipboard.";
-            }
-          }
-        }
-        else if (actionName === "listProcesses") result = await runPowerShell('Get-Process | Sort-Object CPU -Descending | Select-Object -First 10 -Property Id, ProcessName, CPU, WorkingSet | ConvertTo-Json -Compress');
-        else if (actionName === "listRunningApps") result = await listRunningApps();
-        else if (actionName === "closeApp") result = await closeApp(params.appName);
-        else if (actionName === "closeAllApps") result = await closeAllApps();
-
-        return { actionName, result };
-      } catch (e) {
-        return { actionName, error: e.toString() };
-      }
-    })());
-  }
-  const results = await Promise.all(executionPromises);
-  return { cleanResponse, results };
-}
-
 async function getSystemInfo() {
   const psScript = `
     $os = Get-CimInstance Win32_OperatingSystem -Property TotalVisibleMemorySize,FreePhysicalMemory,LastBootUpTime,Caption
@@ -601,6 +513,482 @@ async function openUrl(url) {
   }
 }
 
+async function googleSearch(query) {
+  if (!query || typeof query !== 'string') return "No search query provided";
+  const encoded = encodeURIComponent(query.trim());
+  const url = `https://www.google.com/search?q=${encoded}`;
+  try {
+    await shell.openExternal(url);
+    return `Searching Google for: ${query}`;
+  } catch (e) {
+    return `Error: ${e.message}`;
+  }
+}
+
+async function youtubeSearch(query) {
+  if (!query || typeof query !== 'string') return "No search query provided";
+  const encoded = encodeURIComponent(query.trim());
+  const url = `https://www.youtube.com/results?search_query=${encoded}`;
+  try {
+    await shell.openExternal(url);
+    return `Searching YouTube for: ${query}`;
+  } catch (e) {
+    return `Error: ${e.message}`;
+  }
+}
+
+async function getWeather(location) {
+  const loc = location || '';
+  const encoded = encodeURIComponent(`weather ${loc}`.trim());
+  const url = `https://www.google.com/search?q=${encoded}`;
+  try {
+    await shell.openExternal(url);
+    return `Checking weather${loc ? ' for ' + loc : ''}`;
+  } catch (e) {
+    return `Error: ${e.message}`;
+  }
+}
+
+async function setReminder(params) {
+  const message = params.message || params.text || 'Reminder';
+  const delayStr = params.delay || params.time || '5';
+  const delaySec = parseInt(delayStr, 10);
+  if (isNaN(delaySec) || delaySec < 1 || delaySec > 3600) {
+    return "Invalid delay. Use 1-3600 seconds.";
+  }
+  const timeoutMs = delaySec * 1000;
+  setTimeout(() => {
+    try {
+      const { Notification } = require('electron');
+      new Notification({ title: 'Venesa Reminder', body: message }).show();
+    } catch (e) {
+      logger.error(`Reminder notification failed: ${e.message}`);
+    }
+  }, timeoutMs);
+  return `Reminder set: "${message}" in ${delaySec} seconds.`;
+}
+
+function calculate(expression) {
+  if (!expression || typeof expression !== 'string') return "No expression provided";
+  const sanitized = expression.replace(/[^0-9+\-*/.()%^ ]/g, '');
+  if (!sanitized.trim()) return "Invalid expression";
+  try {
+    const prepared = sanitized
+      .replace(/\^/g, '**')
+      .replace(/(\d+(?:\.\d+)?)%(?!\d)/g, '($1/100)');
+    const result = safeEvaluate(prepared);
+    if (result === null || !isFinite(result)) {
+      return JSON.stringify({ expression, error: "Could not compute" });
+    }
+    return JSON.stringify({ expression, result: String(result) });
+  } catch (e) {
+    return JSON.stringify({ expression, error: "Could not compute" });
+  }
+}
+
+function safeEvaluate(expr) {
+  let pos = 0;
+  const str = expr.replace(/\s+/g, '');
+
+  function parseExpr() {
+    let left = parseTerm();
+    while (pos < str.length && (str[pos] === '+' || str[pos] === '-')) {
+      const op = str[pos++];
+      const right = parseTerm();
+      left = op === '+' ? left + right : left - right;
+    }
+    return left;
+  }
+
+  function parseTerm() {
+    let left = parsePower();
+    while (pos < str.length && (str[pos] === '*' || str[pos] === '/' || str[pos] === '%')) {
+      const op = str[pos++];
+      const right = parsePower();
+      if (op === '*') left = left * right;
+      else if (op === '/') { if (right === 0) throw new Error('Division by zero'); left = left / right; }
+      else left = left % right;
+    }
+    return left;
+  }
+
+  function parsePower() {
+    let base = parseUnary();
+    if (pos < str.length - 1 && str[pos] === '*' && str[pos + 1] === '*') {
+      pos += 2;
+      const exp = parsePower();
+      base = Math.pow(base, exp);
+    }
+    return base;
+  }
+
+  function parseUnary() {
+    if (str[pos] === '-') { pos++; return -parseAtom(); }
+    if (str[pos] === '+') { pos++; return parseAtom(); }
+    return parseAtom();
+  }
+
+  function parseAtom() {
+    if (str[pos] === '(') {
+      pos++;
+      const val = parseExpr();
+      if (str[pos] !== ')') throw new Error(`Expected ')' at position ${pos}`);
+      pos++;
+      return val;
+    }
+    const start = pos;
+    while (pos < str.length && (str[pos] >= '0' && str[pos] <= '9' || str[pos] === '.')) {
+      pos++;
+    }
+    if (pos === start) throw new Error('Unexpected token');
+    return parseFloat(str.substring(start, pos));
+  }
+
+  const result = parseExpr();
+  if (pos < str.length) throw new Error('Unexpected trailing characters');
+  return result;
+}
+
+async function getNetworkInfo() {
+  const psScript = `
+$ErrorActionPreference = 'SilentlyContinue'
+[Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+$adapters = Get-NetAdapter | Where-Object { $_.Status -eq 'Up' } | Select-Object Name, InterfaceDescription, Status, LinkSpeed
+$ipConfig = Get-NetIPAddress -AddressFamily IPv4 | Where-Object { $_.IPAddress -ne '127.0.0.1' } | Select-Object IPAddress, InterfaceAlias
+@{
+    adapters = $adapters
+    ip = $ipConfig
+} | ConvertTo-Json -Compress -Depth 3
+`;
+  try {
+    return await runPowerShell(psScript, 10000);
+  } catch (e) {
+    return JSON.stringify({ error: e.message });
+  }
+}
+
+async function getDiskInfo() {
+  const psScript = `
+$ErrorActionPreference = 'SilentlyContinue'
+[Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+Get-CimInstance Win32_LogicalDisk -Filter "DriveType=3" |
+Select-Object DeviceID,
+  @{N='SizeGB';E={[math]::round($_.Size/1GB,1)}},
+  @{N='FreeGB';E={[math]::round($_.FreeSpace/1GB,1)}},
+  @{N='UsedPercent';E={[math]::round((($_.Size-$_.FreeSpace)/$_.Size)*100,1)}} |
+ConvertTo-Json -Compress
+`;
+  try {
+    return await runPowerShell(psScript, 10000);
+  } catch (e) {
+    return JSON.stringify({ error: e.message });
+  }
+}
+
+async function getInstalledApps() {
+  const psScript = `
+$ErrorActionPreference = 'SilentlyContinue'
+[Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+Get-CimInstance Win32_Product | Select-Object Name, Version, Vendor | Sort-Object Name | Select-Object -First 30 | ConvertTo-Json -Compress
+`;
+  try {
+    return await runPowerShell(psScript, 15000);
+  } catch (e) {
+    return JSON.stringify({ error: e.message });
+  }
+}
+
+async function takeScreenshot() {
+  const screenshotPath = path.join(HOME_DIR, 'Pictures', `screenshot_${Date.now()}.png`);
+  const safePath = screenshotPath.replace(/\\/g, '\\\\').replace(/'/g, "''");
+  const psScript = `
+Add-Type -AssemblyName System.Windows.Forms
+$screen = [System.Windows.Forms.Screen]::PrimaryScreen
+$bitmap = New-Object System.Drawing.Bitmap($screen.Bounds.Width, $screen.Bounds.Height)
+$graphics = [System.Drawing.Graphics]::FromImage($bitmap)
+$graphics.CopyFromScreen($screen.Bounds.Location, [System.Drawing.Point]::Empty, $screen.Bounds.Size)
+$bitmap.Save('${safePath}')
+$graphics.Dispose()
+$bitmap.Dispose()
+@{ success = $true; path = '${safePath}' } | ConvertTo-Json -Compress
+`;
+  try {
+    return await runPowerShell(psScript, 10000);
+  } catch (e) {
+    return JSON.stringify({ error: e.message });
+  }
+}
+
+// ===== REGISTER ALL TASKS WITH REGISTRY =====
+
+function registerAllTasks() {
+  registry.register('launchApplication', (p) => launchApplication(p.appName), {
+    description: 'Launch a Windows application by name',
+    params: ['appName'],
+    tags: ['app', 'launch', 'open'],
+    marker: 'announce',
+  });
+
+  registry.register('openFile', (p) => openFile(p.filePath), {
+    description: 'Open a file from the user home directory',
+    params: ['filePath'],
+    tags: ['file', 'open'],
+    marker: 'announce',
+  });
+
+  registry.register('searchFiles', (p) => performSearch(p.query), {
+    description: 'Search for files, folders, and apps on the system',
+    params: ['query'],
+    tags: ['search', 'file', 'find'],
+    marker: 'announce',
+  });
+
+  registry.register('listen', () => "Listening", {
+    description: 'Continue listening for voice input',
+    params: [],
+    tags: ['voice', 'listen'],
+    marker: 'silently',
+  });
+
+  registry.register('systemControl', (p) => executeSystemControl(p), {
+    description: 'Control system settings (volume, brightness, wifi, bluetooth, power)',
+    params: ['command', 'value'],
+    tags: ['system', 'control', 'volume', 'brightness'],
+    marker: 'announce',
+  });
+
+  registry.register('openUrl', (p) => openUrl(p.url), {
+    description: 'Open a URL in the default browser',
+    params: ['url'],
+    tags: ['web', 'url', 'browser'],
+    marker: 'announce',
+  });
+
+  registry.register('googleSearch', (p) => googleSearch(p.query), {
+    description: 'Search Google for a query and open results in browser',
+    params: ['query'],
+    tags: ['web', 'search', 'google'],
+    marker: 'announce',
+  });
+
+  registry.register('youtubeSearch', (p) => youtubeSearch(p.query), {
+    description: 'Search YouTube and open results in browser',
+    params: ['query'],
+    tags: ['web', 'youtube', 'video'],
+    marker: 'announce',
+  });
+
+  registry.register('getWeather', (p) => getWeather(p.location), {
+    description: 'Look up weather for a location via Google',
+    params: ['location'],
+    tags: ['web', 'weather'],
+    marker: 'announce',
+  });
+
+  registry.register('getSystemInfo', () => getSystemInfo(), {
+    description: 'Get CPU, RAM, battery, and uptime info',
+    params: [],
+    tags: ['system', 'info', 'monitor'],
+    marker: 'silently',
+  });
+
+  registry.register('getTime', () => getCurrentTime(), {
+    description: 'Get current date and time',
+    params: [],
+    tags: ['time', 'date'],
+    marker: 'silently',
+  });
+
+  registry.register('runPowerShell', (p) => runSafePowerShell(p.script), {
+    description: 'Run a safe read-only PowerShell command',
+    params: ['script'],
+    tags: ['system', 'powershell', 'advanced'],
+    marker: 'silently',
+  });
+
+  registry.register('getClipboard', () => {
+    try {
+      return clipboard.readText() || "(clipboard is empty)";
+    } catch (e) {
+      return "Failed to read clipboard.";
+    }
+  }, {
+    description: 'Read text from the clipboard',
+    params: [],
+    tags: ['clipboard', 'read'],
+    marker: 'silently',
+  });
+
+  registry.register('setClipboard', (p) => {
+    if (!p.text || typeof p.text !== 'string' || !p.text.trim()) {
+      return "No text to copy.";
+    }
+    try {
+      clipboard.writeText(p.text);
+      return "Copied to clipboard.";
+    } catch (e) {
+      return "Failed to write to clipboard.";
+    }
+  }, {
+    description: 'Set clipboard text content',
+    params: ['text'],
+    tags: ['clipboard', 'write', 'copy'],
+    marker: 'silently',
+  });
+
+  registry.register('listProcesses', () =>
+    runPowerShell('Get-Process | Sort-Object CPU -Descending | Select-Object -First 10 -Property Id, ProcessName, CPU, WorkingSet | ConvertTo-Json -Compress'), {
+    description: 'List top 10 CPU-heavy processes',
+    params: [],
+    tags: ['system', 'processes'],
+    marker: 'silently',
+  });
+
+  registry.register('listRunningApps', () => listRunningApps(), {
+    description: 'List running visible applications',
+    params: [],
+    tags: ['app', 'list', 'running'],
+    marker: 'announce',
+  });
+
+  registry.register('closeApp', (p) => closeApp(p.appName), {
+    description: 'Close a specific application by name',
+    params: ['appName'],
+    tags: ['app', 'close', 'kill'],
+    marker: 'announce',
+  });
+
+  registry.register('closeAllApps', () => closeAllApps(), {
+    description: 'Close all non-system applications',
+    params: [],
+    tags: ['app', 'close', 'all'],
+    marker: 'confirm',
+  });
+
+  registry.register('setReminder', (p) => setReminder(p), {
+    description: 'Set a timed reminder notification',
+    params: ['message', 'delay'],
+    tags: ['reminder', 'timer', 'notification'],
+    marker: 'announce',
+  });
+
+  registry.register('calculate', (p) => calculate(p.expression), {
+    description: 'Evaluate a math expression',
+    params: ['expression'],
+    tags: ['math', 'calculate'],
+    marker: 'silently',
+  });
+
+  registry.register('getNetworkInfo', () => getNetworkInfo(), {
+    description: 'Get network adapter and IP address info',
+    params: [],
+    tags: ['system', 'network', 'wifi'],
+    marker: 'silently',
+  });
+
+  registry.register('getDiskInfo', () => getDiskInfo(), {
+    description: 'Get disk usage information',
+    params: [],
+    tags: ['system', 'disk', 'storage'],
+    marker: 'silently',
+  });
+
+  registry.register('takeScreenshot', () => takeScreenshot(), {
+    description: 'Take a screenshot saved to Pictures folder',
+    params: [],
+    tags: ['screen', 'screenshot', 'capture'],
+    marker: 'announce',
+  });
+
+  registry.register('getInstalledApps', () => getInstalledApps(), {
+    description: 'List installed applications',
+    params: [],
+    tags: ['app', 'installed', 'list'],
+    marker: 'silently',
+  });
+}
+
+registerAllTasks();
+
+// ===== UNIFIED RESPONSE PROCESSOR =====
+
+async function processResponse(response) {
+  const plan = orchestrator.parseOrchestrationPlan(response);
+
+  if (plan && plan.steps.length > 0) {
+    const fallbackExecutor = async (actionName, params) => {
+      const task = registry.get(actionName);
+      if (task) {
+        return await task.handler(params);
+      }
+      throw new Error(`Unknown action: ${actionName}`);
+    };
+
+    const results = await orchestrator.executePlan(plan.steps, { fallbackExecutor });
+    return { cleanResponse: plan.cleanResponse, results };
+  }
+
+  const actionRegex = /\[action:\s*(\w+)(?:,\s*((?:[^\]]|\[[^\]]*\])+))?\]/gi;
+  let match;
+  let cleanResponse = response;
+  const executionPromises = [];
+
+  while ((match = actionRegex.exec(response)) !== null) {
+    cleanResponse = cleanResponse.replace(match[0], "").trim();
+    const actionName = match[1].trim();
+    const paramsStr = match[2] ? match[2].trim() : "";
+    const params = {};
+
+    if (paramsStr) {
+      const paramRegex = /(\w+):\s*(.+?)(?=\s*,\s*\w+:|$)/g;
+      let pMatch;
+      while ((pMatch = paramRegex.exec(paramsStr)) !== null) {
+        const key = pMatch[1].trim();
+        let val = pMatch[2].trim();
+
+        if (val.endsWith(',')) val = val.slice(0, -1).trim();
+
+        if ((val.startsWith('"') && val.endsWith('"')) || (val.startsWith("'") && val.endsWith("'"))) {
+          val = val.slice(1, -1);
+        }
+        params[key] = val;
+      }
+
+      if (Object.keys(params).length === 0 && paramsStr.includes(':')) {
+        paramsStr.split(',').forEach(pair => {
+          const [key, ...valParts] = pair.split(':');
+          if (key && valParts.length) {
+            let val = valParts.join(':').trim();
+            if ((val.startsWith('"') && val.endsWith('"')) || (val.startsWith("'") && val.endsWith("'"))) {
+              val = val.slice(1, -1);
+            }
+            params[key.trim()] = val;
+          }
+        });
+      }
+    }
+
+    executionPromises.push((async () => {
+      try {
+        let result;
+
+        if (registry.has(actionName)) {
+          const execResult = await registry.execute(actionName, params);
+          result = execResult.result || execResult.error;
+        } else {
+          result = `Unknown action: ${actionName}`;
+        }
+
+        return { actionName, result };
+      } catch (e) {
+        return { actionName, error: e.toString() };
+      }
+    })());
+  }
+  const results = await Promise.all(executionPromises);
+  return { cleanResponse, results };
+}
+
 module.exports = {
   launchApplication,
   performSearch,
@@ -608,9 +996,19 @@ module.exports = {
   processResponse,
   executeSystemControl,
   openUrl,
+  googleSearch,
+  youtubeSearch,
+  getWeather,
   getSystemInfo,
   getCurrentTime,
   listRunningApps,
   closeApp,
   closeAllApps,
+  setReminder,
+  calculate,
+  getNetworkInfo,
+  getDiskInfo,
+  takeScreenshot,
+  getInstalledApps,
+  registry,
 };
