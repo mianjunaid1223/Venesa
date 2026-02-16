@@ -1358,26 +1358,48 @@
         // Expand button removed per user request
 
         // Handle external links in webview
+        // Deduplication guard: prevent the same URL from being opened externally twice
+        // (both new-window and will-navigate can fire for the same click)
+        let lastExternalUrl = '';
+        let lastExternalTime = 0;
+        const DEDUP_MS = 1000;
+
+        const openUrlExternally = (url) => {
+            const now = Date.now();
+            if (url === lastExternalUrl && (now - lastExternalTime) < DEDUP_MS) {
+                return; // Already opened this URL very recently
+            }
+            lastExternalUrl = url;
+            lastExternalTime = now;
+            window.api.send("open-external-url", url);
+        };
+
         googleWebview.addEventListener("new-window", (e) => {
             e.preventDefault();
-            window.api.send("open-external-url", e.url);
+            openUrlExternally(e.url);
         });
 
         googleWebview.addEventListener("will-navigate", (e) => {
-            // Validate URL using proper URL parsing
             try {
                 const url = new URL(e.url);
                 const hostname = url.hostname;
-                // Only allow google.com domains
                 if (hostname === "google.com" || hostname.endsWith(".google.com")) {
-                    return; // Allow navigation
+                    return; // Allow Google-internal navigation
                 }
             } catch (parseError) {
                 // Invalid URL, block navigation
             }
-            // Block non-Google URLs and open externally
-            e.preventDefault();
-            window.api.send("open-external-url", e.url);
+            // Open non-Google URL externally (deduplicated)
+            openUrlExternally(e.url);
+            // e.preventDefault() does NOT actually block webview navigation,
+            // so we navigate back once the non-Google page finishes loading
+            const goBackOnce = () => {
+                googleWebview.removeEventListener('did-finish-load', goBackOnce);
+                googleWebview.removeEventListener('did-fail-load', goBackOnce);
+                try { googleWebview.goBack(); } catch (err) { }
+            };
+            googleWebview.addEventListener('did-finish-load', goBackOnce, { once: true });
+            googleWebview.addEventListener('did-fail-load', goBackOnce, { once: true });
         });
 
         const HEIGHTS = {
