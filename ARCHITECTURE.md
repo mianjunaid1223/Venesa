@@ -2,65 +2,135 @@
 
 ## System Overview
 
-Venesa is an Electron-based voice assistant with a multi-process architecture optimized for Windows. The system uses offline wake-word detection, cloud-based speech services, and local system integration.
+Venesa is an Electron-based voice and text assistant with a multi-process architecture optimized for Windows. The system uses offline wake-word detection, cloud-based speech services, intelligent task orchestration, and local system integration through a modular task registry.
 
 ## Architecture Diagram
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                     MAIN PROCESS                             │
-│  ┌────────────────────────────────────────────────────────┐ │
-│  │  Window Manager (4 windows)                            │ │
-│  │  - Main (search bar)                                   │ │
-│  │  - Voice (full-screen overlay)                         │ │
-│  │  - Setup (first-run)                                   │ │
-│  │  - Background (hidden, wake-word)                      │ │
-│  └────────────────────────────────────────────────────────┘ │
-│                                                              │
-│  ┌────────────────────────────────────────────────────────┐ │
-│  │  Core Services                                         │ │
-│  │  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐ │ │
-│  │  │ Wake-Word    │  │ STT Service  │  │ LLM Service  │ │ │
-│  │  │ (Vosk/Python)│  │ (ElevenLabs) │  │ (Gemini)     │ │ │
-│  │  └──────────────┘  └──────────────┘  └──────────────┘ │ │
-│  │  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐ │ │
-│  │  │ TTS Service  │  │ Task Service │  │ API Key Pool │ │ │
-│  │  │ (ElevenLabs) │  │ (System)     │  │ (Rotation)   │ │ │
-│  │  └──────────────┘  └──────────────┘  └──────────────┘ │ │
-│  └────────────────────────────────────────────────────────┘ │
-│                                                              │
-│  ┌────────────────────────────────────────────────────────┐ │
-│  │  IPC Handlers                                          │ │
-│  │  - voice-query     - wake-word-detected               │ │
-│  │  - ai-query        - execute-task                     │ │
-│  │  - stt-feed        - load-models                      │ │
-│  └────────────────────────────────────────────────────────┘ │
-└─────────────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────────┐
+│                         MAIN PROCESS                             │
+│  ┌─────────────────────────────────────────────────────────────┐ │
+│  │  Window Manager (4 windows)                                 │ │
+│  │  - Main (search bar)                                        │ │
+│  │  - Voice (full-screen overlay)                              │ │
+│  │  - Setup (first-run)                                        │ │
+│  │  - Background (hidden, wake-word)                           │ │
+│  └─────────────────────────────────────────────────────────────┘ │
+│                                                                   │
+│  ┌─────────────────────────────────────────────────────────────┐ │
+│  │  Core Services                                              │ │
+│  │  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐      │ │
+│  │  │ Wake-Word    │  │ STT Service  │  │ LLM Service  │      │ │
+│  │  │ (Vosk)       │  │ (ElevenLabs) │  │ (Gemini)     │      │ │
+│  │  └──────────────┘  └──────────────┘  └──────────────┘      │ │
+│  │  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐      │ │
+│  │  │ TTS Service  │  │ API Key Pool │  │ User Profile │      │ │
+│  │  │ (ElevenLabs) │  │ (Rotation)   │  │ (Adaptive)   │      │ │
+│  │  └──────────────┘  └──────────────┘  └──────────────┘      │ │
+│  └─────────────────────────────────────────────────────────────┘ │
+│                                                                   │
+│  ┌─────────────────────────────────────────────────────────────┐ │
+│  │  Task Execution Layer                                       │ │
+│  │  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐      │ │
+│  │  │ Task         │  │ Task         │  │ Task         │      │ │
+│  │  │ Registry     │──│ Orchestrator │──│ Service      │      │ │
+│  │  │ (24 tasks)   │  │ (plans)      │  │ (handlers)   │      │ │
+│  │  └──────────────┘  └──────────────┘  └──────────────┘      │ │
+│  │  ┌──────────────┐                                           │ │
+│  │  │ PowerShell   │                                           │ │
+│  │  │ Session      │                                           │ │
+│  │  └──────────────┘                                           │ │
+│  └─────────────────────────────────────────────────────────────┘ │
+│                                                                   │
+│  ┌─────────────────────────────────────────────────────────────┐ │
+│  │  IPC Handlers                                               │ │
+│  │  - send-to-gemini   - voice-query                          │ │
+│  │  - wake-word-detected  - execute-task                      │ │
+│  │  - stt-feed         - load-models                          │ │
+│  └─────────────────────────────────────────────────────────────┘ │
+└──────────────────────────────────────────────────────────────────┘
                             │
                             │ IPC Communication
                             │
-┌─────────────────────────────────────────────────────────────┐
-│                   RENDERER PROCESSES                        │
-│  ┌────────────────┐  ┌────────────────┐  ┌────────────────┐ │
-│  │ Main Window    │  │ Voice Window   │  │ Background     │ │
-│  │                │  │                │  │ Window         │ │
-│  │ - Search UI    │  │ - Karaoke      │  │ - Audio Capture│ │
-│  │ - Google View  │  │   subtitles    │  │ - Vosk Feed    │ │
-│  │ - Settings     │  │ - Results      │  │ (hidden)       │ │
-│  │ - AI VIEW      │  │                │  │                │ │
-│  └────────────────┘  └────────────────┘  └────────────────┘ │
-└─────────────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────────┐
+│                     RENDERER PROCESSES                            │
+│  ┌────────────────┐  ┌────────────────┐  ┌────────────────┐      │
+│  │ Main Window    │  │ Voice Window   │  │ Background     │      │
+│  │                │  │                │  │ Window         │      │
+│  │ - Search UI    │  │ - Karaoke      │  │ - Audio Capture│      │
+│  │ - Google View  │  │   subtitles    │  │ - Vosk Feed    │      │
+│  │ - Settings     │  │ - Results      │  │ (hidden)       │      │
+│  │ - AI View      │  │                │  │                │      │
+│  └────────────────┘  └────────────────┘  └────────────────┘      │
+└──────────────────────────────────────────────────────────────────┘
                             │
                             │
                             ▼
-┌─────────────────────────────────────────────────────────────┐
-│                   EXTERNAL SERVICES                         │
-│  ┌────────────────┐  ┌────────────────┐  ┌────────────────┐ │
-│  │ Vosk Model     │  │ ElevenLabs API │  │ Google Gemini  │ │
-│  │ (Local/Python) │  │ (Cloud)        │  │ (Cloud)        │ │
-│  └────────────────┘  └────────────────┘  └────────────────┘ │
-└─────────────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────────┐
+│                     EXTERNAL SERVICES                            │
+│  ┌────────────────┐  ┌────────────────┐  ┌────────────────┐      │
+│  │ Vosk Model     │  │ ElevenLabs API │  │ Google Gemini  │      │
+│  │ (Local)        │  │ (Cloud)        │  │ (Cloud)        │      │
+│  └────────────────┘  └────────────────┘  └────────────────┘      │
+└──────────────────────────────────────────────────────────────────┘
 ```
+
+## Task Execution Pipeline
+
+```
+User Input (Voice or Text)
+        │
+        ▼
+   LLM (Gemini)
+   System prompt teaches both [action:] and [plan] formats
+        │
+        ▼
+  processResponse()
+   Detects response format
+        │
+   ┌────┴─────┐
+   │          │
+[plan]     [action:]          Backward compatible
+   │          │
+   ▼          ▼
+Orchestrator  Direct Task
+              Registry Execution
+   │
+   ▼
+Sequential Step Execution
+   - Resolve $param references between steps
+   - Apply execution markers (silently/announce/ask/confirm)
+   - Skip steps on dependency failure
+   - Registry.execute() per step
+   │
+   ▼
+Response Assembly
+   - Aggregate feedback per marker
+   - Determine response mode (spoken/silent/ui)
+   - Return clean response + results
+```
+
+### Execution Markers
+
+Each step in an orchestrated plan has a marker controlling user feedback:
+
+| Marker | Behavior |
+|--------|----------|
+| `silently` | Execute without user notification |
+| `announce` | Inform the user before/after execution |
+| `ask` | Request clarification before proceeding |
+| `confirm` | Require explicit user confirmation |
+
+### Parameter Resolution
+
+Steps can reference results from previous steps using `$` prefixed action names:
+
+```
+[step: getClipboard, marker: silently]
+[step: googleSearch, marker: announce, query: $getClipboard]
+```
+
+The orchestrator resolves `$getClipboard` to the clipboard content at runtime.
 
 ## Data Flow
 
@@ -71,13 +141,9 @@ User speaks "Venesa"
     ↓
 [Background Window] Captures audio via Web Audio API
     ↓
-[Wake-Word Service] Spawns Python subprocess
+[Wake-Word Service] Vosk model processes audio stream (16kHz)
     ↓
-[Vosk Model] Processes audio stream (16kHz, 8000-byte chunks)
-    ↓
-[Python Script] Keyword matching (venessa, vanessa, venice, vanesa)
-    ↓
-[JSON Output] {"detected": true, "text": "venessa"}
+[Keyword Matching] Matches variations (venessa, vanessa, venice, vanesa)
     ↓
 [Main Process] IPC: wake-word-detected
     ↓
@@ -99,13 +165,13 @@ Voice window opens
     ↓
 [ElevenLabs Scribe] Transcribes audio → Text
     ↓
-[LLM Service] Processes with Gemini + context
+[LLM Service] Processes with Gemini + system prompt
     ↓
-[Action Parser] Extracts [action: ...] tags
+[processResponse] Parses [action:] tags or [plan] blocks
     ↓
-[Task Service] Executes system actions
+[Orchestrator / Registry] Executes tasks sequentially
     ↓
-[TTS Service] Synthesizes response
+[TTS Service] Synthesizes clean response
     ↓
 [Voice Window] Plays audio with karaoke subtitles
 ```
@@ -118,37 +184,90 @@ User opens search bar (Alt+Space)
 User types query + Enter
     ↓
 [Main Window] Checks prefix:
-    - None → Search files/apps
-    - / → AI query
-    - // → Google search
+    - None → Search files/apps locally
+    - /    → AI query via Gemini
+    - //   → Google search
     ↓
-[Task Service] Searches or sends to LLM
+[processResponse] Parses response for actions/plans
     ↓
-[Main Window] Displays results
+[Task Execution] Results returned to UI
 ```
 
 ## Component Details
 
-### Wake-Word Service
+### Task Registry
 
-**Technology:** Vosk + Python subprocess
+**File:** `src/core/task-registry.js`
 
-**Why subprocess?**
+Central module registry for all task capabilities. Each task is registered with metadata enabling the orchestrator to discover and compose them.
 
-- Avoids Electron native module rebuild issues
-- Reliable process isolation
-- Automatic restart on crash
-- Simple Python integration
+**Registered Tasks (24):**
 
-**Implementation:**
+| Category | Tasks |
+|----------|-------|
+| Apps | launchApplication, closeApp, closeAllApps, listRunningApps |
+| Files | searchFiles, openFile |
+| Web | openUrl, googleSearch, youtubeSearch |
+| System | systemControl, getSystemInfo, getTime |
+| Info | getNetworkInfo, getDiskInfo, getInstalledApps |
+| Clipboard | getClipboard, setClipboard |
+| Utilities | calculate, takeScreenshot, setReminder, listProcesses |
+| Advanced | runPowerShell, getWeather, listen |
+
+**Registration API:**
 
 ```javascript
-spawn("python", [
-  "scripts/vosk-detector.py",
-  "models/vosk-model-small-en-us-0.15",
-  "venessa,vanessa,venice,vanesa",
-]);
+registry.register('taskName', handlerFunction, {
+  description: 'What this task does',
+  params: ['param1', 'param2'],
+  tags: ['category'],
+  marker: 'announce',
+  safe: true,
+});
 ```
+
+### Task Orchestrator
+
+**File:** `src/core/task-orchestrator.js`
+
+Parses LLM-generated `[plan]...[/plan]` blocks into executable step sequences. Handles parameter dependency resolution, execution marker enforcement, and response mode determination.
+
+**Key Functions:**
+
+| Function | Purpose |
+|----------|---------|
+| `parseOrchestrationPlan()` | Extracts steps from `[plan]` blocks with input validation |
+| `executePlan()` | Runs steps sequentially with dependency and marker handling |
+| `resolveParams()` | Resolves `$actionName` references to previous step outputs |
+| `determineResponseMode()` | Decides spoken/silent/UI feedback mode |
+| `buildFeedback()` | Aggregates user-facing feedback from results |
+
+**Duplicate Protection:** When multiple steps use the same action name, only the first result is stored under the action name key. Subsequent duplicates are accessible via `step_N` indexing.
+
+### Task Service
+
+**File:** `src/core/task-service.js`
+
+Contains all task handler implementations and registers them with the task registry at startup. Processes LLM responses by detecting both `[action:]` tags and `[plan]` blocks.
+
+**Capabilities:**
+
+- File/folder search (recursive, 2-level depth)
+- Application launch (Start Menu + fallback exec)
+- System controls via PowerShell
+- URL opening (security validated)
+- Safe math evaluation (recursive-descent parser, no eval/Function)
+- Web search (Google, YouTube)
+- System info retrieval (CPU, RAM, battery, disk, network)
+- Screenshot capture
+- Clipboard operations (privacy-safe logging)
+- Timed reminders via Electron notifications
+
+### Wake-Word Service
+
+**File:** `src/core/wake-word-service.js`
+
+**Technology:** Vosk speech recognition (local, offline)
 
 **Configuration:**
 
@@ -159,6 +278,8 @@ spawn("python", [
 - Debounce: 2000ms
 
 ### STT Service
+
+**File:** `src/core/stt-service.js`
 
 **Technology:** ElevenLabs Scribe
 
@@ -180,25 +301,41 @@ spawn("python", [
 
 ### LLM Service
 
+**File:** `src/core/llm-service.js`
+
 **Technology:** Google Gemini 2.5 Flash Lite
 
-**System Prompt:** Defined in `src/config/system-prompt.js`
+**System Prompt:** Defined in `src/config/system-prompt.js` with separate prompts for voice and text modes.
 
-**Action Tags:**
+**Response Formats:**
 
-- `[action: searchFiles, query: term]`
-- `[action: launchApplication, appName: app]`
-- `[action: systemControl, command: cmd, value: val]`
-- `[action: openUrl, url: url]`
-- `[action: listen]`
-- `[action: getSystemInfo]`
+Single action:
+```
+[action: launchApplication, appName: Chrome]
+```
+
+Multi-step plan:
+```
+[plan]
+[step: getClipboard, marker: silently]
+[step: googleSearch, marker: announce, query: $getClipboard]
+[/plan]
+```
 
 **Context Modes:**
 
 - Voice: `[USER SPOKE VIA VOICE] query`
 - Text: `[USER TYPED IN TEXT MODE] query`
 
+### User Profile
+
+**File:** `src/core/user-profile.js`
+
+Adaptive user profiling that learns from interactions. The profile summary is injected into the system prompt to personalize responses.
+
 ### API Key Rotation
+
+**File:** `src/core/apiKeyPool.js`
 
 **Strategy:** Round-robin with runtime validation
 
@@ -208,89 +345,39 @@ spawn("python", [
 - Runtime key removal on 401/403
 - Automatic failover on rate limits (429)
 - Separate pools for Gemini and ElevenLabs
-- Support for detailed quota tracking
 
-**Implementation:**
+### PowerShell Session
 
-```javascript
-{
-  gemini: { keys: [...], index: 0, valid: [...] },
-  elevenlabs: { keys: [...], index: 0, valid: [...] }
-}
-```
+**File:** `src/core/powershell-session.js`
 
-### Task Service
-
-**Capabilities:**
-
-- File/folder search (recursive, 2-level depth)
-- Application launch (Start Menu + fallback exec)
-- System controls (PowerShell scripts)
-- URL opening (security validated)
-- System info (CPU, RAM, disk)
-
-**Security:**
-
-- **Command Allowlisting:** Only specific, pre-approved PowerShell commands are allowed.
-- **Input Sanitization:** user inputs are escaped before being interpolated into commands.
-- **Path Traversal Protection:** File access is restricted to safe directories.
-- **URL Scheme Whitelist:** Only `http` and `https` schemes are permitted.
-- **Safe Clipboard Handling:** Clipboard operations use dedicated, escaped handlers.
-
-### Logger
-
-**Technology:** Winston
-
-**Configuration:**
-
-- Development: DEBUG level
-- Production: INFO level
-- File rotation: 5MB max, 5 files
-- Transport: Console + Files
-
-**Output:**
-
-- `error.log` - Errors only
-- `combined.log` - All logs
+Persistent PowerShell session for system command execution. Features timeout handling, output buffering, and automatic session restart on failure.
 
 ## Configuration System
 
 Centralized in `src/config/`:
 
-**wake-word.config.js:**
-
-- Keywords array
-- Confidence threshold
-- Debounce timing
-- Model path
-
-**audio.config.js:**
-
-- Sample rate
-- Channels
-- VAD thresholds
-- Silence/speech durations
-
 **services.config.js:**
 
-- LLM model selection
+- LLM model selection and generation config
 - TTS voice settings
-- STT configuration
-
-**ui.config.js:**
-
-- Window dimensions
-- Animation timings
-- Background colors
+- Safety settings for content filtering
 
 **system-prompt.js:**
 
-- AI behavior rules
-- Action command reference
-- Voice vs text mode handling
-- Security guidelines for handling secrets
+- Separate prompts for voice and text modes
+- Action command reference with all 24 tasks
+- Orchestration guide with [plan] format documentation
+- Dynamic skills for creative task composition
+- Personality and behavior rules
 
 ## Error Handling
+
+**Task Orchestration:**
+
+- Input validation on plan parser (null/non-string guard)
+- Per-step try-catch in registry execution
+- Dependency chain failure propagation (skip dependent steps)
+- Duplicate action name detection with warnings
 
 **Wake-Word Process:**
 
@@ -313,11 +400,50 @@ Centralized in `src/config/`:
 
 **IPC Communication:**
 
-- Try-catch wrappers
+- Try-catch wrappers on all handlers
+- Sender destruction checks before response
 - Timeout handlers
-- Error event logging
 
-## Performance Optimizations
+## Security
+
+**PowerShell Commands:**
+
+- Strict allowlist (`SAFE_PS_PATTERNS`): Commands must match verified regex patterns
+- Blocked patterns (`DANGEROUS_PS_PATTERNS`): Explicitly blocks obfuscation, network downloads, execution aliases, and destructive commands
+- Secret protection: System prompts instruct the LLM to never output secrets in plaintext
+- Input sanitization: Dynamic arguments sanitized to prevent command injection
+
+**Math Evaluation:**
+
+- Safe recursive-descent parser (no `eval` or `Function` constructor)
+- Input sanitized to numeric and operator characters only
+- Proper parenthesis validation
+
+**File Access:**
+
+- Restricted to home directory
+- Path normalization and validation
+- Single-quote escaping in PowerShell-embedded paths
+- No arbitrary path traversal
+
+**Network:**
+
+- URL scheme whitelist (http/https only)
+- API key environment variables (never in code)
+- No credentials in logs
+
+**Clipboard:**
+
+- Privacy-safe logging (content truncated/masked)
+- Type validation before write operations
+
+**IPC:**
+
+- Preload script isolation
+- Context bridge pattern
+- No nodeIntegration in renderer
+
+## Performance
 
 **Wake-Word:**
 
@@ -333,7 +459,7 @@ Centralized in `src/config/`:
 
 **UI:**
 
-- Google webview pre-loading (kept per user request)
+- Google webview pre-loading
 - Screen capture caching
 - Minimal re-renders
 
@@ -343,81 +469,34 @@ Centralized in `src/config/`:
 - Parallel validation at startup
 - Cached model instances
 
-## Security Considerations
-
-**PowerShell & System Commands:**
-
-- **Strict Allowlist (`SAFE_PS_PATTERNS`):** Commands must match verified regex patterns (e.g., `Get-CimInstance`, `Get-Process`).
-- **Blocked Patterns (`DANGEROUS_PS_PATTERNS`):** Explicitly blocks obfuscation, network downloads, execution aliases (`iex`, `invoke-expression`), and destructive commands (`Remove-`, `Stop-`).
-- **Secret Protection:** System prompts are instructed never to output secrets (e.g., WiFi passwords) in plaintext.
-- **Sanitization:** All dynamic arguments are sanitized to prevent command injection.
-
-**File Access:**
-
-- Restricted to home directory
-- Path normalization and validation
-- No arbitrary path traversal
-
-**Network:**
-
-- URL scheme whitelist
-- API key environment variables
-- No credentials in logs
-
-**IPC:**
-
-- Preload script isolation
-- Context bridge pattern
-- No nodeIntegration in renderer
-
 ## Scaling Guidelines
+
+**Adding New Tasks:**
+
+1. Implement the handler function in `src/core/task-service.js`
+2. Register it with the task registry in `registerAllTasks()`
+3. Add documentation to the system prompt in `src/config/system-prompt.js`
+4. The orchestrator will automatically support it in multi-step plans
 
 **Adding New Services:**
 
-1. Create service in `src/core/`
+1. Create service module in `src/core/`
 2. Add logger integration
 3. Export clean API
-4. Register in main.js
+4. Register IPC handlers in `src/main/main.js`
 
 **Adding Configuration:**
 
-1. Create config in `src/config/`
-2. Export module
-3. Import in relevant services
-4. Document in README
-
-**Adding IPC Handlers:**
-
-1. Define handler in main.js
-2. Add error try-catch
-3. Log events
-4. Expose via preload script
+1. Add to `src/config/services.config.js` or create new config file
+2. Import in relevant services
+3. Document in README
 
 **Modifying System Prompt:**
 
 1. Edit `src/config/system-prompt.js`
-2. Keep concise (token cost)
-3. Test action tag parsing
-4. Validate with multiple queries
-
-## Future Improvements
-
-**Potential Enhancements:**
-
-- Custom wake-word training
-- Local LLM fallback (llama.cpp)
-- Multi-language support
-- Voice profile recognition
-- Conversation history
-- Plugin system
-
-**Code Quality:**
-
-- Unit tests (Jest)
-- Integration tests (Playwright)
-- TypeScript migration
-- Performance profiling
-- CI/CD pipeline
+2. Keep concise (token cost impacts latency)
+3. Test action tag and plan parsing
+4. Validate with both voice and text queries
 
 ---
 
