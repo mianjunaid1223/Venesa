@@ -956,6 +956,9 @@
         itemPath =
           typeof data === "string" ? data : data.path || data.name || "";
         itemName = itemPath.split(/[\\/]/).pop();
+      } else if (selected.type === "ui-item") {
+        itemName = data.name || "";
+        itemPath = data.type || "";
       }
 
       setState(VoiceState.PROCESSING);
@@ -1415,6 +1418,65 @@
       } catch (e) {
         console.error("[VoiceWindow] Failed to parse search results:", e);
       }
+    });
+
+    window.voiceApi.receive("dynamic-ui", (payload) => {
+      try {
+        const { component, data } = payload;
+        const normalized = (component || '').replace(/-([a-z])/g, (_, c) => c.toUpperCase());
+
+        let items = [];
+        let parsedData = typeof data === 'string' ? (() => { try { return JSON.parse(data); } catch { return data; } })() : data;
+
+        if (normalized === "keyValue") {
+          const flat = {};
+          for (const [k, v] of Object.entries(parsedData || {})) {
+            if (typeof v === 'object' && v !== null && !Array.isArray(v)) {
+              for (const [nk, nv] of Object.entries(v)) flat[nk] = nv;
+            } else flat[k] = v;
+          }
+          items = Object.entries(flat).map(([k, v]) => ({ name: k.replace(/([A-Z])/g, ' $1').replace(/[_-]/g, ' ').trim(), type: String(v ?? 'N/A') }));
+        }
+        else if (normalized === "cardList") {
+          if (Array.isArray(parsedData)) items = parsedData.map(i => typeof i === 'string' ? { name: i, type: '' } : { name: i.name || i.ProcessName || i.Name || 'Unknown', type: i.path || i.type || i.status || '' });
+          else if (parsedData && parsedData.apps) items = parsedData.apps.map(a => typeof a === 'string' ? { name: a, type: 'App' } : { name: a.name || a.Name, type: 'App' });
+          else if (parsedData && parsedData.processes) items = parsedData.processes.map(a => ({ name: a.name || a.ProcessName, type: 'Process' }));
+          else items = Object.entries(parsedData || {}).map(([k, v]) => ({ name: k, type: typeof v === 'object' ? JSON.stringify(v) : String(v) }));
+        }
+        else if (normalized === "table") {
+          let rows = Array.isArray(parsedData) ? parsedData : [parsedData];
+          items = rows.map(r => {
+            if (!r || typeof r !== 'object') return { name: 'Item', type: '' };
+            let name = r.ProcessName || r.Name || r.Id || String(r) || 'Item';
+            let val = '';
+            if (r.WorkingSet) val = (r.WorkingSet / 1024 / 1024).toFixed(1) + ' MB';
+            else if (r.CPU) val = r.CPU.toFixed(1) + ' CPU';
+            else {
+              const vals = Object.values(r);
+              val = vals.length > 1 ? String(vals[1]) : '';
+            }
+            return { name: String(name), type: String(val) };
+          });
+        }
+        else if (normalized === "commandList") {
+          const cmds = parsedData?.customCommands || parsedData?.commands || [];
+          items = cmds.map(c => ({ name: c.trigger, type: (c.actionCount || c.actions?.length || 0) + ' actions' }));
+        }
+
+        if (items.length > 0) {
+          currentVoiceResults = [];
+          document.getElementById("voice-results-header").textContent = "Here is what I found:";
+          voiceResultsListEl.innerHTML = "";
+          items.slice(0, 8).forEach((item, i) => {
+            let iconSvg = '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="2"></circle><path d="M12 8v4M12 16h.01" stroke="currentColor" stroke-width="2" stroke-linecap="round"></path></svg>';
+            let iconClass = 'app-icon';
+            voiceResultsListEl.appendChild(createResultItem(i + 1, item.name, item.type, iconClass, iconSvg));
+            currentVoiceResults.push({ type: "ui-item", data: item });
+          });
+          voiceResultsEl.classList.add("visible");
+          setState(VoiceState.SHOWING_RESULTS);
+        }
+      } catch (e) { console.error('[VoiceWindow] Dynamic UI render err:', e); }
     });
 
     window.voiceApi.receive("start-listening", async () => {

@@ -2,7 +2,7 @@
 
 ## System Overview
 
-Venesa is an Electron-based voice and text assistant with a multi-process architecture optimized for Windows. The system uses offline wake-word detection, cloud-based speech services, intelligent task orchestration, and local system integration through a modular task registry.
+Venesa is an Electron-based voice and text assistant for Windows. It uses offline wake-word detection, cloud-based speech services, LLM-powered intent parsing, and a modular skill system to execute tasks through natural language.
 
 ## Architecture Diagram
 
@@ -10,43 +10,53 @@ Venesa is an Electron-based voice and text assistant with a multi-process archit
 ┌──────────────────────────────────────────────────────────────────┐
 │                         MAIN PROCESS                             │
 │  ┌─────────────────────────────────────────────────────────────┐ │
-│  │  Window Manager (4 windows)                                 │ │
-│  │  - Main (search bar)                                        │ │
-│  │  - Voice (full-screen overlay)                              │ │
-│  │  - Setup (first-run)                                        │ │
-│  │  - Background (hidden, wake-word)                           │ │
+│  │  Windows (src/platform/windows/)                            │ │
+│  │  - Main Window     (search bar + AI responses)              │ │
+│  │  - Voice Window    (full-screen overlay + karaoke)           │ │
+│  │  - Setup Window    (first-run API key entry)                │ │
+│  │  - Background      (hidden, wake-word detection)            │ │
 │  └─────────────────────────────────────────────────────────────┘ │
 │                                                                   │
 │  ┌─────────────────────────────────────────────────────────────┐ │
-│  │  Core Services                                              │ │
+│  │  Brain (src/brain/)                                         │ │
 │  │  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐      │ │
-│  │  │ Wake-Word    │  │ STT Service  │  │ LLM Service  │      │ │
-│  │  │ (Vosk)       │  │ (ElevenLabs) │  │ (Gemini)     │      │ │
+│  │  │ LLM          │  │ Processor    │  │ Orchestrator │      │ │
+│  │  │ (Gemini)     │──│ (parse tags) │──│ (plans)      │      │ │
 │  │  └──────────────┘  └──────────────┘  └──────────────┘      │ │
 │  │  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐      │ │
-│  │  │ TTS Service  │  │ API Key Pool │  │ User Profile │      │ │
-│  │  │ (ElevenLabs) │  │ (Rotation)   │  │ (Adaptive)   │      │ │
+│  │  │ System       │  │ Services     │  │ Memory       │      │ │
+│  │  │ Prompt       │  │ Config       │  │ (persistent) │      │ │
 │  │  └──────────────┘  └──────────────┘  └──────────────┘      │ │
 │  └─────────────────────────────────────────────────────────────┘ │
 │                                                                   │
 │  ┌─────────────────────────────────────────────────────────────┐ │
-│  │  Task Execution Layer                                       │ │
+│  │  Skills (src/skills/)                                       │ │
 │  │  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐      │ │
-│  │  │ Task         │  │ Task         │  │ Task         │      │ │
-│  │  │ Registry     │──│ Orchestrator │──│ Service      │      │ │
-│  │  │ (24 tasks)   │  │ (plans)      │  │ (handlers)   │      │ │
+│  │  │ Registry     │  │ Validator    │  │ Loader       │      │ │
+│  │  │ (skill map)  │  │ (shape chk)  │  │ (auto-disc)  │      │ │
 │  │  └──────────────┘  └──────────────┘  └──────────────┘      │ │
-│  │  ┌──────────────┐                                           │ │
-│  │  │ PowerShell   │                                           │ │
-│  │  │ Session      │                                           │ │
-│  │  └──────────────┘                                           │ │
+│  │  ┌──────────────────────────────────────────────────────┐   │ │
+│  │  │ core/ — 30 skill modules                             │   │ │
+│  │  │ (launchApp, searchFiles, systemControl, calculate...) │   │ │
+│  │  └──────────────────────────────────────────────────────┘   │ │
 │  └─────────────────────────────────────────────────────────────┘ │
 │                                                                   │
 │  ┌─────────────────────────────────────────────────────────────┐ │
-│  │  IPC Handlers                                               │ │
-│  │  - send-to-gemini   - voice-query                          │ │
-│  │  - wake-word-detected  - execute-task                      │ │
-│  │  - stt-feed         - load-models                          │ │
+│  │  Platform Services (src/platform/)                          │ │
+│  │  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐      │ │
+│  │  │ STT          │  │ TTS          │  │ Wake-Word    │      │ │
+│  │  │ (ElevenLabs) │  │ (ElevenLabs) │  │ (Vosk)       │      │ │
+│  │  └──────────────┘  └──────────────┘  └──────────────┘      │ │
+│  │  ┌──────────────┐  ┌──────────────┐                         │ │
+│  │  │ IPC Handlers │  │ Model Server │                         │ │
+│  │  │ (4 modules)  │  │ (Vosk HTTP)  │                         │ │
+│  │  └──────────────┘  └──────────────┘                         │ │
+│  └─────────────────────────────────────────────────────────────┘ │
+│                                                                   │
+│  ┌─────────────────────────────────────────────────────────────┐ │
+│  │  Libraries (src/lib/)                                       │ │
+│  │  logger, key-pool, key-store, powershell, paths,            │ │
+│  │  event-bus, pipeline                                        │ │
 │  └─────────────────────────────────────────────────────────────┘ │
 └──────────────────────────────────────────────────────────────────┘
                             │
@@ -58,12 +68,11 @@ Venesa is an Electron-based voice and text assistant with a multi-process archit
 │  │ Main Window    │  │ Voice Window   │  │ Background     │      │
 │  │                │  │                │  │ Window         │      │
 │  │ - Search UI    │  │ - Karaoke      │  │ - Audio Capture│      │
-│  │ - Google View  │  │   subtitles    │  │ - Vosk Feed    │      │
-│  │ - Settings     │  │ - Results      │  │ (hidden)       │      │
-│  │ - AI View      │  │                │  │                │      │
+│  │ - Dynamic UI   │  │   subtitles    │  │ - Vosk Feed    │      │
+│  │ - Google View  │  │ - Voice result │  │ (hidden)       │      │
+│  │ - AI Responses │  │                │  │                │      │
 │  └────────────────┘  └────────────────┘  └────────────────┘      │
 └──────────────────────────────────────────────────────────────────┘
-                            │
                             │
                             ▼
 ┌──────────────────────────────────────────────────────────────────┐
@@ -75,6 +84,72 @@ Venesa is an Electron-based voice and text assistant with a multi-process archit
 └──────────────────────────────────────────────────────────────────┘
 ```
 
+## Directory Layout
+
+```
+src/
+├── brain/                          # AI logic layer
+│   ├── llm.js                     # Gemini API client, per-query chat sessions
+│   ├── processor.js               # Parses LLM response → actions/plans/UI
+│   ├── orchestrator.js            # Executes multi-step [plan] blocks
+│   ├── system-prompt.js           # System prompts (voice & text modes)
+│   ├── services.config.js         # LLM + TTS model/voice config
+│   └── memory.js                  # Persistent memory store
+│
+├── skills/                         # Modular skill system
+│   ├── registry.js                # Skill map — get(name), register(skill)
+│   ├── validator.js               # Validates skill shape at load time
+│   ├── loader.js                  # Auto-discovers & loads from core/
+│   └── core/                      # 30 skill modules (one file each)
+│       ├── _shared.js             # Common utilities (runPowerShell, paths)
+│       ├── launch-app.js
+│       ├── search-files.js
+│       ├── system-control.js
+│       ├── calculate.js
+│       └── ... (26 more)
+│
+├── platform/                       # Electron platform layer
+│   ├── main.js                    # App entry point, lifecycle, shortcuts
+│   ├── model-server.js            # Local HTTP server for Vosk model
+│   ├── formatters.js              # Result → text/voice formatting
+│   ├── windows/                   # BrowserWindow factories
+│   │   ├── main-window.js
+│   │   ├── voice-window.js
+│   │   ├── setup-window.js
+│   │   └── background-window.js
+│   ├── speech/                    # Speech services
+│   │   ├── stt.js                 # ElevenLabs Scribe (speech-to-text)
+│   │   ├── tts.js                 # ElevenLabs Flash v2.5 (text-to-speech)
+│   │   └── wake-word.js           # Vosk wake-word management
+│   ├── ipc/                       # IPC handler modules
+│   │   ├── query-handlers.js      # Text query pipeline
+│   │   ├── voice-handlers.js      # Voice query pipeline
+│   │   ├── action-handlers.js     # Direct action execution
+│   │   └── system-handlers.js     # System/settings IPC
+│   └── preload/                   # Context bridge preloads
+│       ├── main.preload.js
+│       ├── voice.preload.js
+│       └── background.preload.js
+│
+├── renderer/                       # UI (HTML + JS, no framework)
+│   ├── main.window.html           # Search bar, AI responses, dynamic UI
+│   ├── voice.window.html          # Full-screen voice overlay
+│   ├── background.window.html     # Hidden audio capture window
+│   ├── setup.window.html          # First-run setup wizard
+│   ├── lib/                       # Client-side libraries (vosk.js)
+│   └── workers/
+│       └── audio.processor.js     # AudioWorklet for mic capture
+│
+└── lib/                            # Shared utilities
+    ├── logger.js                  # File + console logger
+    ├── key-pool.js                # API key rotation with failover
+    ├── key-store.js               # Encrypted key storage
+    ├── powershell.js              # Safe PowerShell execution
+    ├── paths.js                   # App path resolution
+    ├── event-bus.js               # Pub/sub event system
+    └── pipeline.js                # Async pipeline helper
+```
+
 ## Task Execution Pipeline
 
 ```
@@ -82,35 +157,79 @@ User Input (Voice or Text)
         │
         ▼
    LLM (Gemini)
-   System prompt teaches both [action:] and [plan] formats
+   System prompt teaches [action:] and [plan] formats
         │
         ▼
-  processResponse()
+  processor.processResponse()
    Detects response format
         │
    ┌────┴─────┐
    │          │
-[plan]     [action:]          Backward compatible
+[plan]     [action:]
    │          │
    ▼          ▼
-Orchestrator  Direct Task
-              Registry Execution
+Orchestrator  Direct Skill
+              Execution via Registry
    │
    ▼
 Sequential Step Execution
    - Resolve $param references between steps
    - Apply execution markers (silently/announce/ask/confirm)
    - Skip steps on dependency failure
-   - Registry.execute() per step
+   - orchestrator.js obtains the skill via registry.get(...) and invokes skill.handler(resolvedParams) (the handler must handle errors and return a consistent result object)
    │
    ▼
 Response Assembly
+   - Determine UI component (from skill definition or LLM [ui:] tag)
    - Aggregate feedback per marker
    - Determine response mode (spoken/silent/ui)
-   - Return clean response + results
+   - Return clean response + results + dynamic UI
 ```
 
-### Execution Markers
+## Skill System
+
+Each skill is a self-contained module in `src/skills/core/`. Skills are auto-discovered and validated at startup by the loader.
+
+**Skill shape:**
+
+```javascript
+module.exports = {
+    name: 'launchApp',
+    description: 'Launch an application by name',
+    params: ['appName'],
+    ui: 'card-list',           // Optional: auto-rendered UI component
+    handler: async (params) => { /* ... */ },
+};
+```
+
+**Registered Skills (30):**
+
+| Category | Skills |
+|----------|--------|
+| Apps | launchApp, closeApp, closeAllApps, listRunningApps |
+| Files | searchFiles, openFile |
+| Web | openUrl, googleSearch, youtubeSearch, getWeather |
+| System | systemControl, getSystemInfo, getTime |
+| Info | getNetworkInfo, getDiskInfo, getInstalledApps, listProcesses |
+| Clipboard | getClipboard, setClipboard |
+| Utilities | calculate, takeScreenshot, setReminder |
+| Memory | setMemory, getMemory, manageCommands, listCommands, removeCommand |
+| Advanced | runPowerShell, listen |
+
+## Dynamic UI System
+
+Skills can define a `ui` field that auto-triggers rich visual rendering when the skill executes. The LLM can also explicitly emit `[ui: component]` tags to override display.
+
+| Component | Used By | Renders |
+|-----------|---------|---------|
+| `key-value` | getSystemInfo, getNetworkInfo, getDiskInfo | Two-column grid of label-value pairs |
+| `card-list` | listRunningApps, getInstalledApps, searchFiles | Scrollable card list with icons and badges |
+| `table` | listProcesses | Sortable data table with headers |
+| `command-list` | listCommands | Styled command cards with trigger words |
+
+**Priority:** LLM `[ui:]` tag > skill `ui` field > plain text fallback.
+
+## Execution Markers
 
 Each step in an orchestrated plan has a marker controlling user feedback:
 
@@ -121,62 +240,47 @@ Each step in an orchestrated plan has a marker controlling user feedback:
 | `ask` | Request clarification before proceeding |
 | `confirm` | Require explicit user confirmation |
 
-### Parameter Resolution
-
-Steps can reference results from previous steps using `$` prefixed action names:
-
-```
-[step: getClipboard, marker: silently]
-[step: googleSearch, marker: announce, query: $getClipboard]
-```
-
-The orchestrator resolves `$getClipboard` to the clipboard content at runtime.
-
 ## Data Flow
 
-### 1. Wake-Word Detection Flow
+### 1. Wake-Word Detection
 
 ```
 User speaks "Venesa"
     ↓
 [Background Window] Captures audio via Web Audio API
     ↓
-[Wake-Word Service] Vosk model processes audio stream (16kHz)
+[Vosk Model] Processes 16kHz audio stream locally
     ↓
-[Keyword Matching] Matches variations (venessa, vanessa, venice, vanesa)
+[Pattern Matching] Matches variations (venesa, venessa, vanessa)
     ↓
 [Main Process] IPC: wake-word-detected
     ↓
-[Window Manager] Captures screen, pauses detection, shows voice window
+[Window Manager] Pauses detection, shows voice window
 ```
 
-### 2. Voice Query Flow
+### 2. Voice Query
 
 ```
 Voice window opens
     ↓
-[Audio Worklet] Captures microphone input
+[AudioWorklet] Captures microphone input
     ↓
 [STT Service] Voice Activity Detection (RMS > threshold)
     ↓
-[VAD] Detects speech start → Records audio
-    ↓
-[VAD] Detects silence (1.2s) → Stops recording
+[VAD] Detects speech → Records → Detects 1.2s silence → Stops
     ↓
 [ElevenLabs Scribe] Transcribes audio → Text
     ↓
-[LLM Service] Processes with Gemini + system prompt
+[LLM] Processes with Gemini + system prompt
     ↓
-[processResponse] Parses [action:] tags or [plan] blocks
+[Processor] Parses [action:] tags or [plan] blocks
     ↓
-[Orchestrator / Registry] Executes tasks sequentially
+[Orchestrator / Registry] Executes skills
     ↓
-[TTS Service] Synthesizes clean response
-    ↓
-[Voice Window] Plays audio with karaoke subtitles
+[TTS] Synthesizes response → Plays with karaoke subtitles
 ```
 
-### 3. Text Query Flow
+### 3. Text Query
 
 ```
 User opens search bar (Alt+Space)
@@ -188,315 +292,43 @@ User types query + Enter
     - /    → AI query via Gemini
     - //   → Google search
     ↓
-[processResponse] Parses response for actions/plans
+[Processor] Parses response for actions/plans
     ↓
-[Task Execution] Results returned to UI
+[Skill Execution] Results + Dynamic UI returned to renderer
 ```
 
-## Component Details
+## Key Design Decisions
 
-### Task Registry
+### Stateless LLM Sessions
+Each query creates a fresh Gemini chat session. No conversation history accumulates between queries. This ensures each interaction is independent and prevents topic bleed.
 
-**File:** `src/core/task-registry.js`
+### Skill-Driven UI
+Skills declare their own UI component via the `ui` field. The renderer auto-dispatches to the correct component without requiring the LLM to emit `[ui:]` tags. This makes UI display robust and consistent.
 
-Central module registry for all task capabilities. Each task is registered with metadata enabling the orchestrator to discover and compose them.
-
-**Registered Tasks (24):**
-
-| Category | Tasks |
-|----------|-------|
-| Apps | launchApplication, closeApp, closeAllApps, listRunningApps |
-| Files | searchFiles, openFile |
-| Web | openUrl, googleSearch, youtubeSearch |
-| System | systemControl, getSystemInfo, getTime |
-| Info | getNetworkInfo, getDiskInfo, getInstalledApps |
-| Clipboard | getClipboard, setClipboard |
-| Utilities | calculate, takeScreenshot, setReminder, listProcesses |
-| Advanced | runPowerShell, getWeather, listen |
-
-**Registration API:**
-
-```javascript
-registry.register('taskName', handlerFunction, {
-  description: 'What this task does',
-  params: ['param1', 'param2'],
-  tags: ['category'],
-  marker: 'announce',
-  safe: true,
-});
-```
-
-### Task Orchestrator
-
-**File:** `src/core/task-orchestrator.js`
-
-Parses LLM-generated `[plan]...[/plan]` blocks into executable step sequences. Handles parameter dependency resolution, execution marker enforcement, and response mode determination.
-
-**Key Functions:**
-
-| Function | Purpose |
-|----------|---------|
-| `parseOrchestrationPlan()` | Extracts steps from `[plan]` blocks with input validation |
-| `executePlan()` | Runs steps sequentially with dependency and marker handling |
-| `resolveParams()` | Resolves `$actionName` references to previous step outputs |
-| `determineResponseMode()` | Decides spoken/silent/UI feedback mode |
-| `buildFeedback()` | Aggregates user-facing feedback from results |
-
-**Duplicate Protection:** When multiple steps use the same action name, only the first result is stored under the action name key. Subsequent duplicates are accessible via `step_N` indexing.
-
-### Task Service
-
-**File:** `src/core/task-service.js`
-
-Contains all task handler implementations and registers them with the task registry at startup. Processes LLM responses by detecting both `[action:]` tags and `[plan]` blocks.
-
-**Capabilities:**
-
-- File/folder search (recursive, 2-level depth)
-- Application launch (Start Menu + fallback exec)
-- System controls via PowerShell
-- URL opening (security validated)
-- Safe math evaluation (recursive-descent parser, no eval/Function)
-- Web search (Google, YouTube)
-- System info retrieval (CPU, RAM, battery, disk, network)
-- Screenshot capture
-- Clipboard operations (privacy-safe logging)
-- Timed reminders via Electron notifications
-
-### Wake-Word Service
-
-**File:** `src/core/wake-word-service.js`
-
-**Technology:** Vosk speech recognition (local, offline)
-
-**Configuration:**
-
-- Model: vosk-model-small-en-us-0.15 (~50MB)
-- Sample rate: 16kHz
-- Chunk size: 8000 bytes (0.5s)
-- Confidence: 0.75
-- Debounce: 2000ms
-
-### STT Service
-
-**File:** `src/core/stt-service.js`
-
-**Technology:** ElevenLabs Scribe
-
-**Voice Activity Detection (VAD):**
-
-- RMS threshold: 0.01
-- Silence duration: 1200ms
-- Min speech duration: 300ms
-- Pre-roll buffer: 5 frames
-
-**Process:**
-
-1. Continuously calculate RMS of audio chunks
-2. Detect speech start (RMS > threshold)
-3. Buffer pre-roll frames for natural start
-4. Record until silence detected
-5. Upload to ElevenLabs as WAV
-6. Return transcribed text
-
-### LLM Service
-
-**File:** `src/core/llm-service.js`
-
-**Technology:** Google Gemini 2.5 Flash Lite
-
-**System Prompt:** Defined in `src/config/system-prompt.js` with separate prompts for voice and text modes.
-
-**Response Formats:**
-
-Single action:
-```
-[action: launchApplication, appName: Chrome]
-```
-
-Multi-step plan:
-```
-[plan]
-[step: getClipboard, marker: silently]
-[step: googleSearch, marker: announce, query: $getClipboard]
-[/plan]
-```
-
-**Context Modes:**
-
-- Voice: `[USER SPOKE VIA VOICE] query`
-- Text: `[USER TYPED IN TEXT MODE] query`
-
-### User Profile
-
-**File:** `src/core/user-profile.js`
-
-Adaptive user profiling that learns from interactions. The profile summary is injected into the system prompt to personalize responses.
-
-### API Key Rotation
-
-**File:** `src/core/apiKeyPool.js`
-
-**Strategy:** Round-robin with runtime validation
-
-**Features:**
-
-- Soft-fail startup validation
-- Runtime key removal on 401/403
-- Automatic failover on rate limits (429)
-- Separate pools for Gemini and ElevenLabs
-
-### PowerShell Session
-
-**File:** `src/core/powershell-session.js`
-
-Persistent PowerShell session for system command execution. Features timeout handling, output buffering, and automatic session restart on failure.
-
-## Configuration System
-
-Centralized in `src/config/`:
-
-**services.config.js:**
-
-- LLM model selection and generation config
-- TTS voice settings
-- Safety settings for content filtering
-
-**system-prompt.js:**
-
-- Separate prompts for voice and text modes
-- Action command reference with all 24 tasks
-- Orchestration guide with [plan] format documentation
-- Dynamic skills for creative task composition
-- Personality and behavior rules
+### Separation of Concerns
+- **brain/** — pure AI logic (LLM, parsing, orchestration)
+- **skills/** — task implementations (what the assistant can do)
+- **platform/** — Electron-specific code (windows, IPC, speech)
+- **lib/** — shared utilities (no Electron or AI dependencies)
+- **renderer/** — UI (no Node.js, only preload bridges)
 
 ## Error Handling
 
-**Task Orchestration:**
-
-- Input validation on plan parser (null/non-string guard)
-- Per-step try-catch in registry execution
+- Per-skill try-catch in registry execution
 - Dependency chain failure propagation (skip dependent steps)
-- Duplicate action name detection with warnings
-
-**Wake-Word Process:**
-
-- Auto-restart on crash (2s delay)
-- Health checks via stdout/stderr
-- Process exit monitoring
-
-**API Calls:**
-
-- Try up to 3 keys on failure
-- Report errors to key pool
-- Remove invalid keys
-- Return user-friendly messages
-
-**Microphone Access:**
-
-- Retry with exponential backoff
-- Coordinate release between windows
-- Timeout fallback (3s)
-
-**IPC Communication:**
-
-- Try-catch wrappers on all handlers
-- Sender destruction checks before response
-- Timeout handlers
+- API key rotation with automatic failover on 401/403/429
+- Microphone retry with exponential backoff
+- IPC sender destruction checks before response
 
 ## Security
 
-**PowerShell Commands:**
-
-- Strict allowlist (`SAFE_PS_PATTERNS`): Commands must match verified regex patterns
-- Blocked patterns (`DANGEROUS_PS_PATTERNS`): Explicitly blocks obfuscation, network downloads, execution aliases, and destructive commands
-- Secret protection: System prompts instruct the LLM to never output secrets in plaintext
-- Input sanitization: Dynamic arguments sanitized to prevent command injection
-
-**Math Evaluation:**
-
-- Safe recursive-descent parser (no `eval` or `Function` constructor)
-- Input sanitized to numeric and operator characters only
-- Proper parenthesis validation
-
-**File Access:**
-
-- Restricted to home directory
-- Path normalization and validation
-- Single-quote escaping in PowerShell-embedded paths
-- No arbitrary path traversal
-
-**Network:**
-
-- URL scheme whitelist (http/https only)
-- API key environment variables (never in code)
-- No credentials in logs
-
-**Clipboard:**
-
-- Privacy-safe logging (content truncated/masked)
-- Type validation before write operations
-
-**IPC:**
-
-- Preload script isolation
-- Context bridge pattern
-- No nodeIntegration in renderer
-
-## Performance
-
-**Wake-Word:**
-
-- Streaming processing (no full-file buffering)
-- Lightweight Vosk model (50MB)
-- Subprocess isolation (no main thread blocking)
-
-**Audio Processing:**
-
-- AudioWorklet for low latency
-- Efficient buffer management
-- VAD to reduce API calls
-
-**UI:**
-
-- Google webview pre-loading
-- Screen capture caching
-- Minimal re-renders
-
-**API:**
-
-- Key rotation reduces rate limit impact
-- Parallel validation at startup
-- Cached model instances
-
-## Scaling Guidelines
-
-**Adding New Tasks:**
-
-1. Implement the handler function in `src/core/task-service.js`
-2. Register it with the task registry in `registerAllTasks()`
-3. Add documentation to the system prompt in `src/config/system-prompt.js`
-4. The orchestrator will automatically support it in multi-step plans
-
-**Adding New Services:**
-
-1. Create service module in `src/core/`
-2. Add logger integration
-3. Export clean API
-4. Register IPC handlers in `src/main/main.js`
-
-**Adding Configuration:**
-
-1. Add to `src/config/services.config.js` or create new config file
-2. Import in relevant services
-3. Document in README
-
-**Modifying System Prompt:**
-
-1. Edit `src/config/system-prompt.js`
-2. Keep concise (token cost impacts latency)
-3. Test action tag and plan parsing
-4. Validate with both voice and text queries
+- PowerShell commands filtered against dangerous patterns (registry, credentials, obfuscation)
+- Only whitelisted safe command patterns allowed
+- Path normalization and home-directory restriction on file access
+- URL schemes restricted to http/https
+- Math calculator uses safe recursive-descent parser (no eval)
+- Clipboard content privacy-masked in logs
+- Preload script isolation with contextBridge (no nodeIntegration)
 
 ---
 

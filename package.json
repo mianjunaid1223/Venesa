@@ -1,8 +1,8 @@
 {
   "name": "venesa",
-  "version": "1.0.0",
-  "description": "Venesa - Virtual voice assistant for Windows with wake word detection, speech recognition, and natural language processing",
-  "main": "src/main/main.js",
+  "version": "2.0.0",
+  "description": "Venesa - A powerful virtual voice assistant for Windows with wake word detection, speech recognition, and natural language processing",
+  "main": "src/platform/main.js",
   "scripts": {
     "start": "electron .",
     "dev": "electron . --enable-logging",
@@ -22,6 +22,8 @@
   },
   "keywords": [
     "voice-assistant",
+    "venesa",
+    "venessa",
     "ai",
     "electron",
     "gemini",
@@ -31,7 +33,7 @@
     "tts",
     "windows"
   ],
-  "author": "mianjunaid1223",
+  "author": "Mian Junaid",
   "license": "MIT",
   "engines": {
     "node": ">=18.0.0"

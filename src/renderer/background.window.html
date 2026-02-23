@@ -62,17 +62,6 @@
             }
         }
 
-        // Wake word patterns - THE ONLY PLACE these are used
-        // Keep in sync with src/config/wake-word.config.js (reference only)
-        const wakePatterns = [
-            /hey\s*v[ei]n[aeiou]?s+[aeu]/i,   // "hey venesa/venessa" variations
-            /hey\s*vanessa/i,                  // "hey vanessa"
-            /hi\s*v[ei]n[aeiou]?s+[aeu]/i,    // "hi venesa" variations
-            /hi\s*vanessa/i,                   // "hi vanessa"
-            /\bv[ei]n[aeiou]?s+[aeu]\b/i,     // Just "venesa/venessa" standalone
-            /\bvanessa\b/i,                    // Just "vanessa" standalone
-        ];
-
         function checkWakeWord(text) {
             if (isPaused || resumeCooldown || !text) return;
 
@@ -86,7 +75,14 @@
                 return;
             }
 
-            for (const pattern of wakePatterns) {
+            const patterns = [
+                /hey\s*v[ei]n[aeiou]?s+[aeu]/i,
+                /hey\s*vanessa/i,
+                /hey\s*venesa/i,
+                /hey\s*venus/i
+            ];
+
+            for (const pattern of patterns) {
                 if (pattern.test(cleanText)) {
                     log('Wake word: ' + cleanText);
                     isPaused = true;
@@ -142,31 +138,18 @@
         async function playAck() {
             try {
                 const ctx = new AudioContext();
-                if (ctx.state === 'suspended') {
-                    await ctx.resume();
-                }
-
                 const osc = ctx.createOscillator();
                 const gain = ctx.createGain();
-
                 osc.frequency.setValueAtTime(880, ctx.currentTime);
                 osc.frequency.setValueAtTime(1100, ctx.currentTime + 0.1);
-
                 gain.gain.setValueAtTime(0.1, ctx.currentTime);
-                gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.2);
-
+                gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.2);
                 osc.connect(gain);
                 gain.connect(ctx.destination);
-
                 osc.start();
                 osc.stop(ctx.currentTime + 0.2);
-
-                setTimeout(() => {
-                    ctx.close().catch(e => logError('Error closing ctx: ' + e.message));
-                }, 300);
-            } catch (e) {
-                logError('PlayAck failed: ' + e.message);
-            }
+                setTimeout(() => ctx.close(), 300);
+            } catch (e) { }
         }
 
         window.backgroundAudioApi.receive('play-acknowledgment', () => playAck());
@@ -184,6 +167,10 @@
                 await startMic();
                 window.backgroundAudioApi.send('background-audio-ready');
             }
+        });
+
+        window.backgroundAudioApi.receive('model-path-error', (errInfo) => {
+            logError('Failed to load Vosk model: ' + (errInfo && errInfo.error ? errInfo.error : JSON.stringify(errInfo)));
         });
 
         window.backgroundAudioApi.send('get-model-paths');

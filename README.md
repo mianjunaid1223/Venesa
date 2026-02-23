@@ -31,10 +31,11 @@ A single prompt like *"Set up my workspace"* will launch your apps, adjust your 
 - Wake word detection ("Hey Venesa") via Vosk
 - Speech-to-text via ElevenLabs Scribe
 - Natural language understanding via Google Gemini 2.5 Flash Lite
-- Text-to-speech via ElevenLabs
+- Text-to-speech via ElevenLabs Flash v2.5
 - File, app, and web search
 - System controls (volume, brightness, lock, restart)
 - Multi-step task orchestration from a single prompt
+- Dynamic UI rendering (key-value grids, card lists, tables)
 - Quick-access search bar (`Alt+Space`)
 
 ---
@@ -80,10 +81,10 @@ Each step in a workflow has a marker that controls feedback:
 
 ---
 
-## Available Actions
+## Available Skills
 
-| Category | Actions |
-|----------|---------|
+| Category | Skills |
+|----------|--------|
 | **Apps** | Launch app, close app, close all apps, list running apps |
 | **Files** | Search files/folders, open file |
 | **Web** | Google search, YouTube search, open URL, weather lookup |
@@ -91,6 +92,7 @@ Each step in a workflow has a marker that controls feedback:
 | **Info** | System info (CPU/RAM/battery), time, network info, disk info, installed apps |
 | **Clipboard** | Read clipboard, write to clipboard |
 | **Utilities** | Calculator, screenshot, reminders, list processes |
+| **Memory** | Save/recall memory, manage custom commands |
 | **Advanced** | Run PowerShell commands (with safety filtering) |
 
 ---
@@ -100,42 +102,54 @@ Each step in a workflow has a marker that controls feedback:
 ```
 venesa/
 ├── src/
-│   ├── main/
-│   │   ├── main.js                  # Electron main process & IPC
-│   │   └── preload/
-│   │       ├── main.preload.js
-│   │       ├── voice.preload.js
-│   │       └── background.preload.js
-│   ├── core/
-│   │   ├── task-orchestrator.js      # Multi-step plan parser & executor
-│   │   ├── task-registry.js          # Scalable task module registry
-│   │   ├── task-service.js           # All task implementations (24 tasks)
-│   │   ├── llm-service.js            # Gemini API integration
-│   │   ├── elevenlabs-service.js     # TTS service
-│   │   ├── stt-service.js            # Speech-to-text service
-│   │   ├── wake-word-service.js      # Vosk wake word detection
-│   │   ├── powershell-session.js     # Persistent PowerShell session
-│   │   ├── user-profile.js           # Adaptive user profiling
-│   │   ├── apiKeyPool.js             # API key rotation
-│   │   ├── logger.js                 # Logging utility
-│   │   └── paths.js                  # Path management
-│   ├── config/
-│   │   ├── system-prompt.js          # LLM system prompts (text & voice)
-│   │   └── services.config.js        # Service configurations
-│   └── renderer/
-│       ├── main.window.html
-│       ├── voice.window.html
-│       ├── background.window.html
-│       ├── setup.window.html
-│       └── workers/
-│           └── audio.processor.js
-├── models/
+│   ├── brain/                      # AI logic layer
+│   │   ├── llm.js                  # Gemini API client (stateless sessions)
+│   │   ├── processor.js            # Parses LLM response → actions/plans
+│   │   ├── orchestrator.js         # Executes multi-step [plan] blocks
+│   │   ├── system-prompt.js        # System prompts (voice & text modes)
+│   │   ├── services.config.js      # LLM + TTS model configuration
+│   │   └── memory.js               # Persistent memory store
+│   │
+│   ├── skills/                     # Modular skill system
+│   │   ├── registry.js             # Skill map (get, register, list)
+│   │   ├── validator.js            # Validates skill shape at load
+│   │   ├── loader.js               # Auto-discovers skills from core/
+│   │   └── core/                   # 30 skill modules (one per file)
+│   │       ├── _shared.js          # Common utilities
+│   │       ├── launch-app.js
+│   │       ├── search-files.js
+│   │       ├── system-control.js
+│   │       └── ... (26 more)
+│   │
+│   ├── platform/                   # Electron platform layer
+│   │   ├── main.js                 # App entry point & lifecycle
+│   │   ├── model-server.js         # Local HTTP server for Vosk
+│   │   ├── formatters.js           # Result → text/voice formatting
+│   │   ├── windows/                # BrowserWindow factories
+│   │   ├── speech/                 # STT, TTS, wake-word services
+│   │   ├── ipc/                    # IPC handler modules
+│   │   └── preload/                # Context bridge preloads
+│   │
+│   ├── renderer/                   # UI (HTML + JS)
+│   │   ├── main.window.html        # Search bar + dynamic UI
+│   │   ├── voice.window.html       # Voice overlay + karaoke
+│   │   ├── background.window.html  # Hidden wake-word audio
+│   │   └── setup.window.html       # First-run setup
+│   │
+│   └── lib/                        # Shared utilities
+│       ├── logger.js
+│       ├── key-pool.js             # API key rotation
+│       ├── key-store.js            # Encrypted key storage
+│       ├── powershell.js           # Safe PowerShell execution
+│       └── paths.js                # App path resolution
+│
+├── models/                         # Vosk speech model
 │   └── vosk-model-small-en-us-0.15/
 ├── assets/
 │   └── logo.png
 ├── .env
 ├── package.json
-└── README.md
+└── ARCHITECTURE.md
 ```
 
 ---
@@ -167,6 +181,7 @@ Create a `.env` file in the project root:
 ```env
 GEMINI_API_KEY=your_key_here
 GEMINI_API_KEY_1=optional_second_key
+GEMINI_API_KEY_2=optional_third_key
 
 ELEVENLABS_API_KEY=your_key_here
 ELEVENLABS_API_KEY_1=optional_second_key
@@ -243,35 +258,54 @@ Say "Hey Venesa" to activate. The app will:
 User Input (Voice / Text)
         │
         ▼
-   LLM (Gemini)  ←── System Prompt teaches action & plan formats
+   LLM (Gemini)  ←── System prompt teaches action & plan formats
         │
         ▼
-  processResponse()  ←── Detects [plan]...[/plan] or [action:]
+  processor.processResponse()  ←── Detects [plan]...[/plan] or [action:]
         │
    ┌────┴────┐
    │         │
-[plan]    [action:]     ← backward compatible
+[plan]    [action:]
    │         │
    ▼         ▼
-Orchestrator    Direct Task Execution
-   │              via Task Registry
+Orchestrator    Direct Skill Execution
+   │              via Registry
    ▼
 Sequential Step Execution
   • Resolve $param references
   • Apply execution markers
   • Skip on dependency failure
-  • Registry.execute() per step
+  • registry.execute() per step
+        │
+        ▼
+  Dynamic UI Rendering
+  • Skill's ui field auto-dispatches renderer
+  • key-value, card-list, table, command-list
 ```
 
 ### Key Components
 
-| Component | Role |
-|-----------|------|
-| **Task Registry** | Central registry of all 24 task capabilities with metadata. New tasks added via `registry.register()` |
-| **Task Orchestrator** | Parses `[plan]...[/plan]` blocks, resolves parameter dependencies (`$getClipboard`), manages execution markers |
-| **Task Service** | Implements all task handlers — app launching, file search, system control, web search, calculator, etc. |
-| **LLM Service** | Manages Gemini API communication with key rotation and profile learning |
-| **System Prompt** | Teaches the LLM how to output structured actions and multi-step plans |
+| Component | File | Role |
+|-----------|------|------|
+| **LLM** | `src/brain/llm.js` | Gemini API client with stateless per-query sessions |
+| **Processor** | `src/brain/processor.js` | Parses LLM output → actions, plans, UI directives |
+| **Orchestrator** | `src/brain/orchestrator.js` | Executes multi-step plans with dependency resolution |
+| **System Prompt** | `src/brain/system-prompt.js` | Teaches the LLM action/plan syntax (voice & text modes) |
+| **Skill Registry** | `src/skills/registry.js` | Central map of all 30 skills with metadata |
+| **Skill Loader** | `src/skills/loader.js` | Auto-discovers and validates skills from `core/` |
+
+---
+
+## Dynamic UI
+
+Skills auto-render rich visual components without requiring the LLM to specify them:
+
+| Component | Skills | Display |
+|-----------|--------|---------|
+| `key-value` | System info, network, disk | Two-column label-value grid |
+| `card-list` | Running apps, installed apps, file search | Scrollable cards with icons |
+| `table` | Processes | Data table with column headers |
+| `command-list` | Custom commands | Styled command cards |
 
 ---
 
@@ -288,7 +322,7 @@ Settings are stored in `~/.venesa-settings.json`:
 
 ### Voice Settings
 
-Edit `src/config/services.config.js` to change TTS/LLM settings:
+Edit `src/brain/services.config.js` to change TTS/LLM settings:
 
 ```javascript
 elevenlabs: {
@@ -315,7 +349,7 @@ Both Google and ElevenLabs support multiple keys. The app automatically:
 - Switches keys when rate limited (429 errors)
 - Skips keys that return errors
 
-Add keys with incrementing numbers: `GEMINI_API_KEY_1`, `GEMINI_API_KEY_2`, etc.
+Add keys starting with the base key without a numeric suffix (`GEMINI_API_KEY`) and then increment for extras by appending with `_1`, `_2`, etc. (e.g., `GEMINI_API_KEY_1`, `GEMINI_API_KEY_2`).
 
 ---
 
@@ -327,6 +361,31 @@ Add keys with incrementing numbers: `GEMINI_API_KEY_1`, `GEMINI_API_KEY_2`, etc.
 - URL schemes restricted to `http` and `https`
 - Math calculator uses a safe recursive-descent parser (no `eval`)
 - Clipboard content is privacy-masked in logs
+- Preload script isolation with contextBridge (no nodeIntegration)
+
+---
+
+## Adding New Skills
+
+The skill system is modular. To add a new skill:
+
+1. **Create a file** in `src/skills/core/my-skill.js`:
+   ```javascript
+   module.exports = {
+       name: 'mySkill',
+       description: 'What this skill does',
+       params: ['param1'],
+       ui: 'card-list',  // optional
+       handler: async (params) => {
+           // your logic here
+           return result;
+       },
+   };
+   ```
+
+2. **Add to the system prompt** in `src/brain/system-prompt.js` so the LLM knows about it.
+
+That's it — the loader auto-discovers it, and the orchestrator can include it in multi-step plans.
 
 ---
 
@@ -341,7 +400,7 @@ Add keys with incrementing numbers: `GEMINI_API_KEY_1`, `GEMINI_API_KEY_2`, etc.
 | Wake word | Vosk |
 | Audio | Web Audio API, AudioWorklet |
 | System integration | PowerShell |
-| Task orchestration | Custom registry + orchestrator |
+| Skill system | Custom registry + orchestrator |
 
 ---
 
@@ -370,34 +429,6 @@ Add keys with incrementing numbers: `GEMINI_API_KEY_1`, `GEMINI_API_KEY_2`, etc.
 
 1. Press Escape to close, then Ctrl+Shift+V to reopen
 2. Check console for errors with `pnpm dev`
-
----
-
-## Adding New Tasks
-
-The task system is modular. To add a new task:
-
-1. **Implement the handler** in `task-service.js`:
-   ```javascript
-   async function myNewTask(params) {
-     // your logic here
-     return "result";
-   }
-   ```
-
-2. **Register it** in `registerAllTasks()`:
-   ```javascript
-   registry.register('myNewTask', (p) => myNewTask(p.param1), {
-     description: 'What this task does',
-     params: ['param1'],
-     tags: ['category'],
-     marker: 'announce',
-   });
-   ```
-
-3. **Add to the system prompt** in `system-prompt.js` so the LLM knows about it.
-
-That's it — the orchestrator will automatically be able to include it in multi-step plans.
 
 ---
 

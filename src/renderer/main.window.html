@@ -499,9 +499,9 @@
         }
 
         #gemini-response {
-            padding: 16px 20px;
-            font-size: 14px;
-            line-height: 1.65;
+            padding: 14px 18px;
+            font-size: 13.5px;
+            line-height: 1.7;
             color: var(--text-primary);
             display: none;
             opacity: 0;
@@ -511,6 +511,143 @@
         #gemini-response.visible {
             display: block;
             animation: fadeSlideIn 0.3s var(--ease-out) forwards;
+        }
+
+        .ai-response-card {
+            display: flex;
+            gap: 12px;
+            align-items: flex-start;
+        }
+
+        .ai-response-icon {
+            width: 24px;
+            height: 24px;
+            border-radius: 6px;
+            background: linear-gradient(135deg, var(--primary), var(--accent1));
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            margin-top: 1px;
+        }
+
+        .ai-response-icon svg {
+            width: 13px;
+            height: 13px;
+            stroke: white;
+            fill: none;
+            stroke-width: 2;
+        }
+
+        .ai-response-text {
+            flex: 1;
+            min-width: 0;
+            word-wrap: break-word;
+            overflow-wrap: break-word;
+        }
+
+        .custom-commands-container {
+            padding: 12px 16px;
+        }
+
+        .commands-header {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 12px;
+            padding-bottom: 8px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+        }
+
+        .commands-header svg {
+            width: 16px;
+            height: 16px;
+            stroke: var(--primary);
+            fill: none;
+            stroke-width: 2;
+            stroke-linecap: round;
+            stroke-linejoin: round;
+        }
+
+        .commands-header span {
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .commands-header .cmd-count {
+            margin-left: auto;
+            font-size: 11px;
+            color: var(--text-dim);
+            font-weight: 400;
+        }
+
+        .command-card {
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            border-radius: 10px;
+            padding: 12px 14px;
+            margin-bottom: 8px;
+            opacity: 0;
+            transform: translateY(6px);
+            animation: fadeSlideIn 0.3s var(--ease-out) forwards;
+            transition: background 0.2s ease, border-color 0.2s ease;
+        }
+
+        .command-card:hover {
+            background: rgba(255, 255, 255, 0.06);
+            border-color: rgba(255, 255, 255, 0.1);
+        }
+
+        .command-card:last-child {
+            margin-bottom: 0;
+        }
+
+        .command-trigger {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 6px;
+        }
+
+        .command-trigger .trigger-label {
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        .command-trigger .trigger-badge {
+            font-size: 10px;
+            padding: 2px 8px;
+            border-radius: 10px;
+            background: linear-gradient(135deg, rgba(139, 92, 246, 0.15), rgba(59, 130, 246, 0.15));
+            color: var(--primary);
+            font-weight: 500;
+        }
+
+        .command-actions-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 4px;
+            margin-top: 4px;
+        }
+
+        .command-action-pill {
+            font-size: 11px;
+            padding: 3px 8px;
+            border-radius: 6px;
+            background: rgba(255, 255, 255, 0.05);
+            color: var(--text-secondary);
+            font-family: 'SF Mono', 'Fira Code', monospace;
+        }
+
+        .commands-empty {
+            text-align: center;
+            padding: 20px;
+            color: var(--text-dim);
+            font-size: 13px;
         }
 
         @keyframes fadeInUp {
@@ -682,287 +819,7 @@
             stroke-width: 2;
         }
 
-        .settings-panel {
-            display: none;
-            padding: 24px;
-            background: rgba(255, 255, 255, 0.98);
-            border-radius: 0 0 15px 15px;
-            animation: settings-reveal 0.3s cubic-bezier(0.16, 1, 0.3, 1);
-        }
 
-        @keyframes settings-reveal {
-            from {
-                opacity: 0;
-                transform: translateY(-10px);
-            }
-
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
-        }
-
-        .settings-panel.visible {
-            display: block;
-        }
-
-        .settings-header {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            margin-bottom: 24px;
-        }
-
-        .settings-header h2 {
-            font-size: 18px;
-            font-weight: 600;
-            color: var(--text-primary);
-            letter-spacing: -0.3px;
-        }
-
-        .close-settings {
-            width: 32px;
-            height: 32px;
-            border: none;
-            background: rgba(0, 0, 0, 0.03);
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            border-radius: 50%;
-            transition: all 0.2s;
-            -webkit-app-region: no-drag;
-        }
-
-        .close-settings:hover {
-            background: rgba(0, 0, 0, 0.08);
-            transform: rotate(90deg);
-        }
-
-        .close-settings svg {
-            width: 16px;
-            height: 16px;
-            stroke: var(--text-secondary);
-            fill: none;
-            stroke-width: 2.5;
-        }
-
-        .settings-form {
-            display: flex;
-            flex-direction: column;
-            gap: 20px;
-        }
-
-        .form-row {
-            display: flex;
-            gap: 16px;
-        }
-
-        .form-group {
-            flex: 1;
-            display: flex;
-            flex-direction: column;
-            gap: 8px;
-            -webkit-app-region: no-drag;
-        }
-
-        .form-group label {
-            font-size: 12px;
-            font-weight: 600;
-            color: var(--text-secondary);
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-        }
-
-        .settings-form input[type="text"],
-        .settings-form select {
-            width: 100%;
-            padding: 12px 14px;
-            background: rgba(255, 255, 255, 0.8);
-            border: 1px solid var(--border-subtle);
-            border-radius: 10px;
-            font-size: 14px;
-            color: var(--text-primary);
-            font-family: var(--font);
-            outline: none;
-            transition: all 0.2s;
-            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.02);
-        }
-
-        .settings-form input:focus,
-        .settings-form select:focus {
-            border-color: var(--primary);
-            background: #fff;
-            box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.1);
-        }
-
-        .shake-animation {
-            animation: shake 0.4s ease-in-out;
-        }
-
-        @keyframes shake {
-
-            0%,
-            100% {
-                transform: translateX(0);
-            }
-
-            25% {
-                transform: translateX(-5px);
-            }
-
-            50% {
-                transform: translateX(5px);
-            }
-
-            75% {
-                transform: translateX(-5px);
-            }
-        }
-
-        .shake-animation {
-            animation: shake 0.4s ease-in-out;
-        }
-
-        @keyframes shake {
-
-            0%,
-            100% {
-                transform: translateX(0);
-            }
-
-            25% {
-                transform: translateX(-5px);
-            }
-
-            50% {
-                transform: translateX(5px);
-            }
-
-            75% {
-                transform: translateX(-5px);
-            }
-        }
-
-        .checkbox-group {
-            margin-top: 4px;
-        }
-
-        .checkbox-container {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            cursor: pointer;
-            font-size: 14px;
-            color: var(--text-primary);
-            user-select: none;
-            position: relative;
-        }
-
-        .checkbox-container input {
-            position: absolute;
-            opacity: 0;
-            cursor: pointer;
-            height: 0;
-            width: 0;
-        }
-
-        .checkmark {
-            height: 20px;
-            width: 20px;
-            background-color: rgba(0, 0, 0, 0.05);
-            border-radius: 6px;
-            transition: all 0.2s;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-
-        .checkbox-container:hover input~.checkmark {
-            background-color: rgba(0, 0, 0, 0.1);
-        }
-
-        .checkbox-container input:focus-visible~.checkmark,
-        .checkbox-container input:focus~.checkmark {
-            box-shadow: 0 0 0 2px #fff, 0 0 0 4px var(--primary);
-        }
-
-        .checkbox-container input:checked~.checkmark {
-            background-color: var(--primary);
-        }
-
-        .checkmark:after {
-            content: "";
-            display: none;
-            width: 5px;
-            height: 10px;
-            border: solid white;
-            border-width: 0 2.5px 2.5px 0;
-            transform: rotate(45deg);
-            margin-bottom: 2px;
-        }
-
-        .checkbox-container input:checked~.checkmark:after {
-            display: block;
-        }
-
-        .settings-buttons {
-            display: flex;
-            gap: 12px;
-            margin-top: 8px;
-            -webkit-app-region: no-drag;
-        }
-
-        .settings-buttons button {
-            flex: 1;
-            padding: 12px 16px;
-            border-radius: 10px;
-            font-size: 14px;
-            font-weight: 600;
-            font-family: var(--font);
-            cursor: pointer;
-            transition: all 0.2s;
-        }
-
-        .btn-save {
-            background: var(--primary);
-            border: none;
-            color: #fff;
-            box-shadow: 0 4px 12px rgba(139, 92, 246, 0.25);
-        }
-
-        .btn-save:hover {
-            background: var(--accent);
-            transform: translateY(-1px);
-            box-shadow: 0 6px 16px rgba(139, 92, 246, 0.3);
-        }
-
-        .btn-cancel {
-            background: #f1f1f1;
-            border: none;
-            color: var(--text-secondary);
-        }
-
-        .btn-cancel:hover {
-            background: #e5e5e5;
-            color: var(--text-primary);
-        }
-
-        .settings-saved {
-            display: none;
-            font-size: 13px;
-            font-weight: 500;
-            color: #10b981;
-            text-align: center;
-            padding: 8px;
-            background: rgba(16, 185, 129, 0.1);
-            border-radius: 8px;
-            animation: fadeIn 0.3s ease-out;
-        }
-
-        .settings-saved.visible {
-            display: block;
-        }
 
         /* === Google Search Container - Pre-loaded & Hidden === */
         .google-container {
@@ -1088,6 +945,257 @@
                 border-radius 0.6s var(--ease-out),
                 border 0.6s var(--ease-out);
         }
+
+        /* ═══ Dynamic UI Components ═══ */
+
+        .dui-container {
+            padding: 12px 16px;
+            animation: fadeIn 0.25s var(--ease-out);
+        }
+
+        .dui-header {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding-bottom: 10px;
+            margin-bottom: 10px;
+            border-bottom: 1px solid var(--border-subtle);
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .dui-header svg {
+            width: 14px;
+            height: 14px;
+            stroke: var(--primary);
+            fill: none;
+            stroke-width: 2;
+        }
+
+        .dui-header .dui-count {
+            margin-left: auto;
+            font-weight: 500;
+            font-size: 11px;
+            color: var(--text-tertiary);
+            background: var(--hover-bg);
+            padding: 2px 8px;
+            border-radius: 10px;
+        }
+
+        /* Key-Value component */
+        .dui-kv-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 6px;
+        }
+
+        .dui-kv-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 12px;
+            border-radius: 8px;
+            background: rgba(201, 121, 238, 0.04);
+            transition: background 0.15s;
+        }
+
+        .dui-kv-item:hover {
+            background: var(--hover-bg);
+        }
+
+        .dui-kv-key {
+            font-size: 12px;
+            color: var(--text-secondary);
+            font-weight: 500;
+        }
+
+        .dui-kv-value {
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--text-primary);
+            text-align: right;
+            max-width: 60%;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        /* Card-list component */
+        .dui-card-list {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            max-height: 340px;
+            overflow-y: auto;
+        }
+
+        .dui-card-list::-webkit-scrollbar {
+            width: 4px;
+        }
+
+        .dui-card-list::-webkit-scrollbar-thumb {
+            background: var(--border-subtle);
+            border-radius: 4px;
+        }
+
+        .dui-card {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 8px 12px;
+            border-radius: 8px;
+            transition: all 0.15s;
+            cursor: default;
+            animation: fadeIn 0.2s var(--ease-out) backwards;
+        }
+
+        .dui-card:hover {
+            background: var(--hover-bg);
+        }
+
+        .dui-card-icon {
+            width: 28px;
+            height: 28px;
+            border-radius: 6px;
+            background: rgba(201, 121, 238, 0.1);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+        }
+
+        .dui-card-icon svg {
+            width: 14px;
+            height: 14px;
+            stroke: var(--primary);
+            fill: none;
+            stroke-width: 2;
+        }
+
+        .dui-card-body {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .dui-card-title {
+            font-size: 13px;
+            font-weight: 500;
+            color: var(--text-primary);
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .dui-card-sub {
+            font-size: 11px;
+            color: var(--text-tertiary);
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .dui-card-badge {
+            font-size: 10px;
+            padding: 2px 8px;
+            border-radius: 10px;
+            background: rgba(201, 121, 238, 0.1);
+            color: var(--primary);
+            font-weight: 600;
+            flex-shrink: 0;
+        }
+
+        /* Table component */
+        .dui-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 12px;
+        }
+
+        .dui-table th {
+            text-align: left;
+            padding: 6px 10px;
+            font-weight: 600;
+            font-size: 11px;
+            color: var(--text-tertiary);
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
+            border-bottom: 1px solid var(--border-subtle);
+        }
+
+        .dui-table td {
+            padding: 6px 10px;
+            color: var(--text-primary);
+            border-bottom: 1px solid rgba(201, 121, 238, 0.06);
+        }
+
+        .dui-table tr:hover td {
+            background: var(--hover-bg);
+        }
+
+        .dui-table tr:last-child td {
+            border-bottom: none;
+        }
+
+        /* Command-list component */
+        .dui-cmd-card {
+            padding: 10px 12px;
+            border-radius: 8px;
+            background: rgba(201, 121, 238, 0.04);
+            margin-bottom: 6px;
+            animation: fadeIn 0.2s var(--ease-out) backwards;
+            transition: background 0.15s;
+        }
+
+        .dui-cmd-card:hover {
+            background: var(--hover-bg);
+        }
+
+        .dui-cmd-trigger {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 6px;
+        }
+
+        .dui-cmd-trigger-label {
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--primary);
+        }
+
+        .dui-cmd-trigger-badge {
+            font-size: 10px;
+            padding: 1px 6px;
+            border-radius: 8px;
+            background: rgba(116, 188, 214, 0.15);
+            color: var(--accent1);
+            font-weight: 600;
+        }
+
+        .dui-cmd-actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 4px;
+        }
+
+        .dui-cmd-pill {
+            font-size: 10px;
+            padding: 3px 8px;
+            border-radius: 6px;
+            background: rgba(30, 30, 40, 0.06);
+            color: var(--text-secondary);
+            font-weight: 500;
+        }
+
+        .dui-empty {
+            text-align: center;
+            padding: 20px;
+            font-size: 13px;
+            color: var(--text-tertiary);
+        }
     </style>
 </head>
 
@@ -1128,42 +1236,6 @@
 
         <div class="divider" id="divider"></div>
 
-        <!-- Settings Panel -->
-        <div class="settings-panel" id="settingsPanel">
-            <div class="settings-header">
-                <h2>Settings</h2>
-                <button class="close-settings" id="closeSettings" title="Close Settings">
-                    <svg viewBox="0 0 24 24">
-                        <line x1="18" y1="6" x2="6" y2="18"></line>
-                        <line x1="6" y1="6" x2="18" y2="18"></line>
-                    </svg>
-                </button>
-            </div>
-            <div class="settings-form">
-                <div class="form-row">
-                    <div class="form-group">
-                        <label for="settingsUserName">Your Name</label>
-                        <input type="text" id="settingsUserName" placeholder="Enter your name" />
-                    </div>
-                </div>
-
-                <div class="form-group checkbox-group">
-                    <label class="checkbox-container">
-                        <input type="checkbox" id="settingsAutoStart" />
-                        <span class="checkmark"></span>
-                        Launch Venesa at startup
-                    </label>
-                </div>
-
-                <div class="settings-buttons">
-                    <button class="btn-cancel" id="cancelSettings">Cancel</button>
-                    <button class="btn-save" id="saveSettingsBtn">Save Changes</button>
-                </div>
-                <p class="settings-saved" id="settingsSaved">
-                    Settings saved successfully!
-                </p>
-            </div>
-        </div>
 
         <div class="search-stats" id="searchStats">
             <span id="resultCount">0 results in total</span>
@@ -1202,12 +1274,7 @@
         const searchTimeEl = document.getElementById("searchTime");
 
         const settingsBtn = document.getElementById("settingsBtn");
-        const settingsPanel = document.getElementById("settingsPanel");
-        const closeSettingsBtn = document.getElementById("closeSettings");
-        const cancelSettingsBtn = document.getElementById("cancelSettings");
-        const saveSettingsBtn = document.getElementById("saveSettingsBtn");
-        const settingsUserName = document.getElementById("settingsUserName");
-        const settingsSaved = document.getElementById("settingsSaved");
+
 
         // Google search elements
         const googleContainer = document.getElementById("googleContainer");
@@ -1351,15 +1418,9 @@
             googleContainer.classList.add('preloaded');
         };
 
-        // Pre-load Google webview when app starts (delay to let app stabilize)
         setTimeout(preloadGoogleWebview, 2000);
 
-        // Google container controls
-        // Expand button removed per user request
 
-        // Handle external links in webview
-        // Deduplication guard: prevent the same URL from being opened externally twice
-        // (both new-window and will-navigate can fire for the same click)
         let lastExternalUrl = '';
         let lastExternalTime = 0;
         const DEDUP_MS = 1000;
@@ -1367,7 +1428,7 @@
         const openUrlExternally = (url) => {
             const now = Date.now();
             if (url === lastExternalUrl && (now - lastExternalTime) < DEDUP_MS) {
-                return; // Already opened this URL very recently
+                return;
             }
             lastExternalUrl = url;
             lastExternalTime = now;
@@ -1384,15 +1445,13 @@
                 const url = new URL(e.url);
                 const hostname = url.hostname;
                 if (hostname === "google.com" || hostname.endsWith(".google.com")) {
-                    return; // Allow Google-internal navigation
+                    return;
                 }
             } catch (parseError) {
                 // Invalid URL, block navigation
             }
-            // Open non-Google URL externally (deduplicated)
             openUrlExternally(e.url);
-            // e.preventDefault() does NOT actually block webview navigation,
-            // so we navigate back once the non-Google page finishes loading
+
             const goBackOnce = () => {
                 googleWebview.removeEventListener('did-finish-load', goBackOnce);
                 googleWebview.removeEventListener('did-fail-load', goBackOnce);
@@ -1484,7 +1543,6 @@
             geminiResponse.textContent = "";
             noResults.style.display = "none";
             searchStats.classList.remove("visible");
-            settingsPanel.classList.remove("visible");
             resultsWrapper.classList.add("collapsed");
             closeGoogleSearch();
 
@@ -1498,18 +1556,30 @@
                 recomputeBaseHeight();
                 let targetHeight = getBaseHeight();
 
-                if (settingsPanel.classList.contains("visible")) {
-                    // Calculate dynamic height based on settings panel content
-                    const panelHeight = settingsPanel.offsetHeight;
-                    targetHeight = Math.max(HEIGHTS.SETTINGS_PANEL, getBaseHeight() + panelHeight);
-                    window.api.send("resize-window", targetHeight);
+                if (loader.classList.contains('visible')) {
+                    targetHeight = HEIGHTS.LOADER + getBaseHeight();
+                    resultsWrapper.classList.remove('collapsed');
+                    window.api.send('resize-window', targetHeight);
                     return;
                 }
 
-                if (loader.classList.contains("visible")) {
-                    targetHeight = HEIGHTS.LOADER + getBaseHeight();
-                    resultsWrapper.classList.remove("collapsed");
-                    window.api.send("resize-window", targetHeight);
+                // Dynamic UI: measure actual rendered height
+                const duiContainer = resultsDiv.querySelector('.dui-container');
+                if (duiContainer) {
+                    const actualHeight = resultsDiv.scrollHeight + HEIGHTS.RESULT_PADDING;
+                    targetHeight = Math.min(Math.max(getBaseHeight() + actualHeight, HEIGHTS.GEMINI_MIN), HEIGHTS.MAX);
+                    resultsWrapper.classList.remove('collapsed');
+                    window.api.send('resize-window', targetHeight);
+                    return;
+                }
+
+                // Custom commands container
+                const cmdContainer = resultsDiv.querySelector('.custom-commands-container');
+                if (cmdContainer) {
+                    const actualHeight = resultsDiv.scrollHeight + HEIGHTS.RESULT_PADDING;
+                    targetHeight = Math.min(Math.max(getBaseHeight() + actualHeight, HEIGHTS.GEMINI_MIN), HEIGHTS.MAX);
+                    resultsWrapper.classList.remove('collapsed');
+                    window.api.send('resize-window', targetHeight);
                     return;
                 }
 
@@ -1518,12 +1588,12 @@
                     const resultsHeight =
                         HEIGHTS.RESULT_PADDING + resultCount * HEIGHTS.RESULT_ITEM;
                     targetHeight = Math.min(resultsHeight, HEIGHTS.MAX) + 40;
-                    resultsWrapper.classList.remove("collapsed");
-                    window.api.send("resize-window", targetHeight);
+                    resultsWrapper.classList.remove('collapsed');
+                    window.api.send('resize-window', targetHeight);
                     return;
                 }
 
-                if (geminiResponse.classList.contains("visible")) {
+                if (geminiResponse.classList.contains('visible')) {
                     const contentHeight = geminiResponse.scrollHeight;
                     targetHeight = Math.min(
                         Math.max(
@@ -1532,20 +1602,20 @@
                         ),
                         HEIGHTS.MAX
                     );
-                    resultsWrapper.classList.remove("collapsed");
-                    window.api.send("resize-window", targetHeight);
+                    resultsWrapper.classList.remove('collapsed');
+                    window.api.send('resize-window', targetHeight);
                     return;
                 }
 
-                if (noResults.style.display === "block") {
+                if (noResults.style.display === 'block') {
                     targetHeight = HEIGHTS.NO_RESULTS;
-                    resultsWrapper.classList.remove("collapsed");
-                    window.api.send("resize-window", targetHeight);
+                    resultsWrapper.classList.remove('collapsed');
+                    window.api.send('resize-window', targetHeight);
                     return;
                 }
 
-                resultsWrapper.classList.add("collapsed");
-                window.api.send("resize-window", getBaseHeight());
+                resultsWrapper.classList.add('collapsed');
+                window.api.send('resize-window', getBaseHeight());
             });
         };
 
@@ -1559,8 +1629,6 @@
             geminiResponse.textContent = "";
             noResults.style.display = "none";
             searchStats.classList.remove("visible");
-            settingsPanel.classList.remove("visible");
-            settingsOpen = false;
             selectedIndex = -1;
             resultItems = [];
             isGeminiAction = false;
@@ -2057,7 +2125,11 @@
                 searchStats.classList.add("visible");
             }
 
-            geminiResponse.textContent = text;
+            geminiResponse.innerHTML = `
+                <div class="ai-response-card">
+                    <div class="ai-response-text">${escapeHtml(text)}</div>
+                </div>
+            `;
             geminiResponse.style.display = "block";
             geminiResponse.classList.add("visible");
             divider.classList.add("visible");
@@ -2065,109 +2137,313 @@
             updateWindowHeight();
         }
 
-        const showSettingsPanel = (settings) => {
+        function renderDynamicUI(component, rawData) {
+            const data = typeof rawData === 'string' ? (() => {
+                try { return JSON.parse(rawData); } catch { return rawData; }
+            })() : rawData;
+
+            // Normalize component names (skill uses hyphen, LLM may use camelCase)
+            const normalized = (component || '').replace(/-([a-z])/g, (_, c) => c.toUpperCase());
+
+            switch (normalized) {
+                case 'commandList':
+                    renderCommandList(data);
+                    break;
+                case 'keyValue':
+                    renderKeyValue(data);
+                    break;
+                case 'cardList':
+                    renderCardList(data);
+                    break;
+                case 'table':
+                    renderTable(data);
+                    break;
+                default:
+                    if (typeof rawData === 'string') {
+                        showAIResponse(rawData);
+                    }
+                    break;
+            }
+        }
+
+        function clearForUI() {
+            loader.classList.remove('visible');
+            loader.style.display = 'none';
+            resultsDiv.innerHTML = '';
+            geminiResponse.style.display = 'none';
+            geminiResponse.classList.remove('visible');
+            noResults.style.display = 'none';
+            resultsWrapper.classList.remove('collapsed');
+            resultItems = [];
+            selectedIndex = -1;
+        }
+
+        function renderKeyValue(data) {
+            clearForUI();
+            const container = document.createElement('div');
+            container.className = 'dui-container';
+
+            // Parse data — could be JSON string or object
+            let kvPairs = {};
+            if (typeof data === 'string') {
+                try { kvPairs = JSON.parse(data); } catch { kvPairs = { result: data }; }
+            } else if (typeof data === 'object' && data !== null) {
+                kvPairs = data;
+            }
+
+            // Flatten nested objects one level
+            const flat = {};
+            for (const [k, v] of Object.entries(kvPairs)) {
+                if (typeof v === 'object' && v !== null && !Array.isArray(v)) {
+                    for (const [nk, nv] of Object.entries(v)) {
+                        flat[nk] = nv;
+                    }
+                } else {
+                    flat[k] = v;
+                }
+            }
+
+            const keys = Object.keys(flat);
+
+            const grid = document.createElement('div');
+            grid.className = 'dui-kv-grid';
+
+            for (const [key, value] of Object.entries(flat)) {
+                const item = document.createElement('div');
+                item.className = 'dui-kv-item';
+                const label = key.replace(/([A-Z])/g, ' $1').replace(/[_-]/g, ' ').trim();
+
+                const keySpan = document.createElement('span');
+                keySpan.className = 'dui-kv-key';
+                keySpan.textContent = label;
+
+                const valSpan = document.createElement('span');
+                valSpan.className = 'dui-kv-value';
+                valSpan.title = String(value);
+                valSpan.textContent = String(value ?? 'N/A');
+
+                item.appendChild(keySpan);
+                item.appendChild(valSpan);
+                grid.appendChild(item);
+            }
+
+            container.appendChild(grid);
+            resultsDiv.appendChild(container);
+            divider.classList.add('visible');
+
+            if (searchStartTime > 0) {
+                const dur = ((performance.now() - searchStartTime) / 1000).toFixed(2);
+                resultCountEl.textContent = `${keys.length} items`;
+                searchTimeEl.textContent = dur + 's';
+                searchStats.classList.add('visible');
+            }
+            updateWindowHeight();
+        }
+
+        function renderCardList(data) {
+            clearForUI();
+            const container = document.createElement('div');
+            container.className = 'dui-container';
+
+            let items = [];
+            if (typeof data === 'string') {
+                try {
+                    const parsed = JSON.parse(data);
+                    if (Array.isArray(parsed)) items = parsed;
+                    else if (parsed.apps) items = parsed.apps.map(a => ({ name: a.name || a, type: 'app', ...a }));
+                    else if (parsed.processes) items = parsed.processes;
+                    else items = Object.entries(parsed).map(([k, v]) => ({ name: k, value: v }));
+                } catch { items = [{ name: data }]; }
+            } else if (Array.isArray(data)) {
+                items = data;
+            } else if (data && typeof data === 'object') {
+                if (data.apps) items = data.apps.map(a => typeof a === 'string' ? { name: a, type: 'app' } : { name: a.name || a, type: 'app', ...a });
+                else items = Object.entries(data).map(([k, v]) => ({ name: k, value: typeof v === 'object' ? JSON.stringify(v) : v }));
+            }
+
+            const list = document.createElement('div');
+            list.className = 'dui-card-list';
+
+            items.forEach((item, i) => {
+                const card = document.createElement('div');
+                card.className = 'dui-card';
+                card.style.animationDelay = (i * 30) + 'ms';
+
+                const name = typeof item === 'string' ? item : (item.name || item.ProcessName || item.Name || 'Unknown');
+                const sub = item.path || item.type || item.status || '';
+                const badge = item.type || '';
+
+                card.innerHTML = `
+                    <div class="dui-card-icon"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"></rect><rect x="14" y="3" width="7" height="7" rx="1"></rect><rect x="3" y="14" width="7" height="7" rx="1"></rect><rect x="14" y="14" width="7" height="7" rx="1"></rect></svg></div>
+                    <div class="dui-card-body">
+                        <div class="dui-card-title">${escapeHtml(String(name))}</div>
+                        ${sub ? '<div class="dui-card-sub">' + escapeHtml(String(sub)) + '</div>' : ''}
+                    </div>
+                    ${badge ? '<span class="dui-card-badge">' + escapeHtml(String(badge)) + '</span>' : ''}
+                `;
+                list.appendChild(card);
+            });
+
+            container.appendChild(list);
+            resultsDiv.appendChild(container);
+            divider.classList.add('visible');
+
+            if (searchStartTime > 0) {
+                const dur = ((performance.now() - searchStartTime) / 1000).toFixed(2);
+                resultCountEl.textContent = `${items.length} items`;
+                searchTimeEl.textContent = dur + 's';
+                searchStats.classList.add('visible');
+            }
+            updateWindowHeight();
+        }
+
+        function renderTable(data) {
+            clearForUI();
+            const container = document.createElement('div');
+            container.className = 'dui-container';
+
+            let rows = [];
+            if (typeof data === 'string') {
+                try { rows = JSON.parse(data); } catch { rows = []; }
+            } else if (Array.isArray(data)) {
+                rows = data;
+            }
+
+            if (!Array.isArray(rows)) rows = [rows];
+
+            if (rows.length > 0) {
+                const table = document.createElement('table');
+                table.className = 'dui-table';
+
+                const cols = Object.keys(rows[0]).filter(c => c !== 'CimClass' && c !== 'CimInstanceProperties' && c !== 'CimSystemProperties');
+                const colLabels = { Id: 'PID', ProcessName: 'Name', CPU: 'CPU (s)', WorkingSet: 'Memory' };
+
+                const thead = document.createElement('thead');
+                const headerRow = document.createElement('tr');
+                cols.forEach(col => {
+                    const th = document.createElement('th');
+                    th.textContent = colLabels[col] || col;
+                    headerRow.appendChild(th);
+                });
+                thead.appendChild(headerRow);
+                table.appendChild(thead);
+
+                const tbody = document.createElement('tbody');
+                rows.forEach(row => {
+                    const tr = document.createElement('tr');
+                    cols.forEach(col => {
+                        const td = document.createElement('td');
+                        let val = row[col];
+                        if (col === 'WorkingSet' && typeof val === 'number') {
+                            val = (val / 1024 / 1024).toFixed(1) + ' MB';
+                        } else if (col === 'CPU' && typeof val === 'number') {
+                            val = val.toFixed(1);
+                        }
+                        td.textContent = val ?? 'N/A';
+                        tr.appendChild(td);
+                    });
+                    tbody.appendChild(tr);
+                });
+                table.appendChild(tbody);
+                container.appendChild(table);
+            } else {
+                const empty = document.createElement('div');
+                empty.className = 'dui-empty';
+                empty.textContent = 'No data available.';
+                container.appendChild(empty);
+            }
+
+            resultsDiv.appendChild(container);
+            divider.classList.add('visible');
+
+            if (searchStartTime > 0) {
+                const dur = ((performance.now() - searchStartTime) / 1000).toFixed(2);
+                resultCountEl.textContent = `${rows.length} rows`;
+                searchTimeEl.textContent = dur + 's';
+                searchStats.classList.add('visible');
+            }
+            updateWindowHeight();
+        }
+
+        function renderCommandList(data) {
             loader.classList.remove("visible");
             loader.style.display = "none";
             resultsDiv.innerHTML = "";
             geminiResponse.style.display = "none";
             geminiResponse.classList.remove("visible");
-            geminiResponse.textContent = "";
             noResults.style.display = "none";
-            searchStats.classList.remove("visible");
-            resultsWrapper.classList.add("collapsed");
-            selectedIndex = -1;
-            resultItems = [];
-            isGeminiAction = false;
+            resultsWrapper.classList.remove("collapsed");
 
-            settingsOpen = true;
-            settingsUserName.value = settings.userName || "User";
-            const settingsAutoStart = document.getElementById("settingsAutoStart");
+            const container = document.createElement("div");
+            container.className = "custom-commands-container";
 
-            if (settingsAutoStart) settingsAutoStart.checked = settings.openAtLogin !== false;
+            const cmds = data.customCommands || data.commands || [];
 
-            settingsSaved.classList.remove("visible");
-            settingsPanel.classList.add("visible");
+            if (cmds.length === 0) {
+                const empty = document.createElement("div");
+                empty.className = "commands-empty";
+                empty.textContent = "No custom commands saved yet.";
+                container.appendChild(empty);
+            } else {
+                cmds.forEach((cmd, i) => {
+                    const card = document.createElement("div");
+                    card.className = "command-card";
+                    card.style.animationDelay = (i * 60) + "ms";
+
+                    const trigger = document.createElement("div");
+                    trigger.className = "command-trigger";
+                    trigger.innerHTML = `
+                        <span class="trigger-label">"${escapeHtml(cmd.trigger)}"</span>
+                        <span class="trigger-badge">${cmd.actionCount || cmd.actions?.length || 0} action${(cmd.actionCount || cmd.actions?.length || 0) !== 1 ? 's' : ''}</span>
+                    `;
+                    card.appendChild(trigger);
+
+                    if (cmd.actions && cmd.actions.length > 0) {
+                        const actionsList = document.createElement("div");
+                        actionsList.className = "command-actions-list";
+                        cmd.actions.forEach(a => {
+                            const pill = document.createElement("span");
+                            pill.className = "command-action-pill";
+                            const label = a.action + (a.appName ? `: ${a.appName}` : a.command ? `: ${a.command}` : a.query ? `: ${a.query}` : '');
+                            pill.textContent = label;
+                            actionsList.appendChild(pill);
+                        });
+                        card.appendChild(actionsList);
+                    }
+
+                    container.appendChild(card);
+                });
+            }
+
+            resultsDiv.appendChild(container);
             divider.classList.add("visible");
-            updateWindowHeight();
-        };
+            resultItems = [];
+            selectedIndex = -1;
 
-        const hideSettingsPanel = () => {
-            settingsOpen = false;
-            settingsPanel.classList.remove("visible");
-            settingsSaved.classList.remove("visible");
-            divider.classList.remove("visible");
-            resultsWrapper.classList.add("collapsed");
-            recomputeBaseHeight();
+            if (searchStartTime > 0) {
+                const searchDuration = ((performance.now() - searchStartTime) / 1000).toFixed(2);
+                resultCountEl.textContent = `${cmds.length} command${cmds.length !== 1 ? 's' : ''}`;
+                searchTimeEl.textContent = searchDuration + "s";
+                searchStats.classList.add("visible");
+            }
+
             updateWindowHeight();
-        };
+        }
+
+        window.api.receive("dynamic-ui", (payload) => {
+            loader.classList.remove("visible");
+            loader.style.display = "none";
+            renderDynamicUI(payload.component, payload.data);
+        });
 
         settingsBtn.addEventListener("click", () => {
-            if (settingsOpen) {
-                hideSettingsPanel();
-            } else {
-                window.api.send("get-settings");
-            }
+            window.api.send("open-settings");
         });
 
         // Voice button handler
         const voiceBtn = document.getElementById("voiceBtn");
         voiceBtn.addEventListener("click", () => {
             window.api.send("open-voice-window");
-        });
-
-        closeSettingsBtn.addEventListener("click", () => hideSettingsPanel());
-        cancelSettingsBtn.addEventListener("click", () => hideSettingsPanel());
-
-        saveSettingsBtn.addEventListener("click", () => {
-            const settingsAutoStart = document.getElementById("settingsAutoStart");
-            const nameVal = settingsUserName.value.trim();
-
-            // Validate forbidden names
-            if (nameVal.toLowerCase() === "user") {
-                // Show temporary error feedback by shaking the input or similar
-                settingsUserName.style.borderColor = "var(--accent2)";
-                settingsUserName.classList.add("shake-animation"); // Assuming CSS class or just style
-
-                // Reset style after animation
-                setTimeout(() => {
-                    settingsUserName.style.borderColor = "var(--border-subtle)";
-                    settingsUserName.classList.remove("shake-animation");
-                }, 500);
-
-                // Ideally show a message, but for minimal changes we just block it
-                // Or update the saved success message to be an error
-                settingsSaved.textContent = "Please choose a specific name.";
-                settingsSaved.style.color = "#ef788c"; // Error color
-                settingsSaved.classList.add("visible");
-
-                setTimeout(() => {
-                    settingsSaved.classList.remove("visible");
-                    settingsSaved.textContent = "Settings saved successfully!"; // Restore default text
-                    settingsSaved.style.color = "#10b981"; // Restore success color
-                }, 2000);
-
-                return;
-            }
-
-            const settings = {
-                userName: nameVal || "Venesa User",
-                openAtLogin: settingsAutoStart ? settingsAutoStart.checked : true
-            };
-
-            window.api.send("save-settings", settings);
-        });
-
-        window.api.receive("current-settings", (settings) => {
-            showSettingsPanel(settings);
-        });
-
-        window.api.receive("settings-saved", (success) => {
-            if (success) {
-                settingsSaved.classList.add("visible");
-                setTimeout(() => {
-                    hideSettingsPanel();
-                }, 1500);
-            }
         });
 
         window.api.receive("set-input", (data) => {
