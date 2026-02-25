@@ -5,13 +5,16 @@
  * ═══════════════════════════════════════════════════════════════
  */
 
+const { z } = require('zod');
 const { runPowerShell } = require('./_shared');
 
 module.exports = {
+    schema: z.object({}),
     name: 'closeAllApps',
     description: 'Close all visible user applications',
     tags: ['app', 'close', 'all'],
-    permission: 'dangerous',
+
+    returns: 'none',
     marker: 'confirm',
     ui: null,
 

@@ -5,19 +5,21 @@
  * ═══════════════════════════════════════════════════════════════
  */
 
+const { z } = require('zod');
 const { runPowerShell } = require('./_shared');
 
 module.exports = {
+    schema: z.object({}),
     name: 'getDiskInfo',
     description: 'Get disk usage information',
     tags: ['system', 'disk', 'storage'],
-    permission: 'safe',
+    returns: 'data',
     marker: 'silently',
     ui: 'key-value',
 
     async handler() {
         const psScript = `
-$ErrorActionPreference = 'SilentlyContinue'
+$ErrorActionPreference = 'Stop'
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
 @(Get-CimInstance Win32_LogicalDisk -Filter "DriveType=3" |
 Select-Object DeviceID,

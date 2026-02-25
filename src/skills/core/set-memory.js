@@ -5,13 +5,20 @@
  * ═══════════════════════════════════════════════════════════════
  */
 
+const { z } = require('zod');
 const memory = require('../../brain/memory');
 
 module.exports = {
+    schema: z.object({
+        bucket: z.enum(memory.BUCKETS || ['preferences', 'context', 'aliases', 'history']).describe('The memory bucket'),
+        key: z.string().describe('The memory key to set'),
+        value: z.string().optional().describe('The value to store (omit to remove)'),
+    }),
     name: 'setMemory',
-    description: 'Write a value to a memory bucket',
+    description: 'Write a value to a memory bucket, or remove it by omitting the value',
     tags: ['memory', 'write', 'remember'],
-    permission: 'normal',
+
+    returns: 'none',
     marker: 'silently',
     ui: null,
 
@@ -28,12 +35,12 @@ module.exports = {
             return JSON.stringify({ error: 'Missing key' });
         }
 
-        if (value === undefined || value === null) {
+        if (value === undefined || value === null || value === "") {
             memory.remove(bucket, key);
             return JSON.stringify({ success: true, action: 'removed', bucket, key });
         }
 
         memory.set(bucket, key, value);
-        return JSON.stringify({ success: true, action: 'saved', bucket, key, value });
+        return JSON.stringify({ success: true, action: 'saved', bucket, key });
     },
 };

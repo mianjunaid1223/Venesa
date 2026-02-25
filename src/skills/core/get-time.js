@@ -4,12 +4,15 @@
  *  Get current date and time.
  * ═══════════════════════════════════════════════════════════════
  */
+const { z } = require('zod');
 
 module.exports = {
+    schema: z.object({}),
     name: 'getTime',
     description: 'Get current date and time',
     tags: ['time', 'date'],
-    permission: 'safe',
+
+    returns: 'data',
     marker: 'silently',
     ui: null,
 

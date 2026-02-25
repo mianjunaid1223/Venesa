@@ -12,15 +12,31 @@ const logger = require('../lib/logger');
 
 const skills = new Map();
 
-function register(name, skillModule) {
+const { z } = require('zod');
+
+function register(name, skillModule, source = 'core') {
     if (!name || typeof name !== 'string') {
         throw new Error('Skill name must be a non-empty string');
     }
     if (skills.has(name)) {
         logger.warn(`Skill '${name}' already registered — overwriting`);
     }
-    skills.set(name, skillModule);
-    logger.debug(`Registered skill: ${name}`);
+
+    // Validate schema if it exists, otherwise provide a default empty schema
+    let schema = skillModule.schema;
+    if (schema) {
+        if (typeof schema.parse !== 'function') {
+            throw new Error(`Skill '${name}' provided an invalid schema. Must have a parse() method.`);
+        }
+    } else {
+        logger.warn(`Skill '${name}' registered without a schema. Defaulting to z.any().`);
+        schema = z.any();
+    }
+
+    // Attach source so we can distinguish built-ins from plugins later
+    const entry = Object.assign({}, skillModule, { _source: source, schema });
+    skills.set(name, entry);
+    logger.debug(`Registered ${source} skill: ${name}`);
 }
 
 function get(name) {
@@ -50,11 +66,22 @@ function getSkillList() {
             name,
             description: skill.description || '',
             tags: skill.tags || [],
-            permission: skill.permission || 'normal',
             ui: skill.ui || null,
+            source: skill._source || 'core',
+            schema: skill.schema
         });
     }
     return list;
+}
+
+/** Returns only built-in core skills */
+function getBuiltinSkills() {
+    return getSkillList().filter(s => s.source === 'core');
+}
+
+/** Returns only external plugin skills */
+function getAllPlugins() {
+    return getSkillList().filter(s => s.source === 'plugin');
 }
 
 function clear() {
@@ -69,5 +96,7 @@ module.exports = {
     getAll,
     getAllNames,
     getSkillList,
+    getBuiltinSkills,
+    getAllPlugins,
     clear,
 };

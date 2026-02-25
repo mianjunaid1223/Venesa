@@ -4,6 +4,7 @@
  *  Evaluate a math expression safely.
  * ═══════════════════════════════════════════════════════════════
  */
+const { z } = require('zod');
 
 function safeEvaluate(expr) {
     let pos = 0;
@@ -69,10 +70,12 @@ function safeEvaluate(expr) {
 }
 
 module.exports = {
+    schema: z.object({ expression: z.string().describe('The math expression to evaluate') }),
     name: 'calculate',
     description: 'Evaluate a math expression',
     tags: ['math', 'calculate'],
-    permission: 'safe',
+
+    returns: 'data',
     marker: 'silently',
     ui: null,
 

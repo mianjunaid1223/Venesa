@@ -11,6 +11,17 @@
       padding: 0;
       box-sizing: border-box;
       text-wrap: balance;
+      animation: fadein 0.5s ease-in;
+    }
+
+    @keyframes fadein {
+      from {
+        opacity: 0;
+      }
+
+      to {
+        opacity: 1;
+      }
     }
 
     body {
@@ -520,8 +531,8 @@
     }
 
     .word-span.current {
-      color: #8b5cf6;
-      text-shadow: 0 0 20px rgba(139, 92, 246, 0.4);
+      color: #4da6ff;
+      text-shadow: 0 0 20px rgba(77, 166, 255, 0.4);
     }
 
     .word-span.future {
@@ -675,12 +686,165 @@
       border-bottom: 1px solid rgba(255, 255, 255, 0.1);
       margin-bottom: 8px;
     }
+
+    /* Dynamic UI component styling */
+    .dui-container {
+      margin-top: 10px;
+    }
+
+    .dui-kv-grid {
+      display: grid;
+      gap: 8px;
+    }
+
+    .dui-kv-item {
+      display: flex;
+      justify-content: space-between;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+      padding-bottom: 4px;
+    }
+
+    .dui-kv-key {
+      color: rgba(255, 255, 255, 0.6);
+      font-size: 12px;
+    }
+
+    .dui-kv-value {
+      color: white;
+      font-weight: 500;
+      font-size: 12px;
+      text-align: right;
+    }
+
+    .dui-card-list {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .dui-card {
+      background: rgba(255, 255, 255, 0.05);
+      padding: 10px;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .dui-card-icon {
+      width: 24px;
+      height: 24px;
+      flex-shrink: 0;
+    }
+
+    .dui-card-icon svg {
+      width: 100%;
+      height: 100%;
+      stroke: rgba(255, 255, 255, 0.7);
+      fill: none;
+      stroke-width: 2;
+    }
+
+    .dui-card-title {
+      font-size: 13px;
+      font-weight: 500;
+      color: white;
+    }
+
+    .dui-card-sub {
+      font-size: 11px;
+      color: rgba(255, 255, 255, 0.5);
+    }
+
+    .dui-card-badge {
+      font-size: 10px;
+      background: rgba(255, 255, 255, 0.1);
+      padding: 2px 6px;
+      border-radius: 12px;
+    }
+
+    .dui-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 12px;
+    }
+
+    .dui-table th {
+      text-align: left;
+      padding: 6px;
+      color: rgba(255, 255, 255, 0.5);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+    }
+
+    .dui-table td {
+      padding: 6px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    }
+
+    .dui-empty {
+      text-align: center;
+      color: rgba(255, 255, 255, 0.5);
+      font-style: italic;
+      padding: 20px 0;
+    }
+
+    .custom-commands-container {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .command-card {
+      background: rgba(255, 255, 255, 0.05);
+      padding: 12px;
+      border-radius: 8px;
+    }
+
+    .command-trigger {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 8px;
+    }
+
+    .trigger-label {
+      font-weight: bold;
+      font-size: 13px;
+      color: white;
+    }
+
+    .trigger-badge {
+      font-size: 11px;
+      background: rgba(234, 170, 255, 0.2);
+      color: #eaaaff;
+      padding: 2px 6px;
+      border-radius: 10px;
+    }
+
+    .command-actions-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+
+    .command-action-pill {
+      font-size: 11px;
+      background: rgba(255, 255, 255, 0.1);
+      padding: 3px 8px;
+      border-radius: 12px;
+    }
+
+    .commands-empty {
+      text-align: center;
+      color: rgba(255, 255, 255, 0.5);
+      padding: 20px;
+    }
   </style>
 </head>
 
 <body>
   <div id="voice-screen">
-    <div id="status">Initializing</div>
+    <div id="status">Ready</div>
     <div id="partial"></div>
 
     <div id="voice-results">
@@ -1339,10 +1503,29 @@
       });
     });
 
+    window.voiceApi.receive("ai-status", (stage) => {
+      switch (stage) {
+        case 'thinking':
+          blobEl.className = 'ai processing';
+          statusEl.textContent = 'Thinking';
+          break;
+        case 'working':
+          blobEl.className = 'ai processing';
+          statusEl.textContent = 'Working on it';
+          break;
+        case 'speaking':
+          statusEl.textContent = '';
+          break;
+        case 'idle':
+          blobEl.className = 'ai';
+          statusEl.textContent = '';
+          break;
+      }
+    });
+
     window.voiceApi.receive("voice-response", (data) => {
       if (data.text) {
         words = data.text.split(" ").filter((w) => w.trim());
-        statusEl.textContent = "Synthesizing";
         awaitingAudio = true;
         if (data.audio) {
           awaitingAudio = false;
@@ -1386,26 +1569,44 @@
           voiceResultsListEl.innerHTML = "";
 
           data.results.forEach((item, i) => {
-            let iconSvg, iconClass;
+            let iconSvg = '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="2"></circle><path d="M12 8v4M12 16h.01" stroke="currentColor" stroke-width="2" stroke-linecap="round"></path></svg>';
+            let iconClass = '';
             if (item.type === "app") {
-              iconSvg = getAppIcon();
+              iconSvg = '<svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>';
               iconClass = "app-icon";
             } else if (item.type === "folder") {
-              iconSvg = getFolderIcon();
+              iconSvg = '<svg viewBox="0 0 24 24"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>';
               iconClass = "folder-icon";
-            } else {
-              iconSvg = getFileIcon();
-              iconClass = "";
+            } else if (item.type === "file") {
+              iconSvg = '<svg viewBox="0 0 24 24"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"></path><polyline points="13 2 13 9 20 9"></polyline></svg>';
             }
-            voiceResultsListEl.appendChild(
-              createResultItem(
-                i + 1,
-                item.name,
-                item.type,
-                iconClass,
-                iconSvg,
-              ),
-            );
+
+            const el = document.createElement("div");
+            el.className = "result-item";
+            el.style.animationDelay = `${i * 30}ms`;
+            el.innerHTML = `
+              <div class="result-icon ${iconClass}">${iconSvg}</div>
+              <div class="result-content">
+                <div class="result-name">${safeStr(item.name)}</div>
+                <div class="result-type" style="font-size:11px; color:var(--text-3); margin-top:2px;">${safeStr(item.type)}</div>
+              </div>
+            `;
+            // For voice selection we normally just wait for speech, but we can allow click too
+            el.addEventListener("click", () => {
+              window.voiceApi.send("voice-query", {
+                query: String(i + 1),
+                image: capturedImage,
+                previousResults: currentVoiceResults.map((r, idx) => ({
+                  index: idx + 1,
+                  name: r.data.name || r.data,
+                  type: r.type,
+                  path: typeof r.data === "string" ? r.data : r.data.path || ""
+                }))
+              });
+              hideVoiceResults();
+            });
+
+            voiceResultsListEl.appendChild(el);
           });
 
           if (currentVoiceResults.length > 0) {
@@ -1420,63 +1621,321 @@
       }
     });
 
+    // Safely stringify any value — properly HTML escaped
+    function safeStr(v) {
+      if (v === null || v === undefined) return 'N/A';
+      if (typeof v !== 'object') {
+        const s = String(v);
+        return s.replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+      }
+      if (Array.isArray(v)) return v.map(safeStr).join(', ');
+      const parts = Object.entries(v).slice(0, 3).map(([k, vv]) => `${safeStr(k)}: ${safeStr(vv)}`);
+      return parts.join(' · ');
+    }
+
+    function renderDynamicUI(component, rawData) {
+      const data = typeof rawData === 'string' ? (() => {
+        try { return JSON.parse(rawData); } catch { return rawData; }
+      })() : rawData;
+
+      // Normalize component names (skill uses hyphen, LLM may use camelCase)
+      const normalized = (component || '').replace(/-([a-z])/g, (_, c) => c.toUpperCase());
+
+      switch (normalized) {
+        case 'commandList':
+          renderCommandList(data);
+          break;
+        case 'keyValue':
+          renderKeyValue(data);
+          break;
+        case 'cardList':
+          renderCardList(data);
+          break;
+        case 'table':
+          renderTable(data);
+          break;
+        default:
+          if (typeof rawData === 'string') {
+            showAIResponse(rawData);
+          }
+          break;
+      }
+    }
+
+    function showAIResponse(rawData) {
+      clearForUI();
+      const container = document.createElement('div');
+      container.className = 'dui-container';
+      container.style.padding = '10px';
+      container.style.fontSize = '14px';
+      container.style.lineHeight = '1.4';
+      container.textContent = rawData;
+      voiceResultsListEl.appendChild(container);
+    }
+
+    function clearForUI() {
+
+      voiceResultsListEl.innerHTML = '';
+
+
+
+      currentVoiceResults = [];
+
+    }
+
+    function renderKeyValue(data) {
+      clearForUI();
+      const container = document.createElement('div');
+      container.className = 'dui-container';
+
+      // Parse data — could be JSON string or object
+      let kvPairs = {};
+      if (typeof data === 'string') {
+        try { kvPairs = JSON.parse(data); } catch { kvPairs = { result: data }; }
+      } else if (typeof data === 'object' && data !== null) {
+        kvPairs = data;
+      }
+
+      // Flatten nested objects one level
+      const flat = {};
+      for (const [k, v] of Object.entries(kvPairs)) {
+        if (typeof v === 'object' && v !== null && !Array.isArray(v)) {
+          for (const [nk, nv] of Object.entries(v)) {
+            flat[nk] = nv;
+          }
+        } else {
+          flat[k] = v;
+        }
+      }
+
+      const grid = document.createElement('div');
+      grid.className = 'dui-kv-grid';
+
+      for (const [key, value] of Object.entries(flat)) {
+        const item = document.createElement('div');
+        item.className = 'dui-kv-item';
+        const label = key.replace(/([A-Z])/g, ' $1').replace(/[_-]/g, ' ').trim();
+
+        const keySpan = document.createElement('span');
+        keySpan.className = 'dui-kv-key';
+        keySpan.textContent = label;
+
+        const valSpan = document.createElement('span');
+        valSpan.className = 'dui-kv-value';
+        valSpan.title = String(value);
+        valSpan.textContent = String(value ?? 'N/A');
+
+        item.appendChild(keySpan);
+        item.appendChild(valSpan);
+        grid.appendChild(item);
+      }
+
+      container.appendChild(grid);
+      voiceResultsListEl.appendChild(container);
+
+
+
+
+    }
+
+    function renderCardList(data) {
+      clearForUI();
+      const container = document.createElement('div');
+      container.className = 'dui-container';
+
+      let items = [];
+      if (typeof data === 'string') {
+        try {
+          const parsed = JSON.parse(data);
+          if (Array.isArray(parsed)) items = parsed;
+          else if (parsed.apps) items = parsed.apps.map(a => typeof a === 'string' ? { name: a, type: 'app' } : { name: a.name || a, type: 'app', ...a });
+          else if (parsed.processes) items = parsed.processes;
+          else items = Object.entries(parsed).map(([k, v]) => ({ name: k, value: v }));
+        } catch { items = [{ name: data }]; }
+      } else if (Array.isArray(data)) {
+        items = data;
+      } else if (data && typeof data === 'object') {
+        if (data.apps) items = data.apps.map(a => typeof a === 'string' ? { name: a, type: 'app' } : { name: a.name || a, type: 'app', ...a });
+        else items = Object.entries(data).map(([k, v]) => ({ name: k, value: typeof v === 'object' ? JSON.stringify(v) : v }));
+      }
+
+      const list = document.createElement('div');
+      list.className = 'dui-card-list';
+
+      items.forEach((item, i) => {
+        const card = document.createElement('div');
+        card.className = 'dui-card';
+        card.style.animationDelay = (i * 30) + 'ms';
+
+        const name = typeof item === 'string' ? item : (item.name || item.ProcessName || item.Name || 'Unknown');
+        const sub = item.path || item.type || item.status || '';
+        const badge = item.type || '';
+
+        card.innerHTML = `
+                    <div class="dui-card-icon"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"></rect><rect x="14" y="3" width="7" height="7" rx="1"></rect><rect x="3" y="14" width="7" height="7" rx="1"></rect><rect x="14" y="14" width="7" height="7" rx="1"></rect></svg></div>
+                    <div class="dui-card-body">
+                        <div class="dui-card-title">${escapeHtml(String(name))}</div>
+                        ${sub ? '<div class="dui-card-sub">' + escapeHtml(String(sub)) + '</div>' : ''}
+                    </div>
+                    ${badge ? '<span class="dui-card-badge">' + escapeHtml(String(badge)) + '</span>' : ''}
+                `;
+        list.appendChild(card);
+      });
+
+      container.appendChild(list);
+      voiceResultsListEl.appendChild(container);
+
+
+
+
+    }
+
+    function renderTable(data) {
+      clearForUI();
+      const container = document.createElement('div');
+      container.className = 'dui-container';
+
+      let rows = [];
+      if (typeof data === 'string') {
+        try { rows = JSON.parse(data); } catch { rows = []; }
+      } else if (Array.isArray(data)) {
+        rows = data;
+      }
+
+      if (!Array.isArray(rows)) rows = [rows];
+
+      if (rows.length > 0) {
+        const table = document.createElement('table');
+        table.className = 'dui-table';
+
+        const cols = Object.keys(rows[0]).filter(c => c !== 'CimClass' && c !== 'CimInstanceProperties' && c !== 'CimSystemProperties');
+        const colLabels = { Id: 'PID', ProcessName: 'Name', CPU: 'CPU (s)', WorkingSet: 'Memory' };
+
+        const thead = document.createElement('thead');
+        const headerRow = document.createElement('tr');
+        cols.forEach(col => {
+          const th = document.createElement('th');
+          th.textContent = colLabels[col] || col;
+          headerRow.appendChild(th);
+        });
+        thead.appendChild(headerRow);
+        table.appendChild(thead);
+
+        const tbody = document.createElement('tbody');
+        rows.forEach(row => {
+          const tr = document.createElement('tr');
+          cols.forEach(col => {
+            const td = document.createElement('td');
+            let val = row[col];
+            if (col === 'WorkingSet' && typeof val === 'number') {
+              val = (val / 1024 / 1024).toFixed(1) + ' MB';
+            } else if (col === 'CPU' && typeof val === 'number') {
+              val = val.toFixed(1);
+            }
+            td.textContent = val ?? 'N/A';
+            tr.appendChild(td);
+          });
+          tbody.appendChild(tr);
+        });
+        table.appendChild(tbody);
+        container.appendChild(table);
+      } else {
+        const empty = document.createElement('div');
+        empty.className = 'dui-empty';
+        empty.textContent = 'No data available.';
+        container.appendChild(empty);
+      }
+
+      voiceResultsListEl.appendChild(container);
+
+
+
+
+    }
+
+    function renderCommandList(data) {
+      voiceResultsListEl.innerHTML = "";
+
+
+      const container = document.createElement("div");
+      container.className = "custom-commands-container";
+
+      const cmds = data.customCommands || data.commands || [];
+
+      if (cmds.length === 0) {
+        const empty = document.createElement("div");
+        empty.className = "commands-empty";
+        empty.textContent = "No custom commands saved yet.";
+        container.appendChild(empty);
+      } else {
+        cmds.forEach((cmd, i) => {
+          const card = document.createElement("div");
+          card.className = "command-card";
+          card.style.animationDelay = (i * 60) + "ms";
+
+          const trigger = document.createElement("div");
+          trigger.className = "command-trigger";
+          trigger.innerHTML = `
+                        <span class="trigger-label">"${escapeHtml(cmd.trigger)}"</span>
+                        <span class="trigger-badge">${cmd.actionCount || cmd.actions?.length || 0} action${(cmd.actionCount || cmd.actions?.length || 0) !== 1 ? 's' : ''}</span>
+                    `;
+          card.appendChild(trigger);
+
+          if (cmd.actions && cmd.actions.length > 0) {
+            const actionsList = document.createElement("div");
+            actionsList.className = "command-actions-list";
+            cmd.actions.forEach(a => {
+              const pill = document.createElement("span");
+              pill.className = "command-action-pill";
+
+              let label = "";
+              const actionText = a.action || a.actionName;
+              if (actionText) {
+                label = actionText + (a.appName ? `: ${a.appName}` : a.command ? `: ${a.command}` : a.query ? `: ${a.query}` : '');
+              } else {
+                label = "Unknown action";
+              }
+
+              pill.textContent = label;
+              actionsList.appendChild(pill);
+            });
+            card.appendChild(actionsList);
+          }
+
+          container.appendChild(card);
+        });
+      }
+
+      voiceResultsListEl.appendChild(container);
+
+      currentVoiceResults = [];
+
+
+
+
+
+    }
+
+
     window.voiceApi.receive("dynamic-ui", (payload) => {
       try {
         const { component, data } = payload;
-        const normalized = (component || '').replace(/-([a-z])/g, (_, c) => c.toUpperCase());
 
-        let items = [];
-        let parsedData = typeof data === 'string' ? (() => { try { return JSON.parse(data); } catch { return data; } })() : data;
+        // Adjust clear logic for voice
+        voiceResultsListEl.innerHTML = "";
+        document.getElementById("voice-results-header").textContent = "Here is what I found:";
+        currentVoiceResults = [];
 
-        if (normalized === "keyValue") {
-          const flat = {};
-          for (const [k, v] of Object.entries(parsedData || {})) {
-            if (typeof v === 'object' && v !== null && !Array.isArray(v)) {
-              for (const [nk, nv] of Object.entries(v)) flat[nk] = nv;
-            } else flat[k] = v;
-          }
-          items = Object.entries(flat).map(([k, v]) => ({ name: k.replace(/([A-Z])/g, ' $1').replace(/[_-]/g, ' ').trim(), type: String(v ?? 'N/A') }));
-        }
-        else if (normalized === "cardList") {
-          if (Array.isArray(parsedData)) items = parsedData.map(i => typeof i === 'string' ? { name: i, type: '' } : { name: i.name || i.ProcessName || i.Name || 'Unknown', type: i.path || i.type || i.status || '' });
-          else if (parsedData && parsedData.apps) items = parsedData.apps.map(a => typeof a === 'string' ? { name: a, type: 'App' } : { name: a.name || a.Name, type: 'App' });
-          else if (parsedData && parsedData.processes) items = parsedData.processes.map(a => ({ name: a.name || a.ProcessName, type: 'Process' }));
-          else items = Object.entries(parsedData || {}).map(([k, v]) => ({ name: k, type: typeof v === 'object' ? JSON.stringify(v) : String(v) }));
-        }
-        else if (normalized === "table") {
-          let rows = Array.isArray(parsedData) ? parsedData : [parsedData];
-          items = rows.map(r => {
-            if (!r || typeof r !== 'object') return { name: 'Item', type: '' };
-            let name = r.ProcessName || r.Name || r.Id || String(r) || 'Item';
-            let val = '';
-            if (r.WorkingSet) val = (r.WorkingSet / 1024 / 1024).toFixed(1) + ' MB';
-            else if (r.CPU) val = r.CPU.toFixed(1) + ' CPU';
-            else {
-              const vals = Object.values(r);
-              val = vals.length > 1 ? String(vals[1]) : '';
-            }
-            return { name: String(name), type: String(val) };
-          });
-        }
-        else if (normalized === "commandList") {
-          const cmds = parsedData?.customCommands || parsedData?.commands || [];
-          items = cmds.map(c => ({ name: c.trigger, type: (c.actionCount || c.actions?.length || 0) + ' actions' }));
-        }
+        renderDynamicUI(component, data);
 
-        if (items.length > 0) {
-          currentVoiceResults = [];
-          document.getElementById("voice-results-header").textContent = "Here is what I found:";
-          voiceResultsListEl.innerHTML = "";
-          items.slice(0, 8).forEach((item, i) => {
-            let iconSvg = '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="2"></circle><path d="M12 8v4M12 16h.01" stroke="currentColor" stroke-width="2" stroke-linecap="round"></path></svg>';
-            let iconClass = 'app-icon';
-            voiceResultsListEl.appendChild(createResultItem(i + 1, item.name, item.type, iconClass, iconSvg));
-            currentVoiceResults.push({ type: "ui-item", data: item });
-          });
-          voiceResultsEl.classList.add("visible");
-          setState(VoiceState.SHOWING_RESULTS);
-        }
-      } catch (e) { console.error('[VoiceWindow] Dynamic UI render err:', e); }
+        // Show the container
+        voiceResultsEl.classList.add("visible");
+        setState(VoiceState.SHOWING_RESULTS);
+        // Don't auto-listen after showing UI
+        shouldListenAgain = false;
+      } catch (e) {
+        console.error('[VoiceWindow] Dynamic UI render err:', e);
+      }
     });
 
     window.voiceApi.receive("start-listening", async () => {

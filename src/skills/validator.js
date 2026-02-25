@@ -8,8 +8,8 @@
  * ═══════════════════════════════════════════════════════════════
  */
 
-const VALID_PERMISSIONS = ['safe', 'normal', 'dangerous'];
 const VALID_MARKERS = ['silently', 'announce', 'confirm'];
+const VALID_RETURNS = ['data', 'none'];
 
 function validate(skill, filePath) {
     const errors = [];
@@ -30,12 +30,12 @@ function validate(skill, filePath) {
         errors.push('Missing or invalid "handler" or "execute" (must be a function)');
     }
 
-    if (skill.permission && !VALID_PERMISSIONS.includes(skill.permission)) {
-        errors.push(`Invalid "permission": "${skill.permission}". Must be one of: ${VALID_PERMISSIONS.join(', ')}`);
-    }
-
     if (skill.marker && !VALID_MARKERS.includes(skill.marker)) {
         errors.push(`Invalid "marker": "${skill.marker}". Must be one of: ${VALID_MARKERS.join(', ')}`);
+    }
+
+    if (skill.returns && !VALID_RETURNS.includes(skill.returns)) {
+        errors.push(`Invalid "returns": "${skill.returns}". Must be one of: ${VALID_RETURNS.join(', ')}`);
     }
 
     if (skill.tags && !Array.isArray(skill.tags)) {

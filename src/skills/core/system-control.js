@@ -5,14 +5,20 @@
  * ═══════════════════════════════════════════════════════════════
  */
 
+const { z } = require('zod');
 const { runPowerShell } = require('./_shared');
 
 module.exports = {
+    schema: z.object({
+        command: z.string().describe('The system command like volumeUp, shutdown'),
+        value: z.preprocess((val) => Number(val), z.number()).optional(),
+    }),
     name: 'systemControl',
     description: 'Control system settings (volume, brightness, wifi, bluetooth, power)',
     tags: ['system', 'control', 'volume', 'brightness'],
-    permission: 'normal',
-    marker: 'announce',
+
+    returns: 'none',
+    marker: 'confirm',
     ui: null,
 
     async handler(params) {

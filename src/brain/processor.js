@@ -15,85 +15,125 @@ const orchestrator = require('./orchestrator');
 // Boot skills on first require
 require('../skills/loader');
 
+/**
+ * Extract the [speak]...[/speak] block if present.
+ * Returns { speakText, remainder } where remainder has the [speak] block removed.
+ */
+function extractSpeakBlock(response) {
+    const speakMatch = response.match(/\[speak\]([\s\S]*?)\[\/speak\]/i);
+    if (speakMatch) {
+        const speakText = speakMatch[1].trim();
+        const remainder = response.replace(speakMatch[0], '').trim();
+        return { speakText, remainder, hasSpeak: true };
+    }
+    return { speakText: null, remainder: response, hasSpeak: false };
+}
+
+/**
+ * Strip [silent]...[/silent] wrapper while preserving internal action content.
+ * The actions inside [silent] still need to be parsed.
+ */
+function unwrapSilentBlocks(text) {
+    return text
+        .replace(/\[silent\]/gi, '')
+        .replace(/\[\/silent\]/gi, '')
+        .trim();
+}
+
 async function processResponse(response) {
-    // Extract [ui: <component>] directive if present
+    // 1. Extract [speak] block if present
+    const { speakText, remainder, hasSpeak } = extractSpeakBlock(response);
+
+    // 2. Unwrap [silent] blocks so actions inside them are parseable
+    const actionableText = unwrapSilentBlocks(remainder);
+
+    // 3. Extract [ui: <component>] directive if present
     let uiDirective = null;
-    const uiMatch = response.match(/\[ui:\s*([\w-]+)\]/i);
+    let textForParsing = actionableText;
+    const uiMatch = textForParsing.match(/\[ui:\s*([\w-]+)\]/i);
     if (uiMatch) {
         uiDirective = uiMatch[1].trim();
-        response = response.replace(uiMatch[0], '').trim();
+        textForParsing = textForParsing.replace(uiMatch[0], '').trim();
     }
 
-    const plan = orchestrator.parseOrchestrationPlan(response);
+    const plan = orchestrator.parseOrchestrationPlan(textForParsing);
 
     if (plan?.steps?.length > 0) {
-        const cleanResponse = plan.textBeforePlan || '';
-        const results = await orchestrator.executePlan(plan);
-        return { cleanResponse, results, uiDirective };
-    }
+        // Compute cleanResponse: if [speak] was present, use that; otherwise strip tags from original
+        let cleanResponse;
+        if (hasSpeak) {
+            cleanResponse = speakText;
+        } else {
+            cleanResponse = response
+                .replace(/\[action:[^\]]*\]/gi, '')
+                .replace(/\[plan\](.|[\n\r])*?\[\/plan\]/gi, '')
+                .replace(/\[ui:[^\]]*\]/gi, '')
+                .replace(/\[silent\]([\s\S]*?)\[\/silent\]/gi, '')
+                .replace(/\[speak\]([\s\S]*?)\[\/speak\]/gi, '$1')
+                .trim();
 
-    // Single action parsing
-    const actionRegex = /\[action:\s*([^\],]+)((?:,\s*[^,\]]+:\s*[^\],]+)*)\]/g;
-    let match;
-    const actions = [];
-
-    while ((match = actionRegex.exec(response)) !== null) {
-        const actionName = match[1].trim();
-        const paramsStr = match[2] || '';
-        const params = {};
-
-        if (paramsStr.trim()) {
-            const paramPairs = paramsStr.split(',').filter(p => p.includes(':'));
-            for (const pair of paramPairs) {
-                const colonIndex = pair.indexOf(':');
-                if (colonIndex > 0) {
-                    const key = pair.substring(0, colonIndex).trim();
-                    const value = pair.substring(colonIndex + 1).trim();
-                    if (key && value) {
-                        params[key] = value;
-                    }
-                }
+            // If cleanResponse somehow bled the start of saveCommand, clean it further
+            if (cleanResponse.includes('[action:')) {
+                cleanResponse = cleanResponse.split('[action:')[0].trim();
             }
         }
 
-        actions.push({ actionName, params });
+        const rawResults = await orchestrator.executePlan(plan);
+        const results = rawResults.map(r => ({
+            actionName: r.actionName,
+            result: r.result !== undefined ? r.result : null,
+            error: r.error || null,
+            skipped: r.skipped || false,
+            marker: r.marker || 'announce',
+            ui: r.ui || null,
+        }));
+        return { cleanResponse, results, uiDirective };
     }
 
-    const cleanResponse = response.replace(/\[action:[^\]]*\]/g, '').replace(/\[ui:[^\]]*\]/g, '').trim();
+    // Single action parsing using strict parser
+    const actions = orchestrator.parseActionsStrict(textForParsing);
+
+    let cleanResponse;
+    if (hasSpeak) {
+        cleanResponse = speakText;
+    } else {
+        cleanResponse = response
+            .replace(/\[action:[^\]]*\]/gi, '')
+            .replace(/\[ui:[^\]]*\]/gi, '')
+            .replace(/\[silent\]([\s\S]*?)\[\/silent\]/gi, '')
+            .replace(/\[speak\]([\s\S]*?)\[\/speak\]/gi, '$1')
+            .trim();
+    }
 
     if (actions.length === 0) {
         return { cleanResponse, results: [], uiDirective };
     }
 
     const results = [];
-    for (const action of actions) {
+    for (const [index, action] of actions.entries()) {
         try {
-            const skill = registry.get(action.actionName);
-            if (!skill) {
-                results.push({
-                    actionName: action.actionName,
-                    error: `Unknown skill: ${action.actionName}`,
-                    skipped: false,
-                    marker: 'announce',
-                });
-                continue;
-            }
+            const result = await orchestrator.executeAction(action.actionName, action.params, {
+                planId: 'single',
+                stepIndex: index,
+                marker: action.marker
+            });
 
-            const result = await skill.handler(action.params);
             results.push({
                 actionName: action.actionName,
-                result,
-                error: null,
+                result: result.success ? result.output : null,
+                error: result.error || null,
                 skipped: false,
-                marker: skill.marker || 'announce',
-                ui: skill.ui || null,
+                marker: result.marker,
+                ui: result.ui || null,
             });
         } catch (error) {
             results.push({
                 actionName: action.actionName,
-                error: error.message,
+                result: null,
+                error: error.message || String(error),
                 skipped: false,
-                marker: 'announce',
+                marker: action.marker || 'silently',
+                ui: null,
             });
         }
     }

@@ -1,24 +1,29 @@
 /**
  * Venesa Sample Plugin
- * This is an example of an external skill loaded dynamically from the plugins folder.
+ *
+ * PLUGIN STANDARD SCHEMA:
+ *  - name:        string  — unique camelCase ID used by the AI as a tool name
+ *  - description: string  — shown in Settings and injected into the AI prompt
+ *  - ui:          string  — 'table' | 'key-value' | 'card-list' | 'commandList' (optional)
+ *  - handler:     async (params) => any  — REQUIRED
+ *
+ * The AI decides when to call your plugin based on name + description.
+ * handler(params) receives parameters the AI passes.
  */
+const { z } = require('zod');
 
 module.exports = {
-    name: 'sample-plugin',
-    description: 'A sample external plugin that returns a custom greeting and a dummy data table.',
-    permission: 'normal',
+    schema: z.object({}),
 
-    // Explicit trigger (e.g., typing "hello") bypasses the LLM entirely
-    trigger: 'hello',
 
-    // Suggest to the UI which dynamic component should display the output
+    name: 'samplePlugin',
+    description: 'Returns a custom greeting and a sample data table. ONLY use when the user EXPLICITLY asks to "test the table plugin" or "show the sample plugin". Do NOT use for general UI questions.',
     ui: 'table',
+    enabled: true,
 
-    execute: async (query, context) => {
-        // You can use context.llm to prompt the AI within your skill if needed
-        // You can run any Node.js code here
+    handler: async (params) => {
+        const query = params.query || params.text || '';
 
-        // Example: generate some dummy data for a table
         const data = [
             { id: 1, Name: 'Sample Item A', Status: 'Active', Value: 100 },
             { id: 2, Name: 'Sample Item B', Status: 'Inactive', Value: 0 },
@@ -28,7 +33,7 @@ module.exports = {
         return {
             success: true,
             message: `Hello from the sample plugin! You said: "${query || 'Nothing'}"`,
-            data: data
+            data,
         };
-    }
+    },
 };

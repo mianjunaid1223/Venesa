@@ -5,13 +5,19 @@
  * ═══════════════════════════════════════════════════════════════
  */
 
+const { z } = require('zod');
 const memory = require('../../brain/memory');
 
 module.exports = {
+    schema: z.object({
+        bucket: z.enum(['preferences', 'context', 'aliases', 'history']).describe('The memory bucket'),
+        key: z.string().optional().describe('The memory key to retrieve'),
+    }),
     name: 'getMemory',
     description: 'Read a value from a memory bucket',
     tags: ['memory', 'read', 'remember'],
-    permission: 'safe',
+
+    returns: 'data',
     marker: 'silently',
     ui: null,
 

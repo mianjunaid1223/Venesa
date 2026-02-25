@@ -5,13 +5,16 @@
  * ═══════════════════════════════════════════════════════════════
  */
 
+const { z } = require('zod');
 const { runPowerShell, escapeForPowerShell } = require('./_shared');
 
 module.exports = {
+    schema: z.object({ appName: z.string().trim().min(1).describe('The name of the application to close') }),
     name: 'closeApp',
     description: 'Close a specific running application by name',
     tags: ['app', 'close', 'kill'],
-    permission: 'normal',
+
+    returns: 'none',
     marker: 'announce',
     ui: null,
 
@@ -22,13 +25,15 @@ module.exports = {
         }
 
         const safeName = escapeForPowerShell(appName.trim());
+        if (!safeName) return JSON.stringify({ success: false, error: 'Invalid app name provided.' });
         const psScript = `
-$procs = Get-Process | Where-Object { $_.ProcessName -like '*${safeName}*' -or $_.MainWindowTitle -like '*${safeName}*' } | Where-Object { $_.MainWindowHandle -ne 0 }
+$appName = '${safeName}'
+$procs = Get-Process | Where-Object { $_.ProcessName -like "*$appName*" -or $_.MainWindowTitle -like "*$appName*" } | Where-Object { $_.MainWindowHandle -ne 0 }
 if ($procs) {
     $procs | ForEach-Object { $_.CloseMainWindow() | Out-Null }
-    @{ success = $true; closed = '${safeName}'; count = $procs.Count } | ConvertTo-Json -Compress
+    @{ success = $true; closed = $appName; count = $procs.Count } | ConvertTo-Json -Compress
 } else {
-    @{ success = $false; error = "No running app found matching: ${safeName}" } | ConvertTo-Json -Compress
+    @{ success = $false; error = "No running app found matching: $appName" } | ConvertTo-Json -Compress
 }
 `;
         try {

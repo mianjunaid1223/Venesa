@@ -5,13 +5,16 @@
  * ═══════════════════════════════════════════════════════════════
  */
 
+const { z } = require('zod');
 const { shell } = require('electron');
 
 module.exports = {
+    schema: z.object({ location: z.string().optional() }),
     name: 'getWeather',
     description: 'Open weather information for a location',
     tags: ['weather', 'forecast'],
-    permission: 'safe',
+
+    returns: 'none',
     marker: 'announce',
     ui: null,
 
@@ -23,7 +26,7 @@ module.exports = {
             await shell.openExternal(url);
             return location ? `Checking weather for ${location}` : 'Opening weather info';
         } catch (e) {
-            return `Failed to open browser: ${e.message}`;
+            return JSON.stringify({ success: false, error: e.message });
         }
     },
 };

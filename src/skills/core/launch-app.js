@@ -5,13 +5,16 @@
  * ═══════════════════════════════════════════════════════════════
  */
 
+const { z } = require('zod');
 const { runPowerShell, escapeForPowerShell } = require('./_shared');
 
 module.exports = {
+    schema: z.object({ appName: z.string().describe('The exact name of the application to launch') }),
     name: 'launchApplication',
     description: 'Search for and launch an application by name',
     tags: ['app', 'launch', 'open'],
-    permission: 'normal',
+
+    returns: 'none',
     marker: 'announce',
     ui: null,
 

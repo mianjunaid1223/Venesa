@@ -27,6 +27,7 @@ contextBridge.exposeInMainWorld('settingsApi', {
     // Memory
     getMemoryBucket: (bucket) => ipcRenderer.invoke('memory:get-bucket', bucket),
     clearMemoryBucket: (bucket) => ipcRenderer.invoke('memory:clear-bucket', bucket),
+    factoryReset: () => ipcRenderer.invoke('factory-reset'),
 
     // Window
     close: () => ipcRenderer.send('close-settings'),

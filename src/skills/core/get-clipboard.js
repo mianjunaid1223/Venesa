@@ -5,13 +5,16 @@
  * ═══════════════════════════════════════════════════════════════
  */
 
+const { z } = require('zod');
 const { clipboard } = require('electron');
 
 module.exports = {
+    schema: z.object({}),
     name: 'getClipboard',
     description: 'Read text from the clipboard',
     tags: ['clipboard', 'read'],
-    permission: 'safe',
+
+    returns: 'data',
     marker: 'silently',
     ui: null,
 

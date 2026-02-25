@@ -47,8 +47,4 @@ function save(patch) {
     }
 }
 
-function get() {
-    return load();
-}
-
-module.exports = { load, save, get, DEFAULTS, SETTINGS_PATH };
+module.exports = { load, save, DEFAULTS, SETTINGS_PATH };

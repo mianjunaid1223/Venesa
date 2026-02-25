@@ -5,13 +5,16 @@
  * ═══════════════════════════════════════════════════════════════
  */
 
+const { z } = require('zod');
 const { shell } = require('electron');
 
 module.exports = {
+    schema: z.object({ query: z.string().trim().min(1).describe('The search query') }),
     name: 'youtubeSearch',
     description: 'Search YouTube for a query and open results in browser',
     tags: ['web', 'search', 'youtube', 'video'],
-    permission: 'safe',
+
+    returns: 'none',
     marker: 'announce',
     ui: null,
 

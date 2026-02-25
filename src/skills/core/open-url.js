@@ -5,15 +5,18 @@
  * ═══════════════════════════════════════════════════════════════
  */
 
+const { z } = require('zod');
 const { shell } = require('electron');
 
 const ALLOWED_SCHEMES = ['http:', 'https:', 'mailto:'];
 
 module.exports = {
+    schema: z.object({ url: z.string().url().describe('The URL to open') }),
     name: 'openUrl',
     description: 'Open a URL in the default browser',
     tags: ['web', 'url', 'browse'],
-    permission: 'normal',
+
+    returns: 'none',
     marker: 'announce',
     ui: null,
 

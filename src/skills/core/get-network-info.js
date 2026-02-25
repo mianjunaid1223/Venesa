@@ -5,13 +5,16 @@
  * ═══════════════════════════════════════════════════════════════
  */
 
+const { z } = require('zod');
 const { runPowerShell } = require('./_shared');
 
 module.exports = {
+    schema: z.object({}),
     name: 'getNetworkInfo',
     description: 'Get network adapter and IP address info',
     tags: ['system', 'network', 'wifi'],
-    permission: 'safe',
+
+    returns: 'data',
     marker: 'silently',
     ui: 'key-value',
 

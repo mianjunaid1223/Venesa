@@ -332,5 +332,7 @@ module.exports = {
     reportSuccess,
     reportError,
     getStats,
-    isHealthy: () => pool.gemini.keys.length > 0 || pool.elevenlabs.keys.length > 0
+    isHealthy: () => pool.gemini.keys.length > 0 || pool.elevenlabs.keys.length > 0,
+    validateGeminiKey,
+    validateElevenLabsKey
 };

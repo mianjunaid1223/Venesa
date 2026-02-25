@@ -5,13 +5,16 @@
  * ═══════════════════════════════════════════════════════════════
  */
 
+const { z } = require('zod');
 const { clipboard } = require('electron');
 
 module.exports = {
+    schema: z.object({ text: z.string().trim().min(1).describe('The text to copy to the clipboard') }),
     name: 'setClipboard',
     description: 'Set clipboard text content',
     tags: ['clipboard', 'write', 'copy'],
-    permission: 'normal',
+
+    returns: 'none',
     marker: 'silently',
     ui: null,
 

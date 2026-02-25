@@ -5,14 +5,17 @@
  * ═══════════════════════════════════════════════════════════════
  */
 
+const { z } = require('zod');
 const path = require('path');
 const { HOME_DIR, runPowerShell } = require('./_shared');
 
 module.exports = {
+    schema: z.object({}),
     name: 'takeScreenshot',
     description: 'Take a screenshot saved to Pictures folder',
     tags: ['screen', 'screenshot', 'capture'],
-    permission: 'normal',
+
+    returns: 'none',
     marker: 'announce',
     ui: null,
 

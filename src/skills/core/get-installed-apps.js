@@ -5,13 +5,16 @@
  * ═══════════════════════════════════════════════════════════════
  */
 
+const { z } = require('zod');
 const { runPowerShell } = require('./_shared');
 
 module.exports = {
+    schema: z.object({}),
     name: 'getInstalledApps',
     description: 'List installed applications',
     tags: ['app', 'installed', 'list'],
-    permission: 'safe',
+
+    returns: 'data',
     marker: 'silently',
     ui: 'card-list',
 

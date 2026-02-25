@@ -58,7 +58,6 @@ function start(callback) {
 function stop() {
     isListening = false;
     isRecording = false;
-    isProcessingRecording = false;
     audioChunks = [];
     if (silenceTimer) {
         clearTimeout(silenceTimer);
@@ -129,11 +128,16 @@ async function processRecording() {
             contentType: 'audio/wav',
         });
 
-        if (text && text.trim()) {
-            logger.info(`STT Transcript: "${text.trim()}"`);
+        const rawTrimmed = (text || '').trim();
+        const cleanedText = rawTrimmed.replace(/\([^)]+\)/g, '').replace(/\[[^\]]+\]/g, '').replace(/\*([^*]+)\*/g, '').replace(/_+/g, '').trim();
+
+        if (cleanedText) {
+            logger.info(`STT Transcript: "${rawTrimmed}"`);
             if (onResultCallback) {
-                onResultCallback('text', text.trim());
+                onResultCallback('text', cleanedText); // Use cleaned text
             }
+        } else if (rawTrimmed) {
+            logger.debug(`STT Noise (ignored): "${rawTrimmed}"`);
         } else {
             logger.debug('STT returned empty result');
         }

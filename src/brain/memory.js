@@ -183,13 +183,38 @@ function addInteraction(query, response) {
 
 function getCustomCommands() {
     const cmds = get('aliases', 'customCommands');
-    return Array.isArray(cmds) ? cmds : [];
+    if (!Array.isArray(cmds)) return [];
+
+    let mutated = false;
+    for (const c of cmds) {
+        if (!c || !c.trigger) continue;
+        if (typeof c.actions !== 'string') {
+            try {
+                c.actions = JSON.stringify(c.actions);
+            } catch (e) {
+                c.actions = String(c.actions);
+            }
+            mutated = true;
+        }
+    }
+
+    const validCmds = cmds.filter(c => c && c.trigger && c.actions != null);
+    if (mutated) {
+        set('aliases', 'customCommands', validCmds);
+    }
+    return validCmds;
 }
 
 function addCustomCommand(trigger, actions, description) {
     const cmds = getCustomCommands();
     const existing = cmds.findIndex(c => c.trigger.toLowerCase() === trigger.toLowerCase());
-    const cmd = { trigger, actions, description: description || '' };
+
+    let normalizedActions = actions;
+    if (typeof normalizedActions !== 'string') {
+        try { normalizedActions = JSON.stringify(normalizedActions); } catch (e) { normalizedActions = String(normalizedActions); }
+    }
+
+    const cmd = { trigger, actions: normalizedActions, description: description || '' };
     if (existing >= 0) {
         cmds[existing] = cmd;
     } else {
@@ -213,15 +238,14 @@ function getCustomCommandsPromptSection() {
     const cmds = getCustomCommands();
     if (cmds.length === 0) return '';
     const list = cmds.map(c => {
-        let actionsStr = '';
-        if (Array.isArray(c.actions)) {
-            actionsStr = c.actions.map(a => typeof a === 'string' ? a : (a.action || String(a))).join(', ');
-        } else {
-            actionsStr = c.trigger;
+        let actionsStr = c.actions;
+        if (typeof actionsStr !== 'string') {
+            try { actionsStr = JSON.stringify(actionsStr); } catch (e) { actionsStr = String(actionsStr); }
         }
-        return `- "${c.trigger}" → ${c.description || actionsStr}`;
+        const safeTrigger = String(c.trigger).replace(/[\n#]/g, '');
+        return `- "${safeTrigger}" → YOU MUST EMIT THE FOLLOWING EXACTLY AS WRITTEN:\n\`\`\`\n${actionsStr}\n\`\`\``;
     }).join('\n');
-    return `\n## CUSTOM COMMANDS (user-created shortcuts)\nWhen the user says one of these triggers, execute the corresponding actions:\n${list}\n`;
+    return `\n## CUSTOM COMMANDS (user-created shortcuts)\nWhen the user says one of these triggers exactly, do NOT just say "Done". YOU MUST emit the EXACT action tags listed below:\n${list}\n`;
 }
 
 module.exports = {

@@ -5,14 +5,17 @@
  * ═══════════════════════════════════════════════════════════════
  */
 
+const { z } = require('zod');
 const { runPowerShell } = require('./_shared');
 
 module.exports = {
+    schema: z.object({}),
     name: 'listRunningApps',
     description: 'List currently running visible applications',
     tags: ['system', 'apps', 'running'],
-    permission: 'safe',
-    marker: 'announce',
+
+    returns: 'data',
+    marker: 'silently',
     ui: 'card-list',
 
     async handler() {

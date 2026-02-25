@@ -15,9 +15,10 @@ const os = require('os');
 const logger = require('../../lib/logger');
 const llm = require('../../brain/llm');
 const processor = require('../../brain/processor');
+const memory = require('../../brain/memory');
 const ttsService = require('../speech/tts');
 const sttService = require('../speech/stt');
-const { formatForVoice, DISPLAY_ONLY_ACTIONS } = require('../formatters');
+const { DISPLAY_ONLY_ACTIONS, formatForVoice } = require('../formatters');
 const uiPipeline = require('../ui-pipeline');
 
 let cachedScreenCapture = null;
@@ -64,6 +65,13 @@ function sendToMainWindow(channel, data) {
     }
 }
 
+/** Safe-send a status stage update to the voice window */
+function sendStatus(event, stage) {
+    if (!event.sender.isDestroyed()) {
+        event.sender.send('ai-status', stage);
+    }
+}
+
 function register(getVoiceWindow, hideVoiceWindow) {
     ipcMain.on('voice-window-ready', () => { });
 
@@ -73,6 +81,9 @@ function register(getVoiceWindow, hideVoiceWindow) {
 
     ipcMain.on('voice-query', async (event, payload) => {
         try {
+            // Stage 1: Thinking
+            sendStatus(event, 'thinking');
+
             let imageToSend = null;
             if (needsVisualContext(payload.query)) {
                 imageToSend = payload.image || cachedScreenCapture;
@@ -96,25 +107,20 @@ function register(getVoiceWindow, hideVoiceWindow) {
             }
 
             const rawResponse = await llm.sendQuery(finalQuery, imageToSend, 'voice');
+
+            // Stage 2: Working (executing actions)
+            sendStatus(event, 'working');
+
             const { cleanResponse, results, uiDirective } = await processor.processResponse(rawResponse);
 
+            // The cleanResponse from processor already extracts [speak] content if present.
+            // It will NOT contain any [silent] block content, action tags, or plan syntax.
             let finalResponse = cleanResponse.replace(/\[NEED_SCREEN\]/g, '').trim();
             let hasSearchResults = false;
             let searchResultData = null;
+
+            // shouldListenAgain is set ONLY if the AI explicitly returns [action: listen]
             let shouldListenAgain = false;
-
-            let feedback = [];
-
-            // Actions that display info — they should NEVER trigger listen-again
-            const INFO_ONLY_ACTIONS = new Set([
-                'getSystemInfo', 'getDiskInfo', 'getNetworkInfo', 'listProcesses',
-                'getTime', 'getClipboard', 'calculate', 'setMemory', 'getMemory',
-                'setReminder', 'launchApplication', 'closeApp', 'closeAllApps',
-                'openFile', 'openUrl', 'googleSearch', 'youtubeSearch', 'getWeather',
-                'systemControl', 'takeScreenshot', 'runPowerShell', 'listRunningApps',
-                'getInstalledApps', 'listCommands', 'saveCommand', 'removeCommand',
-                'setClipboard',
-            ]);
 
             if (results && results.length > 0) {
                 for (const res of results) {
@@ -122,14 +128,6 @@ function register(getVoiceWindow, hideVoiceWindow) {
                         shouldListenAgain = true;
                         continue;
                     }
-                    if (uiDirective && DISPLAY_ONLY_ACTIONS.has(res.actionName)) continue;
-                    if (res.marker === 'silently' && !res.error) {
-                        const fb = formatForVoice(res);
-                        if (fb) feedback.push(fb);
-                        continue;
-                    }
-                    if (res.skipped) continue;
-
                     if (res.actionName === 'searchFiles' && res.result) {
                         try {
                             searchResultData = typeof res.result === 'string' ? JSON.parse(res.result) : res.result;
@@ -138,40 +136,44 @@ function register(getVoiceWindow, hideVoiceWindow) {
                                 (searchResultData.files?.length || 0) +
                                 (searchResultData.folders?.length || 0) > 0;
                             if (hasItems) hasSearchResults = true;
-                            else feedback.push("I couldn't find any matching files or apps.");
                         } catch (e) {
-                            logger.error(`[Main] Search parse error: ${e.message}`);
+                            logger.error(`[voice] Search parse error: ${e.message}`);
                         }
                         continue;
                     }
-
-                    const fb = formatForVoice(res);
-                    if (fb) feedback.push(fb);
-                }
-
-                // If ALL non-listen results are info-only display actions, don't listen.
-                // The AI sometimes incorrectly adds [action: listen] after showing stats.
-                const nonListenActions = results.filter(r => r.actionName !== 'listen');
-                if (nonListenActions.length > 0 && nonListenActions.every(r => INFO_ONLY_ACTIONS.has(r.actionName))) {
-                    shouldListenAgain = false;
                 }
             }
 
-            if (feedback.length > 0) {
-                finalResponse = (finalResponse + ' ' + feedback.join(' ')).trim();
+            // Only append formatted voice feedback for data-display actions (system info, time, etc.)
+            // Do NOT append for actions like launchApplication, saveCommand, etc.
+            if (results && results.length > 0) {
+                const dataActions = new Set([
+                    'getSystemInfo', 'getTime', 'calculate', 'listRunningApps',
+                    'closeApp', 'closeAllApps', 'getClipboard', 'setClipboard',
+                    'takeScreenshot', 'getNetworkInfo', 'getDiskInfo', 'listProcesses',
+                    'runPowerShell'
+                ]);
+                let dataFeedback = [];
+                for (const res of results) {
+                    if (res.actionName === 'searchFiles' || res.actionName === 'listen') continue;
+                    if (dataActions.has(res.actionName)) {
+                        let fb = formatForVoice(res);
+                        if (fb) dataFeedback.push(fb);
+                    }
+                }
+                if (dataFeedback.length > 0 && (!finalResponse || finalResponse.length === 0)) {
+                    finalResponse = dataFeedback.join(' ').trim();
+                } else if (dataFeedback.length > 0) {
+                    finalResponse = (finalResponse + ' ' + dataFeedback.join(' ')).trim();
+                }
             }
 
             if (results && results.length > 0) {
-                const mainWin = BrowserWindow.getAllWindows().find(w => !w.isDestroyed() && w.getTitle() !== 'Voice');
-                uiPipeline.dispatchFromResults(mainWin, results, uiDirective);
-                const senderWin = BrowserWindow.fromWebContents(event.sender);
-                uiPipeline.dispatchFromResults(senderWin, results, uiDirective);
-
-                // If there's dynamic UI to show, bring the main window to front
-                // so the user can see the visual data (tables, key-value, card lists)
-                if (uiDirective && mainWin && !mainWin.isDestroyed()) {
-                    const mainWinModule = require('../windows/main-window');
-                    mainWinModule.showWindow();
+                const senderWin = BrowserWindow.fromWebContents(event.sender) || BrowserWindow.getFocusedWindow();
+                if (senderWin && !senderWin.isDestroyed()) {
+                    uiPipeline.dispatchFromResults(senderWin, results, uiDirective);
+                } else {
+                    logger.warn('[voice] Discarding UI dispatch: senderWin is null or destroyed');
                 }
             }
 
@@ -196,16 +198,20 @@ function register(getVoiceWindow, hideVoiceWindow) {
                 }
 
                 if (totalCount > 0) {
-                    finalResponse = `I found ${totalCount} match${totalCount > 1 ? 'es' : ''}. Which one would you like?`;
-                    shouldListenAgain = true;
+                    if (!finalResponse) {
+                        finalResponse = `I found ${totalCount} match${totalCount > 1 ? 'es' : ''}. Which one would you like?`;
+                    }
                 } else {
-                    finalResponse = "I couldn't find any matching files or apps.";
+                    if (!finalResponse) finalResponse = "I couldn't find any matching files or apps.";
                 }
             }
 
             if (!finalResponse || finalResponse.trim() === '') {
                 finalResponse = 'Done.';
             }
+
+            // Stage 3: Speaking
+            sendStatus(event, 'speaking');
 
             if (!event.sender.isDestroyed()) {
                 event.sender.send('voice-response', { text: finalResponse, audio: null });
@@ -234,11 +240,12 @@ function register(getVoiceWindow, hideVoiceWindow) {
                             event.sender.send('voice-audio-ready', audioDataUrl);
                         }
                     })
-                    .catch((err) => { console.error('[Main] TTS synthesis failed:', err.message); });
+                    .catch((err) => { logger.error(`[voice] TTS synthesis failed: ${err.message}`); });
             }
         } catch (error) {
+            sendStatus(event, 'idle');
             if (!event.sender.isDestroyed()) {
-                event.sender.send('voice-response', { text: `Error: ${error.message || String(error)}`, audio: null });
+                event.sender.send('voice-response', { text: `Something went wrong. Try again.`, audio: null });
             }
         }
     });
@@ -280,6 +287,8 @@ function register(getVoiceWindow, hideVoiceWindow) {
                 }
                 return;
             }
+
+            sendStatus(event, 'working');
 
             const { originalQuery, selectedItem } = payload;
 
@@ -342,6 +351,8 @@ function register(getVoiceWindow, hideVoiceWindow) {
                 }
             }
 
+            sendStatus(event, 'speaking');
+
             if (!event.sender.isDestroyed()) {
                 event.sender.send('action-complete');
                 event.sender.send('voice-response', { text: finalResponse, audio: null });
@@ -360,7 +371,7 @@ function register(getVoiceWindow, hideVoiceWindow) {
         } catch (error) {
             logger.error(`[voice] voice-file-action error: ${error.message}`);
             if (!event.sender.isDestroyed()) {
-                event.sender.send('voice-response', { text: `Error: ${error.message}`, audio: null });
+                event.sender.send('voice-response', { text: `Something went wrong.`, audio: null });
             }
         }
     });

@@ -5,6 +5,7 @@
  * ═══════════════════════════════════════════════════════════════
  */
 
+const { z } = require('zod');
 const { runPowerShell } = require('./_shared');
 
 const SAFE_PS_PATTERNS = [
@@ -38,10 +39,12 @@ const DANGEROUS_PS_PATTERNS = [
 ];
 
 module.exports = {
+    schema: z.object({ script: z.string().describe('The PowerShell script to execute') }),
     name: 'runPowerShell',
     description: 'Run a safe read-only PowerShell command',
     tags: ['system', 'powershell', 'advanced'],
-    permission: 'dangerous',
+
+    returns: 'data',
     marker: 'silently',
     ui: null,
 

@@ -5,13 +5,16 @@
  * ═══════════════════════════════════════════════════════════════
  */
 
+const { z } = require('zod');
 const { runPowerShell } = require('./_shared');
 
 module.exports = {
+    schema: z.object({}),
     name: 'listProcesses',
     description: 'List top 10 CPU-heavy processes',
     tags: ['system', 'processes'],
-    permission: 'safe',
+
+    returns: 'data',
     marker: 'silently',
     ui: 'table',
 
@@ -21,8 +24,7 @@ module.exports = {
                 'Get-Process | Sort-Object CPU -Descending | Select-Object -First 10 -Property Id, ProcessName, CPU, WorkingSet | ConvertTo-Json -Compress'
             );
         } catch (e) {
-            console.error('list-processes skill error:', e);
-            return '[]';
+            return JSON.stringify({ error: e.message });
         }
     },
 };

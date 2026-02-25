@@ -18,6 +18,27 @@
 const logger = require('../lib/logger');
 
 /**
+ * Normalize a plugin/skill result.
+ * Handlers often return {success, message, data: [...]} wrappers.
+ * Unwrap to the actual payload the renderer expects.
+ */
+function normalizeResult(raw) {
+    if (raw === null || raw === undefined) return raw;
+    if (typeof raw !== 'object' || Array.isArray(raw)) return raw;
+
+    // Common wrapper patterns: {data}, {result}, {items}, {rows}, {list}
+    for (const key of ['data', 'result', 'items', 'rows', 'list', 'processes', 'apps', 'files']) {
+        if (raw[key] !== undefined && raw[key] !== null) {
+            // Only unwrap if the top-level object isn't directly renderable as kv
+            if (Array.isArray(raw[key]) || typeof raw[key] === 'object') {
+                return raw[key];
+            }
+        }
+    }
+    return raw;
+}
+
+/**
  * Send a dynamic-ui event to a specific BrowserWindow.
  * @param {import('electron').BrowserWindow} win
  * @param {string} component
@@ -46,11 +67,12 @@ function dispatchFromResults(win, results, uiDirective) {
     for (const res of results) {
         const component = uiDirective || res.ui;
         if (component && res.result !== undefined && res.result !== null) {
-            send(win, component, res.result, res.actionName);
+            send(win, component, normalizeResult(res.result), res.actionName);
             return true;
         }
     }
     return false;
 }
 
-module.exports = { send, dispatchFromResults };
+module.exports = { send, dispatchFromResults, normalizeResult };
+

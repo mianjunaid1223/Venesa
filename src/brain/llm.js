@@ -16,7 +16,33 @@ const settings = require("./settings");
 
 let genAI = null;
 let activeKey = null;
-let systemPromptCache = { text: null, voice: null };
+
+// TTL-based prompt cache — rebuilt at most once every 60 seconds per mode.
+// Keeps responses fast while ensuring fresh memory is reflected quickly.
+const PROMPT_TTL_MS = 60_000;
+const promptCache = {
+    text: { prompt: null, builtAt: 0 },
+    voice: { prompt: null, builtAt: 0 },
+};
+
+function getSystemPromptCached(userName, mode) {
+    const resolvedMode = promptCache[mode] ? mode : 'text';
+    const entry = promptCache[resolvedMode];
+    const now = Date.now();
+    if (!entry.prompt || (now - entry.builtAt) > PROMPT_TTL_MS) {
+        const getSystemPrompt = require('./system-prompt');
+        entry.prompt = getSystemPrompt(userName, resolvedMode);
+        entry.builtAt = now;
+        logger.debug(`[LLM] Rebuilt ${resolvedMode} system prompt`);
+    }
+    return entry.prompt;
+}
+
+/** Force-expire the prompt cache (e.g. after settings save or memory write). */
+function invalidatePromptCache() {
+    promptCache.text.builtAt = 0;
+    promptCache.voice.builtAt = 0;
+}
 
 async function initializeAPI() {
     const apiKey = keyPool.getNextKey('gemini');
@@ -34,7 +60,7 @@ async function initializeAPI() {
         genAI = new GoogleGenerativeAI(activeKey);
     }
 
-    systemPromptCache = { text: null, voice: null };
+    invalidatePromptCache();
     logger.info('LLM API initialized');
 }
 
@@ -49,15 +75,12 @@ function getModel(mode = 'text') {
     }
     const s = settings.load();
     const servicesConfig = require('./services.config');
-    const getSystemPrompt = require('./system-prompt');
 
-    if (!systemPromptCache[mode]) {
-        systemPromptCache[mode] = getSystemPrompt(s.userName, mode);
-    }
+    const systemInstruction = getSystemPromptCached(s.userName, mode);
 
     return genAI.getGenerativeModel({
         model: s.modelName || servicesConfig.gemini.model,
-        systemInstruction: systemPromptCache[mode],
+        systemInstruction,
         generationConfig: servicesConfig.gemini.generationConfig,
         safetySettings: servicesConfig.gemini.safetySettings,
     });
@@ -82,7 +105,6 @@ async function sendQuery(query, imageData = null, mode = 'text') {
             let result;
 
             if (imageData) {
-                // Accepted imageData format: Full data URI, "base64," prefix, or raw base64 string.
                 let mimeType = 'application/octet-stream';
                 let base64Data = imageData;
                 const dataUriMatch = imageData.match(/^data:([^;]+);base64,(.*)$/);
@@ -98,27 +120,29 @@ async function sendQuery(query, imageData = null, mode = 'text') {
                     const cleanData = imageData.replace(/\s/g, '');
                     if (cleanData.length >= 64 && cleanData.length % 4 === 0 && /^[A-Za-z0-9+/=]+$/.test(cleanData)) {
                         base64Data = cleanData;
-                        logger.warn('Falling back to raw base64 string for image data');
                     } else {
-                        logger.warn(
-                            `[LLM] base64 validation failed for imageData — ` +
-                            `len=${cleanData.length}, mod4=${cleanData.length % 4}, ` +
-                            `first4=${cleanData.slice(0, 4)}, last4=${cleanData.slice(-4)}. ` +
-                            `Dropping image to prevent invalid API request.`
-                        );
+                        logger.warn('[LLM] base64 validation failed — dropping image');
                         base64Data = null;
                     }
                 }
 
-                result = await chat.sendMessage([
-                    query,
-                    {
-                        inlineData: {
-                            mimeType,
-                            data: base64Data,
+                if (base64Data) {
+                    if (mimeType === 'application/octet-stream') {
+                        logger.error('[LLM] Invalid image mimeType "application/octet-stream". Please provide a valid IANA media type.');
+                        throw new Error('Invalid image mimeType. Please provide a valid IANA media type.');
+                    }
+                    result = await chat.sendMessage([
+                        query,
+                        {
+                            inlineData: {
+                                mimeType,
+                                data: base64Data,
+                            },
                         },
-                    },
-                ]);
+                    ]);
+                } else {
+                    result = await chat.sendMessage(query);
+                }
             } else {
                 result = await chat.sendMessage(query);
             }
@@ -126,7 +150,14 @@ async function sendQuery(query, imageData = null, mode = 'text') {
             const responseText = result.response.text();
             if (activeKey) keyPool.reportSuccess('gemini', activeKey);
 
-
+            // Write to memory AFTER successful response
+            try {
+                memory.addInteraction(query, responseText.substring(0, 200));
+                // Expire prompt cache so next query picks up the new history entry
+                invalidatePromptCache();
+            } catch (memErr) {
+                logger.warn(`[LLM] Memory write failed: ${memErr.message}`);
+            }
 
             return responseText;
 
@@ -140,12 +171,10 @@ async function sendQuery(query, imageData = null, mode = 'text') {
                     activeKey = keyPool.getNextKey('gemini');
                     if (activeKey) {
                         genAI = new GoogleGenerativeAI(activeKey);
-                        systemPromptCache[mode] = null;
+                        invalidatePromptCache();
                     }
                 }
             }
-
-
         }
     }
 
@@ -156,4 +185,5 @@ module.exports = {
     initializeAPI,
     sendQuery,
     needsSetup,
+    invalidatePromptCache,
 };

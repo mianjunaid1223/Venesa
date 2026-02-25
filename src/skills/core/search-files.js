@@ -5,6 +5,7 @@
  * ═══════════════════════════════════════════════════════════════
  */
 
+const { z } = require('zod');
 const path = require('path');
 const fs = require('fs');
 const { HOME_DIR, getRelativePath, logger } = require('./_shared');
@@ -60,11 +61,13 @@ async function searchFilesAndFolders(query, maxResults = 20) {
 }
 
 module.exports = {
+    schema: z.object({ query: z.string().describe('The file or folder name keyword to search for') }),
     name: 'searchFiles',
     description: 'Search for files, folders, and apps on the system',
     tags: ['search', 'file', 'find'],
-    permission: 'safe',
-    marker: 'announce',
+
+    returns: 'data',
+    marker: 'silently',
     ui: 'card-list',
 
     async handler(params) {

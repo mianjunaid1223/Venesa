@@ -5,14 +5,17 @@
  * ═══════════════════════════════════════════════════════════════
  */
 
+const { z } = require('zod');
 const memory = require('../../brain/memory');
 
 module.exports = {
+    schema: z.object({}),
     name: 'listCommands',
     description: 'List all saved custom voice commands',
     tags: ['command', 'list', 'shortcuts'],
-    permission: 'safe',
-    marker: 'announce',
+
+    returns: 'data',
+    marker: 'silently',
     ui: 'command-list',
 
     handler() {

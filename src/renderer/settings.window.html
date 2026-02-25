@@ -52,7 +52,7 @@
         body {
             height: 100%;
             font-family: var(--font);
-            background: var(--bg);
+            background: transparent;
             color: var(--text-1);
             font-size: 13px;
             line-height: 1.5;
@@ -73,7 +73,7 @@
         .sidebar {
             width: 200px;
             min-width: 200px;
-            background: var(--sidebar-bg);
+            background: #00000057;
             border-right: 1px solid var(--border);
             display: flex;
             flex-direction: column;
@@ -203,10 +203,11 @@
 
         .panel-body {
             flex: 1;
-            min-height: 0;
             overflow-y: auto;
             padding: 14px 24px;
             display: flex;
+            min-height: 150px;
+            max-height: 400px;
             flex-direction: column;
             gap: 10px;
         }
@@ -228,6 +229,7 @@
             border: 1px solid var(--border);
             border-radius: var(--radius);
             overflow: auto;
+            min-height: 200px;
         }
 
         .row {
@@ -357,7 +359,7 @@
             font-weight: 500;
             cursor: pointer;
             white-space: nowrap;
-            transition: background 0.12s, border-color 0.12s;
+            transition: all 0.12s, border-color 0.12s;
         }
 
         .btn:hover {
@@ -991,7 +993,7 @@
                 if (s.voiceProfile) document.getElementById('s-voice').value = s.voiceProfile;
                 if (s.ttsModel) document.getElementById('s-tts-model').value = s.ttsModel;
                 document.getElementById('s-wakeword').checked = s.wakeWordEnabled !== false;
-            } catch (e) { toast('Could not load settings', 'err'); }
+            } catch (err) { toast('Could not load settings', 'err'); }
         }
 
         // API Keys
@@ -1008,8 +1010,11 @@
                         cur.innerHTML = keys.map(k => `
           <div class="key-existing">
             <span class="key-mask">${e(k.envVar)}: ${e(k.masked)}</span>
-            <button class="btn btn-danger btn-sm" onclick="removeKey(&quot;${e(k.envVar)}&quot;)">Remove</button>
+            <button class="btn btn-danger btn-sm remove-key-btn" data-env="${e(k.envVar)}">Remove</button>
           </div>`).join('');
+                        cur.querySelectorAll('.remove-key-btn').forEach(btn => {
+                            btn.addEventListener('click', evt => removeKey(evt.currentTarget.dataset.env));
+                        });
                     } else {
                         badge.className = 'badge badge-off';
                         badge.innerHTML = '<span class="dot"></span>Not set';
@@ -1032,7 +1037,7 @@
 
         async function removeKey(envVar) {
             try { await window.settingsApi.removeApiKey(envVar); toast('Key removed'); loadKeyStatus(); }
-            catch (e) { toast('Failed to remove', 'err'); }
+            catch (err) { toast('Failed to remove', 'err'); }
         }
 
         async function testKey(svc) {
@@ -1048,7 +1053,7 @@
                     loadKeyStatus();
                 }
                 else toast(`${svc} failed: ${r.error || 'unknown'}`, 'err');
-            } catch (e) { toast('Test error', 'err'); }
+            } catch (err) { toast('Test error', 'err'); }
         }
 
         // Skills
@@ -1063,7 +1068,7 @@
         <div class="skill-icon"><svg viewBox="0 0 24 24"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><polyline points="13 2 13 9 20 9"/></svg></div>
         <div><div class="skill-name">${e(s.name)}</div><div class="skill-desc">${e(s.description || '')}</div></div>
       </div>`).join('');
-            } catch (e) { el.innerHTML = '<div class="empty">Error loading skills.</div>'; }
+            } catch (err) { el.innerHTML = '<div class="empty">Error loading skills.</div>'; }
         }
 
         // Memory
@@ -1088,7 +1093,7 @@
                         const entries = Object.entries(data || {}).filter(([k]) => !['recent', 'interactionCount', 'customCommands'].includes(k));
                         rows = entries.length ? entries.map(([k, v]) => `<div class="mem-row"><span class="mem-key">${e(k)}</span><span class="mem-val">${e(String(typeof v === 'object' ? JSON.stringify(v) : v).substring(0, 100))}</span></div>`).join('') : '<div class="empty" style="padding:6px 0">Nothing stored.</div>';
                     }
-                } catch (e) { rows = '<div class="empty" style="padding:6px 0">Failed to load.</div>'; }
+                } catch (err) { rows = '<div class="empty" style="padding:6px 0">Failed to load.</div>'; }
                 html += `<div class="card"><div class="bucket-head"><div><div class="row-label">${e(b.label)}</div><div class="row-sub">${e(b.sub)}</div></div><button class="btn btn-danger btn-sm" onclick="clearBucket('${b.id}')">Clear</button></div><div class="bucket-body">${rows}</div></div>`;
             }
             html += `<button class="btn btn-danger" style="margin-top:2px" onclick="clearAll()">Clear All Memory</button>`;
@@ -1098,13 +1103,26 @@
         async function clearBucket(bucket) {
             if (!confirm(`Clear "${bucket}" memory?`)) return;
             try { await window.settingsApi.clearMemoryBucket(bucket); toast(`${bucket} cleared`, 'ok'); loadMemory(); }
-            catch (e) { toast('Failed', 'err'); }
+            catch (err) { toast('Failed', 'err'); }
         }
 
         async function clearAll() {
             if (!confirm('Clear ALL AI memory?')) return;
-            for (const b of ['preferences', 'context', 'aliases', 'history']) { try { await window.settingsApi.clearMemoryBucket(b); } catch { } }
-            toast('All memory cleared', 'ok'); loadMemory();
+            const failures = [];
+            for (const b of ['preferences', 'context', 'aliases', 'history']) {
+                try {
+                    await window.settingsApi.clearMemoryBucket(b);
+                } catch (err) {
+                    console.error(`Failed to clear bucket ${b}:`, err);
+                    failures.push({ bucket: b, err });
+                }
+            }
+            if (failures.length > 0) {
+                toast(`Failed to clear ${failures.length} buckets`, 'err');
+            } else {
+                toast('All memory cleared', 'ok');
+            }
+            loadMemory();
         }
 
         // Save / Cancel
@@ -1118,7 +1136,7 @@
                 wakeWordEnabled: document.getElementById('s-wakeword').checked,
             };
             try { await window.settingsApi.saveSettings(patch); toast('Saved', 'ok'); setTimeout(() => window.settingsApi.close(), 800); }
-            catch (e) { toast('Save failed', 'err'); }
+            catch (err) { toast('Save failed', 'err'); }
         });
 
         document.getElementById('btn-cancel').addEventListener('click', () => window.settingsApi.close());
@@ -1126,12 +1144,14 @@
         document.getElementById('btn-reset').addEventListener('click', async () => {
             if (!confirm('Factory reset? All settings and API keys will be wiped.')) return;
             try {
-                await window.settingsApi.removeApiKey('gemini');
-                await window.settingsApi.removeApiKey('elevenlabs');
-                await window.settingsApi.saveSettings({});
-                toast('Reset — restart to re-enter keys', 'err');
-                setTimeout(() => window.settingsApi.close(), 1500);
-            } catch (e) { toast('Reset failed', 'err'); }
+                const res = await window.settingsApi.factoryReset();
+                if (res && res.success) {
+                    toast('Reset — restart to re-enter keys', 'ok');
+                    setTimeout(() => window.settingsApi.close(), 1500);
+                } else {
+                    toast('Reset failed', 'err');
+                }
+            } catch (err) { toast('Reset failed', 'err'); }
         });
 
         // Init

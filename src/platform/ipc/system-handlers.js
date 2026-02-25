@@ -14,6 +14,7 @@ const settings = require('../../brain/settings');
 const sttService = require('../speech/stt');
 const settingsWindow = require('../windows/settings-window');
 const logger = require('../../lib/logger');
+const memory = require('../../brain/memory');
 
 function register(deps) {
     const { getSetupWindow, destroySetupWindow, createMainWindow, startWakeWord } = deps;
@@ -70,7 +71,7 @@ function register(deps) {
             if (setupWindow && !setupWindow.isDestroyed()) {
                 createMainWindow();
                 sttService.initialize();
-                if (settings.get().wakeWordEnabled) {
+                if (settings.load().wakeWordEnabled) {
                     startWakeWord();
                 }
                 destroySetupWindow();
@@ -83,7 +84,7 @@ function register(deps) {
     });
 
     ipcMain.on('get-settings', (event) => {
-        event.sender.send('current-settings', settings.get());
+        event.sender.send('current-settings', settings.load());
     });
 
     ipcMain.on('open-settings', (event) => {
@@ -98,13 +99,15 @@ function register(deps) {
     });
 
     ipcMain.handle('settings:get', async () => {
-        return settings.get();
+        return settings.load();
     });
 
     ipcMain.handle('settings:save', async (event, patch) => {
         const success = settings.save(patch);
         if (success) {
             llm.initializeAPI().catch(e => logger.error(`Init API failed: ${e.message}`));
+            // Expire prompt cache so userName changes etc. take effect immediately
+            if (llm.invalidatePromptCache) llm.invalidatePromptCache();
             if (patch.wakeWordEnabled !== undefined) {
                 const startWakeWord = require('../windows/background-window').startBackgroundWakeWordDetection;
                 const voiceWin = require('../windows/voice-window');
@@ -204,14 +207,120 @@ function register(deps) {
         return registry.getSkillList();
     });
 
+    ipcMain.handle('factory-reset', async () => {
+        const fs = require('fs');
+        const os = require('os');
+        const paths = require('../../lib/paths');
+
+        try {
+            // 1. Delete .env (all API keys)
+            const envPath = paths.getEnvPath();
+            if (fs.existsSync(envPath)) fs.unlinkSync(envPath);
+
+            // 2. Delete settings
+            const settingsPath = path.join(os.homedir(), '.venesa-settings.json');
+            if (fs.existsSync(settingsPath)) fs.unlinkSync(settingsPath);
+
+            // 3. Clear all memory
+            const memory = require('../../brain/memory');
+            const buckets = memory.BUCKETS || ['system', 'preferences', 'clipboard'];
+            for (const b of buckets) memory.clearBucket(b);
+
+            // 4. Invalidate key pool
+            require('../../lib/key-pool').invalidate();
+
+            return { success: true };
+        } catch (e) {
+            logger.error(`Factory reset failed: ${e.message}`);
+            return { success: false, error: e.message };
+        }
+    });
+
+    // ── Plugin management ─────────────────────────────────────
+
+    ipcMain.handle('get-plugins', async () => {
+        const registry = require('../../skills/registry');
+        return registry.getAllPlugins ? registry.getAllPlugins() : [];
+    });
+
+    ipcMain.handle('get-builtin-skills', async () => {
+        const registry = require('../../skills/registry');
+        return registry.getBuiltinSkills ? registry.getBuiltinSkills() : registry.getSkillList();
+    });
+
+    ipcMain.handle('toggle-plugin', async (event, pluginName, enabled) => {
+        try {
+            const states = memory.get('aliases', 'pluginStates') || {};
+            states[pluginName] = enabled;
+            memory.set('aliases', 'pluginStates', states);
+            // Reload skill registry to apply change
+            const loader = require('../../skills/loader');
+            loader.reload();
+            if (llm.invalidatePromptCache) llm.invalidatePromptCache();
+            return { success: true };
+        } catch (e) {
+            logger.error(`toggle-plugin error: ${e.message}`);
+            return { success: false, error: e.message };
+        }
+    });
+
+    // ── Memory IPC ────────────────────────────────────────────
+
     ipcMain.handle('memory:get-bucket', async (event, bucket) => {
-        const memory = require('../../brain/memory');
         return memory.get(bucket) || {};
     });
 
+    ipcMain.handle('memory:get-all', async () => {
+        const result = {};
+        if (Array.isArray(memory.BUCKETS)) {
+            for (const bucket of memory.BUCKETS) {
+                result[bucket] = memory.get(bucket) || {};
+            }
+        }
+        return result;
+    });
+
+    // ── Profile IPC ───────────────────────────────────────────
+
+    ipcMain.handle('profile:get', async () => {
+        return {
+            name: memory.get('context', 'name') || '',
+            bio: memory.get('context', 'bio') || ''
+        };
+    });
+
+    ipcMain.handle('profile:save', async (event, profile) => {
+        if (profile.name !== undefined) memory.set('context', 'name', profile.name);
+        if (profile.bio !== undefined) memory.set('context', 'bio', profile.bio);
+        if (llm.invalidatePromptCache) llm.invalidatePromptCache();
+        return true;
+    });
+
     ipcMain.handle('memory:clear-bucket', async (event, bucket) => {
-        const memory = require('../../brain/memory');
-        return memory.clear(bucket);
+        const cleared = memory.clear(bucket);
+        if (cleared && llm.invalidatePromptCache) llm.invalidatePromptCache();
+        return cleared;
+    });
+
+    ipcMain.handle('memory:delete-entry', async (event, bucket, key) => {
+        const removed = memory.remove(bucket, key);
+        if (removed && llm.invalidatePromptCache) llm.invalidatePromptCache();
+        return removed;
+    });
+
+    // ── Utility ───────────────────────────────────────────────
+    ipcMain.handle('open-url', async (event, url) => {
+        try {
+            const { shell } = require('electron');
+            if (url && (url.startsWith('https://') || url.startsWith('http://'))) {
+                await shell.openExternal(url);
+                return { success: true };
+            }
+            return { success: false, error: 'Invalid URL' };
+        } catch (e) {
+            logger.error(`open-url error: ${e.message}`);
+            return { success: false, error: e.message };
+        }
     });
 }
 

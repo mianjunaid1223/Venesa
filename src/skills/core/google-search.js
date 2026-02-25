@@ -5,13 +5,16 @@
  * ═══════════════════════════════════════════════════════════════
  */
 
+const { z } = require('zod');
 const { shell } = require('electron');
 
 module.exports = {
+    schema: z.object({ query: z.string().trim().min(1).describe('The search query') }),
     name: 'googleSearch',
     description: 'Search Google for a query and open results in browser',
     tags: ['web', 'search', 'google'],
-    permission: 'safe',
+
+    returns: 'none',
     marker: 'announce',
     ui: null,
 
@@ -23,7 +26,7 @@ module.exports = {
         const url = `https://www.google.com/search?q=${encodeURIComponent(query.trim())}`;
         try {
             await shell.openExternal(url);
-            return `Searching Google for: ${query}`;
+            return `Searching Google for: ${query.trim()}`;
         } catch (e) {
             return `Error opening browser: ${e.message}`;
         }
