@@ -96,7 +96,8 @@ ${ctx.bio ? `Bio: ${ctx.bio}` : ''}
 function getActivePluginsSection() {
     try {
         const registry = require('../skills/registry');
-        const plugins = registry.getAllPlugins?.() || [];
+        const enabledSkills = registry.getAllEnabled?.() || {};
+        const plugins = Object.values(enabledSkills).filter(s => s._source === 'plugin');
         if (!plugins.length) return '';
 
         const list = plugins

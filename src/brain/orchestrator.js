@@ -184,6 +184,9 @@ async function executeAction(actionName, params, ctx = {}) {
         if (!skill) {
             throw new Error(`Unknown skill: ${actionName}`);
         }
+        if (skill._enabled === false) {
+            throw new Error(`Skill ${actionName} is currently disabled.`);
+        }
 
         // Schema validation
         let validatedParams = params;

@@ -11,6 +11,7 @@
             box-sizing: border-box;
             margin: 0;
             padding: 0;
+            text-wrap: balance;
         }
 
         :root {
@@ -31,7 +32,7 @@
             --text-2: rgba(255, 255, 255, 0.50);
             --text-3: rgba(255, 255, 255, 0.28);
 
-            /* Accent — neutral blue-white, no purple */
+            /* Accent */
             --accent: rgba(255, 255, 255, 0.92);
             --accent-bg: rgba(255, 255, 255, 0.10);
             --accent-dim: rgba(255, 255, 255, 0.06);
@@ -61,7 +62,7 @@
             flex-direction: column;
         }
 
-        /* ─────── Layout ─────── */
+        /* ─── Layout ─── */
         .shell {
             flex: 1;
             min-height: 0;
@@ -69,7 +70,7 @@
             overflow: auto;
         }
 
-        /* ─────── Sidebar ─────── */
+        /* ─── Sidebar ─── */
         .sidebar {
             width: 200px;
             min-width: 200px;
@@ -161,13 +162,77 @@
             color: var(--text-1);
         }
 
-        /* ─────── Content area ─────── */
+        /* ─── Top Tabs ─── */
+        .top-tabs {
+            display: flex;
+            gap: 20px;
+            padding: 10px 24px 0;
+            border-bottom: 1px solid var(--border);
+            flex-shrink: 0;
+        }
+
+        .top-tab {
+            background: transparent;
+            border: none;
+            color: var(--text-2);
+            font-size: 13px;
+            font-weight: 500;
+            padding: 8px 0;
+            cursor: pointer;
+            position: relative;
+            transition: color 0.15s;
+        }
+
+        .top-tab:hover {
+            color: var(--text-1);
+        }
+
+        .top-tab.active {
+            color: var(--text-1);
+            font-weight: 600;
+        }
+
+        .top-tab.active::after {
+            content: '';
+            position: absolute;
+            bottom: -1px;
+            left: 0;
+            width: 100%;
+            height: 2px;
+            background: var(--accent);
+            border-radius: 2px 2px 0 0;
+        }
+
+        .sub-panel {
+            display: none;
+            flex: 1;
+            flex-direction: column;
+            animation: fadeIn 0.2s ease-out;
+        }
+
+        .sub-panel.active {
+            display: flex;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(2px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        /* ─── Content ─── */
         .content {
             flex: 1;
             display: flex;
             flex-direction: column;
             min-width: 0;
-            min-height: 20px;
+            min-height: 0;
             overflow: auto;
         }
 
@@ -175,12 +240,17 @@
             display: none;
             flex-direction: column;
             flex: 1;
-            min-height: 20px;
+            min-height: 0;
             overflow: auto;
+            opacity: 0;
+            transform: translateY(4px);
+            transition: opacity 0.18s, transform 0.18s;
         }
 
         .panel.active {
             display: flex;
+            opacity: 1;
+            transform: translateY(0);
         }
 
         .panel-header {
@@ -204,32 +274,36 @@
         .panel-body {
             flex: 1;
             overflow-y: auto;
-            padding: 14px 24px;
+            padding: 14px 24px 20px;
             display: flex;
-            min-height: 150px;
-            max-height: 400px;
             flex-direction: column;
             gap: 10px;
         }
 
+        /* Scrollbar */
         ::-webkit-scrollbar {
             width: 3px;
             background-color: transparent;
         }
 
         ::-webkit-scrollbar-thumb {
-            background: #00000080;
-            border-radius: 50px;
+            background: rgba(255, 255, 255, 0.12);
             border-radius: 2px;
         }
 
-        /* ─────── Cards ─────── */
+        /* ─── Cards ─── */
         .card {
             background: var(--card-bg);
             border: 1px solid var(--border);
             border-radius: var(--radius);
-            overflow: auto;
-            min-height: 200px;
+            height: 100%;
+        }
+
+        #skills-list {
+            overflow-y: auto;
+            height: max-content !important;
+            max-height: 70vh !important;
+            min-height: max-content !important;
         }
 
         .row {
@@ -257,7 +331,7 @@
             margin-top: 1px;
         }
 
-        /* ─────── Inputs ─────── */
+        /* ─── Inputs ─── */
         input[type="text"],
         input[type="password"],
         select,
@@ -270,7 +344,7 @@
             font-size: 12.5px;
             padding: 6px 9px;
             outline: none;
-            transition: border-color 0.15s, box-shadow 0.15s;
+            transition: border-color 0.15s;
         }
 
         input[type="text"]:focus,
@@ -297,7 +371,12 @@
             background: #202024;
         }
 
-        /* ─────── Toggle ─────── */
+        textarea {
+            resize: vertical;
+            min-height: 60px;
+        }
+
+        /* ─── Toggle ─── */
         .toggle {
             position: relative;
             width: 36px;
@@ -344,7 +423,7 @@
             background: #18181b;
         }
 
-        /* ─────── Buttons ─────── */
+        /* ─── Buttons ─── */
         .btn {
             display: inline-flex;
             align-items: center;
@@ -359,7 +438,7 @@
             font-weight: 500;
             cursor: pointer;
             white-space: nowrap;
-            transition: all 0.12s, border-color 0.12s;
+            transition: all 0.12s;
         }
 
         .btn:hover {
@@ -397,7 +476,7 @@
             font-size: 11px;
         }
 
-        /* ─────── Badges ─────── */
+        /* ─── Badges ─── */
         .badge {
             display: inline-flex;
             align-items: center;
@@ -430,7 +509,7 @@
             color: var(--yellow);
         }
 
-        /* ─────── API Key service block ─────── */
+        /* ─── API Key ─── */
         .svc-block {
             padding: 14px;
             border-bottom: 1px solid var(--border);
@@ -467,7 +546,7 @@
             border-radius: var(--radius-sm);
             background: rgba(255, 255, 255, 0.04);
             border: 1px solid var(--border);
-            margin-bottom: 8px;
+            margin-bottom: 6px;
         }
 
         .key-mask {
@@ -477,18 +556,33 @@
             letter-spacing: 0.05em;
         }
 
+        .key-actions {
+            display: flex;
+            gap: 4px;
+        }
+
         .svc-input-row {
             display: flex;
             gap: 6px;
             align-items: center;
+            padding: 12px 14px;
+            background: rgba(0, 0, 0, 0.2);
+            border-bottom: 1px solid var(--border);
         }
 
         .svc-input-row input {
             flex: 1;
             min-width: 0;
+            background: rgba(255, 255, 255, 0.08);
+            border-color: rgba(255, 255, 255, 0.15);
         }
 
-        /* ─────── Skills ─────── */
+        .svc-input-row input:focus {
+            background: rgba(255, 255, 255, 0.12);
+            border-color: var(--accent);
+        }
+
+        /* ─── Skills / Plugins ─── */
         .skill-row {
             display: flex;
             align-items: center;
@@ -533,25 +627,63 @@
             color: var(--text-3);
         }
 
-        /* ─────── Memory ─────── */
+        .skill-info {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .section-label {
+            font-size: 10.5px;
+            font-weight: 600;
+            color: var(--text-3);
+            letter-spacing: 0.06em;
+            text-transform: uppercase;
+            margin-top: 4px;
+            margin-bottom: 6px;
+        }
+
+        /* ─── Memory ─── */
+        .bucket-card {
+            margin-bottom: 10px;
+        }
+
         .bucket-head {
             display: flex;
             align-items: center;
             justify-content: space-between;
             padding: 11px 14px;
-            border-bottom: 1px solid var(--border);
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .bucket-head:hover {
+            background: var(--card-hover);
+        }
+
+        .bucket-name {
+            font-size: 12.5px;
+            font-weight: 600;
+            color: var(--text-1);
+            text-transform: capitalize;
+        }
+
+        .bucket-count {
+            font-size: 11px;
+            color: var(--text-3);
         }
 
         .bucket-body {
-            padding: 8px 14px 12px;
+            padding: 4px 14px 12px;
         }
 
         .mem-row {
             display: flex;
+            align-items: flex-start;
             gap: 10px;
             padding: 6px 0;
             border-bottom: 1px solid var(--border);
             font-size: 12px;
+            position: relative;
         }
 
         .mem-row:last-child {
@@ -563,16 +695,36 @@
             color: var(--text-2);
             min-width: 80px;
             flex-shrink: 0;
+            word-break: break-word;
         }
 
         .mem-val {
             color: var(--text-1);
             word-break: break-word;
+            flex: 1;
+        }
+
+        .mem-del {
+            opacity: 0;
+            background: none;
+            border: none;
+            color: var(--red);
+            font-size: 14px;
+            cursor: pointer;
+            padding: 0 4px;
+            flex-shrink: 0;
+            transition: opacity 0.12s;
+            line-height: 1;
+        }
+
+        .mem-row:hover .mem-del {
+            opacity: 1;
         }
 
         .hist-row {
             padding: 8px 0;
             border-bottom: 1px solid var(--border);
+            position: relative;
         }
 
         .hist-row:last-child {
@@ -591,11 +743,30 @@
             color: var(--text-3);
             white-space: nowrap;
             overflow: hidden;
+
             text-overflow: ellipsis;
             display: block;
         }
 
-        /* ─────── About ─────── */
+        .hist-del {
+            position: absolute;
+            right: 0;
+            top: 8px;
+            opacity: 0;
+            background: none;
+            border: none;
+            color: var(--red);
+            font-size: 14px;
+            cursor: pointer;
+            padding: 0 4px;
+            transition: opacity 0.12s;
+        }
+
+        .hist-row:hover .hist-del {
+            opacity: 1;
+        }
+
+        /* ─── About ─── */
         .about-wrap {
             display: flex;
             flex-direction: column;
@@ -624,21 +795,24 @@
             margin-bottom: 20px;
         }
 
-        /* ─────── Utility ─────── */
+        .about-link {
+            font-size: 12px;
+            color: var(--text-2);
+            cursor: pointer;
+            text-decoration: underline;
+            text-underline-offset: 2px;
+        }
+
+        .about-link:hover {
+            color: var(--text-1);
+        }
+
+        /* ─── Utility ─── */
         .empty {
             padding: 16px 14px;
             font-size: 12px;
             color: var(--text-3);
             text-align: center;
-        }
-
-        .section-label {
-            font-size: 10.5px;
-            font-weight: 600;
-            color: var(--text-3);
-            letter-spacing: 0.06em;
-            text-transform: uppercase;
-            margin-top: 4px;
         }
 
         code {
@@ -650,7 +824,7 @@
             border-radius: 3px;
         }
 
-        /* ─────── Footer ─────── */
+        /* ─── Footer ─── */
         .footer {
             display: flex;
             align-items: center;
@@ -671,7 +845,7 @@
             gap: 7px;
         }
 
-        /* ─────── Toast ─────── */
+        /* ─── Toast ─── */
         #toast {
             position: fixed;
             bottom: 56px;
@@ -758,7 +932,7 @@
                         <path
                             d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z" />
                     </svg>
-                    Skills
+                    Skills & Plugins
                 </button>
                 <button class="nav-btn" data-tab="about">
                     <svg viewBox="0 0 24 24">
@@ -800,9 +974,9 @@
                         <div class="row">
                             <div class="row-info">
                                 <div class="row-label">AI Model</div>
-                                <div class="row-sub">Gemini model used for all requests</div>
+                                <div class="row-sub">Which Gemini model to use</div>
                             </div>
-                            <select id="s-model">
+                            <select id="s-model" style="width:200px">
                                 <option value="gemini-2.5-flash-lite">Gemini 2.5 Flash Lite</option>
                                 <option value="gemini-2.0-flash">Gemini 2.0 Flash</option>
                                 <option value="gemini-2.5-flash">Gemini 2.5 Flash</option>
@@ -810,14 +984,16 @@
                             </select>
                         </div>
                     </div>
-                    <div class="section-label">Danger Zone</div>
+                    <div class="section-label">Profile</div>
                     <div class="card">
-                        <div class="row">
+                        <div class="row" style="flex-direction:column;align-items:stretch;gap:8px">
                             <div class="row-info">
-                                <div class="row-label">Factory Reset</div>
-                                <div class="row-sub">Wipe all settings and API keys</div>
+                                <div class="row-label">Bio</div>
+                                <div class="row-sub">Tell Venesa about yourself for better context</div>
                             </div>
-                            <button class="btn btn-danger btn-sm" id="btn-reset">Reset</button>
+                            <textarea id="s-bio"
+                                placeholder="e.g. I'm a software developer who prefers concise answers..."
+                                rows="3"></textarea>
                         </div>
                     </div>
                 </div>
@@ -825,42 +1001,79 @@
 
             <!-- API Keys -->
             <div class="panel" id="tab-apikeys">
-                <div class="panel-header">
+                <div class="panel-header" style="padding-bottom:12px;">
                     <h1>API Keys</h1>
-                    <p>Stored in your <code>.env</code> file</p>
+                    <p>Manage API credentials</p>
+                </div>
+                <div class="top-tabs">
+                    <button class="top-tab active" data-group="api" data-tab="gemini"
+                        onclick="switchTopTab('api', 'gemini')">Google Gemini</button>
+                    <button class="top-tab" data-group="api" data-tab="elevenlabs"
+                        onclick="switchTopTab('api', 'elevenlabs')">ElevenLabs</button>
+                    <button class="top-tab" data-group="api" data-tab="custom"
+                        onclick="switchTopTab('api', 'custom')">Custom Keys</button>
                 </div>
                 <div class="panel-body">
-                    <div class="card">
-                        <div class="svc-block">
-                            <div class="svc-head">
-                                <div>
-                                    <div class="svc-name">Google Gemini</div>
-                                    <div class="svc-sub">Required · AI engine</div>
+                    <div class="sub-panel active" data-group="api" id="sub-api-gemini">
+                        <div class="card">
+                            <div class="svc-block" id="gemini-keys">
+                                <div class="svc-head">
+                                    <div>
+                                        <div class="svc-name">Google Gemini</div>
+                                        <div class="svc-sub">Required for AI features</div>
+                                    </div>
+                                    <span class="badge badge-off" id="gemini-badge"><span class="dot"></span>No
+                                        keys</span>
                                 </div>
-                                <span class="badge badge-off" id="badge-gemini"><span
-                                        class="dot"></span>Checking…</span>
-                            </div>
-                            <div id="cur-gemini"></div>
-                            <div class="svc-input-row">
-                                <input type="password" id="key-gemini" placeholder="AIzaSy…" autocomplete="off">
-                                <button class="btn btn-sm" onclick="saveKey('gemini')">Save</button>
-                                <button class="btn btn-sm" onclick="testKey('gemini')">Test</button>
+                                <div class="svc-input-row">
+                                    <input type="password" id="gemini-input"
+                                        placeholder="Paste your Google Gemini API key here...">
+                                    <button class="btn btn-primary btn-sm" onclick="addKey('gemini')">Add Key</button>
+                                </div>
+                                <div id="gemini-key-list" style="padding: 14px 14px 0;"></div>
                             </div>
                         </div>
-                        <div class="svc-block">
-                            <div class="svc-head">
-                                <div>
-                                    <div class="svc-name">ElevenLabs</div>
-                                    <div class="svc-sub">Optional · Voice TTS</div>
+                    </div>
+                    <div class="sub-panel" data-group="api" id="sub-api-elevenlabs">
+                        <div class="card">
+                            <div class="svc-block" id="elevenlabs-keys">
+                                <div class="svc-head">
+                                    <div>
+                                        <div class="svc-name">ElevenLabs</div>
+                                        <div class="svc-sub">Optional — enables voice synthesis</div>
+                                    </div>
+                                    <span class="badge badge-off" id="elevenlabs-badge"><span class="dot"></span>No
+                                        keys</span>
                                 </div>
-                                <span class="badge badge-off" id="badge-elevenlabs"><span
-                                        class="dot"></span>Checking…</span>
+                                <div class="svc-input-row">
+                                    <input type="password" id="elevenlabs-input"
+                                        placeholder="Paste your ElevenLabs API key here...">
+                                    <button class="btn btn-primary btn-sm" onclick="addKey('elevenlabs')">Add
+                                        Key</button>
+                                </div>
+                                <div id="elevenlabs-key-list" style="padding: 14px 14px 0;"></div>
                             </div>
-                            <div id="cur-elevenlabs"></div>
-                            <div class="svc-input-row">
-                                <input type="password" id="key-elevenlabs" placeholder="sk_…" autocomplete="off">
-                                <button class="btn btn-sm" onclick="saveKey('elevenlabs')">Save</button>
-                                <button class="btn btn-sm" onclick="testKey('elevenlabs')">Test</button>
+                        </div>
+                    </div>
+                    <div class="sub-panel" data-group="api" id="sub-api-custom">
+                        <div class="card">
+                            <div class="svc-block" id="custom-keys">
+                                <div class="svc-head">
+                                    <div>
+                                        <div class="svc-name">Custom Service Keys</div>
+                                        <div class="svc-sub">Provide keys required by community plugins</div>
+                                    </div>
+                                    <span class="badge badge-off" id="custom-badge"><span class="dot"></span>No
+                                        keys</span>
+                                </div>
+                                <div class="svc-input-row" style="gap:8px;">
+                                    <input type="text" id="custom-svc-name"
+                                        placeholder="Service name (e.g. OPENWEATHER)"
+                                        style="width: 140px; flex-shrink: 0;">
+                                    <input type="password" id="custom-input" placeholder="Paste API key here...">
+                                    <button class="btn btn-primary btn-sm" onclick="addCustomKey()">Add Key</button>
+                                </div>
+                                <div id="custom-key-list" style="padding: 14px 14px 0;"></div>
                             </div>
                         </div>
                     </div>
@@ -871,35 +1084,35 @@
             <div class="panel" id="tab-voice">
                 <div class="panel-header">
                     <h1>Voice</h1>
-                    <p>TTS and wake word options</p>
+                    <p>Voice interaction settings</p>
                 </div>
                 <div class="panel-body">
                     <div class="card">
                         <div class="row">
                             <div class="row-info">
                                 <div class="row-label">Wake Word</div>
-                                <div class="row-sub">Say "Hey Venesa" to activate</div>
+                                <div class="row-sub">Say "Hey Venesa" to activate voice mode</div>
                             </div>
                             <label class="toggle" aria-label="Wake Word"><input type="checkbox" id="s-wakeword"><span
                                     class="toggle-track"></span></label>
                         </div>
                         <div class="row">
                             <div class="row-info">
-                                <div class="row-label">TTS Model</div>
-                                <div class="row-sub">ElevenLabs synthesis model</div>
+                                <div class="row-label">Voice ID</div>
+                                <div class="row-sub">ElevenLabs voice identifier</div>
                             </div>
-                            <select id="s-tts-model">
-                                <option value="eleven_flash_v2_5">Flash v2.5 (fast)</option>
-                                <option value="eleven_multilingual_v2">Multilingual v2</option>
-                                <option value="eleven_turbo_v2_5">Turbo v2.5</option>
-                            </select>
+                            <input type="text" id="s-voiceid" placeholder="pFZP5JQG7iQjIQuC4Bku" style="width:200px">
                         </div>
                         <div class="row">
                             <div class="row-info">
-                                <div class="row-label">Voice ID</div>
-                                <div class="row-sub">ElevenLabs voice profile name or ID</div>
+                                <div class="row-label">TTS Model</div>
+                                <div class="row-sub">ElevenLabs model variant</div>
                             </div>
-                            <input type="text" id="s-voice" placeholder="Aria" style="width:150px">
+                            <select id="s-ttsmodel" style="width:200px">
+                                <option value="eleven_flash_v2_5">Flash v2.5</option>
+                                <option value="eleven_multilingual_v2">Multilingual v2</option>
+                                <option value="eleven_turbo_v2_5">Turbo v2.5</option>
+                            </select>
                         </div>
                     </div>
                 </div>
@@ -907,38 +1120,88 @@
 
             <!-- Memory -->
             <div class="panel" id="tab-memory">
-                <div class="panel-header">
+                <div class="panel-header" style="padding-bottom:12px;">
                     <h1>AI Memory</h1>
                     <p>What Venesa remembers about you</p>
                 </div>
-                <div class="panel-body" id="memory-body">
-                    <div class="empty">Loading…</div>
+                <div class="top-tabs">
+                    <button class="top-tab active" data-group="mem" data-tab="preferences"
+                        onclick="switchTopTab('mem', 'preferences')">Preferences</button>
+                    <button class="top-tab" data-group="mem" data-tab="context"
+                        onclick="switchTopTab('mem', 'context')">Context</button>
+                    <button class="top-tab" data-group="mem" data-tab="aliases"
+                        onclick="switchTopTab('mem', 'aliases')">Aliases</button>
+                    <button class="top-tab" data-group="mem" data-tab="history"
+                        onclick="switchTopTab('mem', 'history')">History</button>
+                </div>
+                <div class="panel-body">
+                    <div class="sub-panel active" data-group="mem" id="sub-mem-preferences">
+                        <div class="card">
+                            <div id="mem-content-preferences"></div>
+                        </div>
+                    </div>
+                    <div class="sub-panel" data-group="mem" id="sub-mem-context">
+                        <div class="card">
+                            <div id="mem-content-context"></div>
+                        </div>
+                    </div>
+                    <div class="sub-panel" data-group="mem" id="sub-mem-aliases">
+                        <div class="card">
+                            <div id="mem-content-aliases"></div>
+                        </div>
+                    </div>
+                    <div class="sub-panel" data-group="mem" id="sub-mem-history">
+                        <div class="card">
+                            <div id="mem-content-history"></div>
+                        </div>
+                    </div>
                 </div>
             </div>
 
-            <!-- Skills -->
+            <!-- Skills & Plugins -->
             <div class="panel" id="tab-skills">
                 <div class="panel-header">
-                    <h1>Skills</h1>
-                    <p>Loaded capabilities</p>
+                    <h1>Skills & Plugins</h1>
+                    <p>Built-in capabilities and custom extensions</p>
                 </div>
                 <div class="panel-body">
-                    <div class="card" id="skills-list">
-                        <div class="empty">Loading…</div>
-                    </div>
+                    <div class="section-label">Plugins</div>
+                    <div class="card" id="plugins-list"></div>
+                    <div class="section-label" style="margin-top:10px">Core Skills</div>
+                    <div class="card" id="skills-list"></div>
                 </div>
             </div>
 
             <!-- About -->
             <div class="panel" id="tab-about">
-                <div class="panel-header" style="visibility:hidden;height:0;padding:0"></div>
+                <div class="panel-header">
+                    <h1>About</h1>
+                    <p>Application info</p>
+                </div>
                 <div class="panel-body">
-                    <div class="card">
-                        <div class="about-wrap">
-                            <img src="venesa-asset://logo.png" alt="" class="about-logo"
-                                onerror="this.style.display='none'">
-                            <div class="about-name">Venesa</div>
-                            <div class="about-ver">Version 2.0.0 · Windows</div>
+                    <div class="about-wrap">
+                        <img src="venesa-asset://logo.png" class="about-logo" onerror="this.style.display='none'">
+                        <div class="about-name">Venesa</div>
+                        <div class="about-ver">v2.0.0</div>
+                        <div class="card" style="width:100%;text-align:left">
+                            <div class="row">
+                                <div class="row-info">
+                                    <div class="row-label">Platform</div>
+                                </div><code id="about-platform">-</code>
+                            </div>
+                            <div class="row">
+                                <div class="row-info">
+                                    <div class="row-label">Electron</div>
+                                </div><code id="about-electron">-</code>
+                            </div>
+                            <div class="row">
+                                <div class="row-info">
+                                    <div class="row-label">Node.js</div>
+                                </div><code id="about-node">-</code>
+                            </div>
+                        </div>
+                        <div style="margin-top:16px">
+                            <span class="about-link" onclick="settingsApi.openUrl('https://github.com')">GitHub</span>
                         </div>
                     </div>
                 </div>
@@ -949,214 +1212,465 @@
 
     <!-- Footer -->
     <div class="footer">
-        <div class="footer-msg" id="footer-msg"></div>
+        <span class="footer-msg" id="footer-msg"></span>
         <div class="footer-actions">
-            <button class="btn" id="btn-cancel">Cancel</button>
-            <button class="btn btn-primary" id="btn-save">Save Settings</button>
+            <button class="btn" onclick="settingsApi.close()">Cancel</button>
+            <button class="btn btn-primary" onclick="saveAll()">Save</button>
         </div>
     </div>
 
     <div id="toast"></div>
 
     <script>
-        'use strict';
+        const api = window.settingsApi;
+        let dirty = false;
 
-        function e(s) { return String(s || '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
+        // ── Helpers ────────────────────────────────────────────
 
-        function toast(msg, type = '') {
-            const t = document.getElementById('toast');
-            t.textContent = msg; t.className = `show ${type}`;
-            clearTimeout(t._t); t._t = setTimeout(() => t.className = '', 2600);
+        function escapeHtml(str) {
+            const div = document.createElement('div');
+            div.textContent = str;
+            return div.innerHTML;
         }
 
-        // Nav
-        document.querySelectorAll('.nav-btn[data-tab]').forEach(btn => {
+        const toast = {
+            _timer: null,
+            show(msg, type = '') {
+                const el = document.getElementById('toast');
+                el.textContent = msg;
+                el.className = 'show' + (type ? ' ' + type : '');
+                clearTimeout(this._timer);
+                this._timer = setTimeout(() => { el.className = ''; }, 2500);
+            }
+        };
+
+        // ── Tab navigation ─────────────────────────────────────
+
+        function switchTopTab(group, tabId) {
+            document.querySelectorAll(`.top-tab[data-group="${group}"]`).forEach(b => b.classList.remove('active'));
+            document.querySelectorAll(`.sub-panel[data-group="${group}"]`).forEach(p => p.classList.remove('active'));
+
+            const btn = document.querySelector(`.top-tab[data-group="${group}"][data-tab="${tabId}"]`);
+            if (btn) btn.classList.add('active');
+
+            const pnl = document.getElementById(`sub-${group}-${tabId}`);
+            if (pnl) pnl.classList.add('active');
+        }
+
+        document.querySelectorAll('.nav-btn').forEach(btn => {
             btn.addEventListener('click', () => {
-                const id = btn.dataset.tab;
                 document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
                 document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
                 btn.classList.add('active');
-                document.getElementById(`tab-${id}`).classList.add('active');
-                if (id === 'skills') loadSkills();
-                if (id === 'memory') loadMemory();
-                if (id === 'apikeys') loadKeyStatus();
+                const tab = document.getElementById('tab-' + btn.dataset.tab);
+                if (tab) tab.classList.add('active');
+
+                // Lazy-load tab data
+                if (btn.dataset.tab === 'memory') loadMemory();
+                if (btn.dataset.tab === 'skills') loadSkills();
+                if (btn.dataset.tab === 'apikeys') loadKeys();
             });
         });
 
-        // Settings
+        // ── Settings load/save ─────────────────────────────────
+
         async function loadSettings() {
             try {
-                const s = await window.settingsApi.getSettings();
+                const s = await api.getSettings();
                 document.getElementById('s-name').value = s.userName || '';
                 document.getElementById('s-autostart').checked = s.openAtLogin !== false;
-                if (s.modelName) document.getElementById('s-model').value = s.modelName;
-                if (s.voiceProfile) document.getElementById('s-voice').value = s.voiceProfile;
-                if (s.ttsModel) document.getElementById('s-tts-model').value = s.ttsModel;
+                document.getElementById('s-model').value = s.modelName || 'gemini-2.5-flash-lite';
                 document.getElementById('s-wakeword').checked = s.wakeWordEnabled !== false;
-            } catch (err) { toast('Could not load settings', 'err'); }
-        }
+                document.getElementById('s-voiceid').value = s.voiceId || '';
+                document.getElementById('s-ttsmodel').value = s.ttsModel || 'eleven_flash_v2_5';
 
-        // API Keys
-        async function loadKeyStatus() {
-            try {
-                const status = await window.settingsApi.getKeyStatus();
-                for (const svc of ['gemini', 'elevenlabs']) {
-                    const keys = status[svc] || []; // array of {envVar, masked}
-                    const badge = document.getElementById(`badge-${svc}`);
-                    const cur = document.getElementById(`cur-${svc}`);
-                    if (keys.length > 0) {
-                        badge.className = 'badge badge-ok';
-                        badge.innerHTML = `<span class="dot"></span>${keys.length} key${keys.length > 1 ? 's' : ''}`;
-                        cur.innerHTML = keys.map(k => `
-          <div class="key-existing">
-            <span class="key-mask">${e(k.envVar)}: ${e(k.masked)}</span>
-            <button class="btn btn-danger btn-sm remove-key-btn" data-env="${e(k.envVar)}">Remove</button>
-          </div>`).join('');
-                        cur.querySelectorAll('.remove-key-btn').forEach(btn => {
-                            btn.addEventListener('click', evt => removeKey(evt.currentTarget.dataset.env));
-                        });
-                    } else {
-                        badge.className = 'badge badge-off';
-                        badge.innerHTML = '<span class="dot"></span>Not set';
-                        cur.innerHTML = '';
-                    }
+                // Profile
+                const profile = await api.getProfile();
+                document.getElementById('s-bio').value = profile.bio || '';
+
+                // About
+                document.getElementById('about-platform').textContent = navigator.platform || '-';
+                if (window.settingsApi && window.settingsApi.versions) {
+                    document.getElementById('about-electron').textContent = window.settingsApi.versions.electron || '-';
+                    document.getElementById('about-node').textContent = window.settingsApi.versions.node || '-';
                 }
-            } catch (err) { console.error('loadKeyStatus error', err); }
-        }
-
-        async function saveKey(svc) {
-            const val = document.getElementById(`key-${svc}`).value.trim();
-            if (!val) { toast('Enter a key first', 'err'); return; }
-            try {
-                await window.settingsApi.addApiKey(svc, val); // append, not replace
-                document.getElementById(`key-${svc}`).value = '';
-                toast(`Key added to ${svc}`, 'ok');
-                loadKeyStatus();
-            } catch (err) { toast('Failed to save key', 'err'); }
-        }
-
-        async function removeKey(envVar) {
-            try { await window.settingsApi.removeApiKey(envVar); toast('Key removed'); loadKeyStatus(); }
-            catch (err) { toast('Failed to remove', 'err'); }
-        }
-
-        async function testKey(svc) {
-            const v = document.getElementById(`key-${svc}`).value.trim();
-            toast(`Testing ${svc}…`);
-            try {
-                // Pass the input key directly — no pre-save needed
-                const r = await window.settingsApi.testConnection(svc, v || undefined);
-                if (r && r.success) {
-                    if (v) await window.settingsApi.addApiKey(svc, v);
-                    toast(`${svc} ✔ connected`, 'ok');
-                    document.getElementById(`key-${svc}`).value = '';
-                    loadKeyStatus();
-                }
-                else toast(`${svc} failed: ${r.error || 'unknown'}`, 'err');
-            } catch (err) { toast('Test error', 'err'); }
-        }
-
-        // Skills
-        async function loadSkills() {
-            const el = document.getElementById('skills-list');
-            el.innerHTML = '<div class="empty">Loading…</div>';
-            try {
-                const skills = await window.settingsApi.getLoadedSkills();
-                if (!skills || !skills.length) { el.innerHTML = '<div class="empty">No skills loaded.</div>'; return; }
-                el.innerHTML = skills.map(s => `
-      <div class="skill-row">
-        <div class="skill-icon"><svg viewBox="0 0 24 24"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><polyline points="13 2 13 9 20 9"/></svg></div>
-        <div><div class="skill-name">${e(s.name)}</div><div class="skill-desc">${e(s.description || '')}</div></div>
-      </div>`).join('');
-            } catch (err) { el.innerHTML = '<div class="empty">Error loading skills.</div>'; }
-        }
-
-        // Memory
-        async function loadMemory() {
-            const body = document.getElementById('memory-body');
-            body.innerHTML = '<div class="empty">Loading…</div>';
-            const buckets = [
-                { id: 'preferences', label: 'Preferences', sub: 'Editor, theme, language' },
-                { id: 'context', label: 'Context', sub: 'Facts about you' },
-                { id: 'aliases', label: 'Aliases & Commands', sub: 'Custom shortcuts' },
-                { id: 'history', label: 'History', sub: 'Recent interactions' },
-            ];
-            let html = '';
-            for (const b of buckets) {
-                let rows = '';
-                try {
-                    const data = await window.settingsApi.getMemoryBucket(b.id);
-                    if (b.id === 'history' && data && data.recent) {
-                        const items = (data.recent || []).slice(-10).reverse();
-                        rows = items.length ? items.map(h => `<div class="hist-row"><div class="hist-q">${e((h.q || '').substring(0, 80))}</div><div class="hist-a">${e((h.a || '').substring(0, 100))}</div></div>`).join('') : '<div class="empty" style="padding:6px 0">No history yet.</div>';
-                    } else {
-                        const entries = Object.entries(data || {}).filter(([k]) => !['recent', 'interactionCount', 'customCommands'].includes(k));
-                        rows = entries.length ? entries.map(([k, v]) => `<div class="mem-row"><span class="mem-key">${e(k)}</span><span class="mem-val">${e(String(typeof v === 'object' ? JSON.stringify(v) : v).substring(0, 100))}</span></div>`).join('') : '<div class="empty" style="padding:6px 0">Nothing stored.</div>';
-                    }
-                } catch (err) { rows = '<div class="empty" style="padding:6px 0">Failed to load.</div>'; }
-                html += `<div class="card"><div class="bucket-head"><div><div class="row-label">${e(b.label)}</div><div class="row-sub">${e(b.sub)}</div></div><button class="btn btn-danger btn-sm" onclick="clearBucket('${b.id}')">Clear</button></div><div class="bucket-body">${rows}</div></div>`;
+            } catch (e) {
+                toast.show('Failed to load settings', 'err');
             }
-            html += `<button class="btn btn-danger" style="margin-top:2px" onclick="clearAll()">Clear All Memory</button>`;
-            body.innerHTML = html;
+        }
+
+        async function saveAll() {
+            try {
+                const patch = {
+                    userName: document.getElementById('s-name').value.trim() || 'User',
+                    openAtLogin: document.getElementById('s-autostart').checked,
+                    modelName: document.getElementById('s-model').value,
+                    wakeWordEnabled: document.getElementById('s-wakeword').checked,
+                    voiceId: document.getElementById('s-voiceid').value.trim(),
+                    ttsModel: document.getElementById('s-ttsmodel').value,
+                };
+                await api.saveSettings(patch);
+
+                const bio = document.getElementById('s-bio').value.trim();
+                await api.saveProfile({ bio });
+
+                toast.show('Settings saved', 'ok');
+                dirty = false;
+            } catch (e) {
+                toast.show('Failed to save', 'err');
+            }
+        }
+
+        // ── API Keys ───────────────────────────────────────────
+
+        async function loadKeys() {
+            try {
+                const status = await api.getKeyStatus();
+                renderService('gemini', status.gemini || []);
+                renderService('elevenlabs', status.elevenlabs || []);
+                renderCustomKeys(status.custom || []);
+            } catch (e) {
+                toast.show('Failed to load keys', 'err');
+            }
+        }
+
+        function renderService(service, keys) {
+            const listEl = document.getElementById(service + '-key-list');
+            const badgeEl = document.getElementById(service + '-badge');
+            listEl.innerHTML = '';
+
+            if (keys.length > 0) {
+                badgeEl.className = 'badge badge-ok';
+                badgeEl.innerHTML = `<span class="dot"></span>${keys.length} key${keys.length > 1 ? 's' : ''}`;
+                keys.forEach(k => {
+                    const masked = k.masked || (k.key ? k.key.substring(0, 4) + '••••' + k.key.slice(-4) : '••••••••');
+                    const envVar = k.envVar || '';
+                    const row = document.createElement('div');
+                    row.className = 'key-existing';
+                    row.innerHTML = `
+                        <div style="flex: 1; font-family: monospace; font-size: 11px; opacity: 0.8; user-select: text; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${escapeHtml(envVar)}">${escapeHtml(envVar)}</div>
+                        <span class="key-mask" data-env="${escapeHtml(envVar)}" data-svc="" data-masked="${escapeHtml(masked)}" tabindex="0" onfocus ="toggleMask(this)" onblur="toggleMask(this)" style="cursor: pointer; outline: none; margin-left: auto; text-align: right; overflow-x: auto; white-space: nowrap; max-width: 150px;" title="Double-click to toggle reveal">${escapeHtml(masked)}</span>
+                        <div class="key-actions" style="margin-left: 8px; flex-shrink: 0;">
+                            <button class="btn btn-sm btn-danger" onclick="removeCustomKey('${escapeHtml(envVar)}')">✕</button>
+                        </div>
+                    `;
+                    listEl.appendChild(row);
+                });
+            } else {
+                badgeEl.className = 'badge badge-off';
+                badgeEl.innerHTML = `<span class="dot"></span>No keys`;
+                listEl.innerHTML = '<div style="padding: 12px 14px; color: var(--text-3); font-size: 11px; text-align: center;">No keys saved</div>';
+            }
+        }
+
+        function renderCustomKeys(keys) {
+            const listEl = document.getElementById('custom-key-list');
+            const badgeEl = document.getElementById('custom-badge');
+            listEl.innerHTML = '';
+
+            if (keys.length > 0) {
+                badgeEl.className = 'badge badge-ok';
+                badgeEl.innerHTML = `<span class="dot"></span>${keys.length} key${keys.length > 1 ? 's' : ''}`;
+                keys.forEach(k => {
+                    const masked = k.masked || (k.key ? k.key.substring(0, 4) + '••••' + k.key.slice(-4) : '••••••••');
+                    const envVar = k.envVar || '';
+                    const row = document.createElement('div');
+                    row.className = 'key-existing';
+                    row.innerHTML = `
+                        <div style="flex: 1; font-family: monospace; font-size: 11px; opacity: 0.8; user-select: text; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${escapeHtml(envVar)}">${escapeHtml(envVar)}</div>
+                        <span class="key-mask" data-env="${escapeHtml(envVar)}" data-svc="" data-masked="${escapeHtml(masked)}" tabindex="0" onfocus ="toggleMask(this)" onblur="toggleMask(this)" style="cursor: pointer; outline: none; margin-left: auto; text-align: right; overflow-x: auto; white-space: nowrap; max-width: 150px;" title="Double-click to toggle reveal">${escapeHtml(masked)}</span>
+                        <div class="key-actions" style="margin-left: 8px; flex-shrink: 0;">
+                            <button class="btn btn-sm btn-danger" onclick="removeCustomKey('${escapeHtml(envVar)}')">✕</button>
+                        </div>
+                    `;
+                    listEl.appendChild(row);
+                });
+            } else {
+                badgeEl.className = 'badge badge-off';
+                badgeEl.innerHTML = `<span class="dot"></span>No keys`;
+                listEl.innerHTML = '<div style="padding: 12px 14px; color: var(--text-3); font-size: 11px; text-align: center;">No keys saved</div>';
+            }
+        }
+
+        async function toggleMask(el) {
+            if (el.dataset.revealed === 'true') {
+                el.textContent = el.dataset.masked;
+                el.dataset.revealed = 'false';
+            } else {
+                try {
+                    const envVar = el.dataset.env || '';
+                    const svc = el.dataset.svc || '';
+                    const key = await api.getApiKey(envVar, svc);
+                    if (key) {
+                        el.textContent = key;
+                        el.dataset.revealed = 'true';
+                    } else {
+                        toast.show('Failed to reveal key', 'err');
+                    }
+                } catch (e) {
+                    toast.show('Failed to reveal key', 'err');
+                }
+            }
+        }
+
+        async function addCustomKey() {
+            const nameInput = document.getElementById('custom-svc-name');
+            const valInput = document.getElementById('custom-input');
+            const envVar = nameInput.value.trim().toUpperCase().replace(/[^A-Z0-9_]/g, '');
+            const key = valInput.value.trim();
+
+            if (!envVar || !key) {
+                toast.show('Service name and key required', 'err');
+                return;
+            }
+            try {
+                await api.addCustomKey(envVar, key);
+                nameInput.value = '';
+                valInput.value = '';
+                toast.show('Custom key added', 'ok');
+                loadKeys();
+            } catch (e) { toast.show('Failed to add custom key', 'err'); }
+        }
+
+        async function removeCustomKey(envVar) {
+            if (!confirm(`Remove key ${envVar}?`)) return;
+            try {
+                await api.removeApiKey(envVar);
+                toast.show('Key removed', 'ok');
+                loadKeys();
+            } catch (e) { toast.show('Failed to remove custom key', 'err'); }
+        }
+
+        async function addKey(service) {
+            const input = document.getElementById(service + '-input');
+            const key = input.value.trim();
+            if (!key) return;
+            try {
+                await api.addApiKey(service, key);
+                input.value = '';
+                toast.show('Key added', 'ok');
+                loadKeys();
+            } catch (e) {
+                toast.show('Failed to add key', 'err');
+            }
+        }
+
+
+
+        async function removeKey(envVar, service) {
+            if (!confirm('Remove this API key?')) return;
+            try {
+                await api.removeApiKey(envVar);
+                toast.show('Key removed', 'ok');
+                loadKeys();
+            } catch (e) {
+                toast.show('Failed to remove key', 'err');
+            }
+        }
+
+        // ── Memory ─────────────────────────────────────────────
+
+        async function loadMemory() {
+            try {
+                const allData = await api.getAllMemory();
+                const memBuckets = ['preferences', 'context', 'aliases', 'history'];
+
+                for (const bucket of memBuckets) {
+                    const container = document.getElementById(`mem-content-${bucket}`);
+                    if (!container) continue;
+                    container.innerHTML = '';
+
+                    const entries = allData[bucket] || {};
+                    let keys = Object.keys(entries);
+
+                    // Filter out internal keys for accurate counting
+                    if (bucket === 'aliases') {
+                        keys = keys.filter(k => k !== 'pluginStates' && k !== 'customCommands');
+                    }
+
+                    const head = document.createElement('div');
+                    head.className = 'bucket-head';
+                    head.innerHTML = `
+            <span class="bucket-name" style="font-size: 13.5px; opacity: 0.9;">${keys.length} item${keys.length !== 1 ? 's' : ''}</span>
+            <div>
+                ${keys.length > 0 ? `<button class="btn btn-sm btn-danger" onclick="clearBucket('${bucket}')">Clear All</button>` : ''}
+            </div>
+                    `;
+                    container.appendChild(head);
+
+                    if (keys.length > 0) {
+                        const body = document.createElement('div');
+                        body.className = 'bucket-body';
+
+                        if (bucket === 'history') {
+                            renderHistoryBucket(body, entries);
+                        } else {
+                            for (const key of keys) {
+                                // Hide internal Venesa keys from the UI
+                                if (bucket === 'aliases' && (key === 'pluginStates' || key === 'customCommands')) {
+                                    continue;
+                                }
+
+                                const val = entries[key];
+                                const row = document.createElement('div');
+                                row.className = 'mem-row';
+                                const displayVal = typeof val === 'object' ? JSON.stringify(val) : String(val);
+                                row.innerHTML = `
+                                    <span class="mem-key">${escapeHtml(key)}</span>
+                                    <span class="mem-val">${escapeHtml(displayVal)}</span>
+                                    <button class="mem-del" title="Delete" onclick="deleteEntry('${escapeHtml(bucket)}','${escapeHtml(key)}')">✕</button>
+                                `;
+                                body.appendChild(row);
+                            }
+                        }
+                        container.appendChild(body);
+                    } else {
+                        const empty = document.createElement('div');
+                        empty.className = 'empty';
+                        empty.textContent = 'No entries in this category';
+                        container.appendChild(empty);
+                    }
+                }
+            } catch (e) {
+                toast.show('Failed to load memory', 'err');
+            }
+        }
+
+        function renderHistoryBucket(body, entries) {
+            const recent = entries.recent;
+            if (Array.isArray(recent) && recent.length > 0) {
+                recent.slice().reverse().forEach((h, i) => {
+                    if (!h) return;
+                    const row = document.createElement('div');
+                    row.className = 'hist-row';
+                    row.innerHTML = `
+                    <div class="hist-q">${escapeHtml(h.q || '?')}</div>
+                    <span class="hist-a">${escapeHtml(h.a || '')}</span>
+        `;
+                    body.appendChild(row);
+                });
+            }
+            // Show interaction count
+            if (entries.interactionCount) {
+                const info = document.createElement('div');
+                info.style.cssText = 'padding:8px 0;font-size:11px;color:var(--text-3)';
+                info.textContent = `Total interactions: ${entries.interactionCount} `;
+                body.appendChild(info);
+            }
+        }
+
+        async function deleteEntry(bucket, key) {
+            if (!confirm(`Delete "${key}" from ${bucket}?`)) return;
+            try {
+                await api.removeMemoryEntry(bucket, key);
+                toast.show('Entry deleted', 'ok');
+                loadMemory();
+            } catch (e) {
+                toast.show('Failed to delete', 'err');
+            }
         }
 
         async function clearBucket(bucket) {
-            if (!confirm(`Clear "${bucket}" memory?`)) return;
-            try { await window.settingsApi.clearMemoryBucket(bucket); toast(`${bucket} cleared`, 'ok'); loadMemory(); }
-            catch (err) { toast('Failed', 'err'); }
-        }
-
-        async function clearAll() {
-            if (!confirm('Clear ALL AI memory?')) return;
-            const failures = [];
-            for (const b of ['preferences', 'context', 'aliases', 'history']) {
-                try {
-                    await window.settingsApi.clearMemoryBucket(b);
-                } catch (err) {
-                    console.error(`Failed to clear bucket ${b}:`, err);
-                    failures.push({ bucket: b, err });
-                }
-            }
-            if (failures.length > 0) {
-                toast(`Failed to clear ${failures.length} buckets`, 'err');
-            } else {
-                toast('All memory cleared', 'ok');
-            }
-            loadMemory();
-        }
-
-        // Save / Cancel
-        document.getElementById('btn-save').addEventListener('click', async () => {
-            const patch = {
-                userName: document.getElementById('s-name').value.trim() || 'User',
-                openAtLogin: document.getElementById('s-autostart').checked,
-                modelName: document.getElementById('s-model').value,
-                voiceProfile: document.getElementById('s-voice').value.trim(),
-                ttsModel: document.getElementById('s-tts-model').value,
-                wakeWordEnabled: document.getElementById('s-wakeword').checked,
-            };
-            try { await window.settingsApi.saveSettings(patch); toast('Saved', 'ok'); setTimeout(() => window.settingsApi.close(), 800); }
-            catch (err) { toast('Save failed', 'err'); }
-        });
-
-        document.getElementById('btn-cancel').addEventListener('click', () => window.settingsApi.close());
-
-        document.getElementById('btn-reset').addEventListener('click', async () => {
-            if (!confirm('Factory reset? All settings and API keys will be wiped.')) return;
+            if (!confirm(`Clear all entries in "${bucket}" ? `)) return;
             try {
-                const res = await window.settingsApi.factoryReset();
-                if (res && res.success) {
-                    toast('Reset — restart to re-enter keys', 'ok');
-                    setTimeout(() => window.settingsApi.close(), 1500);
-                } else {
-                    toast('Reset failed', 'err');
-                }
-            } catch (err) { toast('Reset failed', 'err'); }
-        });
+                await api.clearMemoryBucket(bucket);
+                toast.show(`${bucket} cleared`, 'ok');
+                loadMemory();
+            } catch (e) {
+                toast.show('Failed to clear', 'err');
+            }
+        }
 
-        // Init
+        // ── Skills & Plugins ───────────────────────────────────
+
+        async function loadSkills() {
+            try {
+                // Core skills (read-only)
+                const skills = await api.getBuiltinSkills();
+                const skillsList = document.getElementById('skills-list');
+                skillsList.innerHTML = '';
+
+                if (Array.isArray(skills) && skills.length > 0) {
+                    skills.forEach(s => {
+                        const row = document.createElement('div');
+                        row.className = 'skill-row';
+                        row.innerHTML = `
+                            <div class="skill-icon"><svg viewBox="0 0 24 24"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" /></svg></div>
+                <div class="skill-info">
+                    <div class="skill-name">${escapeHtml(s.name || s)}</div>
+                    ${s.description ? `<div class="skill-desc">${escapeHtml(s.description)}</div>` : ''}
+                </div>
+        `;
+                        skillsList.appendChild(row);
+                    });
+                } else {
+                    skillsList.innerHTML = '<div class="empty">No skills loaded</div>';
+                }
+
+                // Plugins (with toggles)
+                const plugins = await api.getPlugins();
+                const pluginsList = document.getElementById('plugins-list');
+                pluginsList.innerHTML = '';
+
+                if (Array.isArray(plugins) && plugins.length > 0) {
+                    plugins.forEach(p => {
+                        const row = document.createElement('div');
+                        row.className = 'skill-row';
+                        let isEnabled = true;
+                        if (p.enabled === false || p._enabled === false) {
+                            isEnabled = false;
+                        }
+
+                        row.innerHTML = `
+                            <div class="skill-icon" style="${!isEnabled ? 'opacity:0.4' : ''}"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" /><rect x="14" y="3" width="7" height="7" /><rect x="14" y="14" width="7" height="7" /><rect x="3" y="14" width="7" height="7" /></svg></div>
+                            <div class="skill-info" style="${!isEnabled ? 'opacity:0.5' : ''}">
+                                <div class="skill-name">${escapeHtml(p.name)}</div>
+                                ${p.description ? `<div class="skill-desc">${escapeHtml(p.description)}</div>` : ''}
+                            </div>
+                            <label class="toggle" aria-label="Toggle ${escapeHtml(p.name)}">
+                                <input type="checkbox" ${isEnabled ? 'checked' : ''} onchange="togglePlugin('${escapeHtml(p.name)}',this.checked)">
+                                <span class="toggle-track"></span>
+                            </label>
+        `;
+                        pluginsList.appendChild(row);
+                    });
+                } else {
+                    pluginsList.innerHTML = '<div class="empty">No plugins installed</div>';
+                }
+            } catch (e) {
+                document.getElementById('skills-list').innerHTML = '<div class="empty">Failed to load</div>';
+            }
+        }
+
+        async function togglePlugin(name, enabled) {
+            try {
+                await api.togglePlugin(name, enabled);
+                toast.show(`${name} ${enabled ? 'enabled' : 'disabled'}`, 'ok');
+                loadSkills();
+            } catch (e) {
+                toast.show('Failed to toggle plugin', 'err');
+                loadSkills();
+            }
+        }
+
+        // ── Factory Reset ──────────────────────────────────────
+
+        async function factoryReset() {
+            if (!confirm('This will delete ALL data including API keys, memory, and settings. Are you sure?')) return;
+            if (!confirm('This action cannot be undone. Continue?')) return;
+            try {
+                await api.factoryReset();
+                toast.show('Factory reset complete', 'ok');
+                setTimeout(() => api.close(), 1500);
+            } catch (e) {
+                toast.show('Reset failed', 'err');
+            }
+        }
+
+        // ── Init ───────────────────────────────────────────────
+
         loadSettings();
-        loadKeyStatus();
+        loadKeys();
     </script>
 </body>
 

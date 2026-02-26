@@ -178,6 +178,19 @@ async function sendQuery(query, imageData = null, mode = 'text') {
         }
     }
 
+    if (lastError) {
+        const msg = lastError.message || '';
+        if (msg.includes('429') && msg.includes('quota')) {
+            throw new Error('Gemini API quota exceeded. Please wait a few moments or check your API key limits in Settings.');
+        } else if (msg.includes('GoogleGenerativeAI Error')) {
+            // Attempt to cleanly extract the main reason without the JSON dump
+            const match = msg.match(/\[(.*?)\] (.*?)(?:\r?\n| \[|$)/);
+            if (match && match[2]) {
+                throw new Error(match[2].trim());
+            }
+        }
+    }
+
     throw lastError || new Error('Query failed after retries');
 }
 

@@ -68,7 +68,8 @@ function getSkillList() {
             tags: skill.tags || [],
             ui: skill.ui || null,
             source: skill._source || 'core',
-            schema: skill.schema
+            enabled: skill._enabled !== false, // pass enabled state
+            hasSchema: !!skill.schema
         });
     }
     return list;
@@ -82,6 +83,16 @@ function getBuiltinSkills() {
 /** Returns only external plugin skills */
 function getAllPlugins() {
     return getSkillList().filter(s => s.source === 'plugin');
+}
+
+/** Returns only enabled skills */
+function getAllEnabled() {
+    const enabledSkills = {};
+    for (const [name, skill] of skills) {
+        if (skill._source === 'plugin' && skill._enabled === false) continue;
+        enabledSkills[name] = skill;
+    }
+    return enabledSkills;
 }
 
 function clear() {
@@ -98,5 +109,6 @@ module.exports = {
     getSkillList,
     getBuiltinSkills,
     getAllPlugins,
+    getAllEnabled,
     clear,
 };

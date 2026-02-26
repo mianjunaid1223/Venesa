@@ -5,17 +5,17 @@
  * ═══════════════════════════════════════════════════════════════
  */
 
-const { app, protocol, net } = require('electron');
-const envPath = app.isPackaged
-    ? require('path').join(process.resourcesPath, '.env')
-    : require('path').join(__dirname, '../../.env');
+const { app, protocol, net, globalShortcut, ipcMain, screen } = require('electron');
+const path = require('path');
+const isPackaged = process.defaultApp ? false : /[\\/]electron-prebuilt[\\/]/.test(process.execPath) || /[\\/]electron[\\/]/.test(process.execPath) ? false : true;
+const envPath = isPackaged
+    ? path.join(process.resourcesPath, '.env')
+    : path.join(__dirname, '../../.env');
 require('dotenv').config({ path: envPath });
 app.commandLine.appendSwitch('autoplay-policy', 'no-user-gesture-required');
 app.commandLine.appendSwitch('disable-gpu-cache');
 app.commandLine.appendSwitch('disable-http-cache');
 
-const { globalShortcut, ipcMain, screen } = require('electron');
-const path = require('path');
 const os = require('os');
 const fs = require('fs');
 const llm = require('../brain/llm');

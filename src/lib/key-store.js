@@ -175,10 +175,45 @@ async function removeKeyByEnvVar(envVar) {
 }
 
 async function getKeyStatus() {
+    // Collect specific keys
+    const gemini = getAllServiceKeys('gemini');
+    const elevenlabs = getAllServiceKeys('elevenlabs');
+
+    // Collect all other keys in .env as "custom"
+    const custom = [];
+    const content = readEnvFile();
+    const knownVars = [SERVICE_ENV_MAP.gemini, SERVICE_ENV_MAP.elevenlabs];
+
+    for (const line of content.split('\n')) {
+        const trimmed = line.trim();
+        const match = trimmed.match(/^([A-Z0-9_]+)\s*=\s*(.+)$/);
+        if (match) {
+            const envVar = match[1];
+            // Skip known base vars and their numbered variants (_2, _3 etc)
+            const isKnown = knownVars.some(base => envVar === base || envVar.startsWith(`${base}_`));
+            if (!isKnown) {
+                const keyVal = match[2].replace(/^["']|["']$/g, '').trim();
+                custom.push({ envVar, masked: maskKey(keyVal) });
+            }
+        }
+    }
+
     return {
-        gemini: getAllServiceKeys('gemini'),
-        elevenlabs: getAllServiceKeys('elevenlabs'),
+        gemini,
+        elevenlabs,
+        custom
     };
 }
 
-module.exports = { maskKey, getKey, getAllServiceKeys, addKey, setKey, removeKey, removeKeyByEnvVar, getKeyStatus };
+module.exports = {
+    maskKey,
+    getKey,
+    getKeyFromEnv,
+    writeKeyToEnv,
+    getAllServiceKeys,
+    addKey,
+    setKey,
+    removeKey,
+    removeKeyByEnvVar,
+    getKeyStatus
+};

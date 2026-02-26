@@ -175,13 +175,29 @@ function register(deps) {
         }
     });
 
-    // Append a new key as the next numbered slot (GEMINI_API_KEY, _2, _3…)
     ipcMain.handle('add-api-key', async (event, service, key) => {
         const keyStore = require('../../lib/key-store');
         await keyStore.addKey(service, key);
         const keyPool = require('../../lib/key-pool');
         keyPool.invalidate();
         return true;
+    });
+
+    ipcMain.handle('add-custom-key', async (event, envVar, key) => {
+        const keyStore = require('../../lib/key-store');
+        // Validate envVar (e.g. OPENWEATHER_KEY)
+        const safeEnvVar = envVar.trim().toUpperCase().replace(/[^A-Z0-9_]/g, '');
+        if (safeEnvVar) await keyStore.writeKeyToEnv(safeEnvVar, key.trim());
+        const keyPool = require('../../lib/key-pool');
+        keyPool.invalidate();
+        return true;
+    });
+
+    ipcMain.handle('get-api-key', async (event, envVar, svc) => {
+        const keyStore = require('../../lib/key-store');
+        if (envVar) return keyStore.getKeyFromEnv(envVar);
+        if (svc) return keyStore.getKey(svc);
+        return null;
     });
 
     // Keep set-api-key for backward compat (setup window uses it)

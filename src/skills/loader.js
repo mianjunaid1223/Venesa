@@ -60,13 +60,13 @@ function loadSkillFile(filePath, source = 'core') {
 
         // For plugins: check enabled state
         if (source === 'plugin') {
-            if (skill.enabled === false) {
-                logger.debug(`Plugin '${skill.name}' is disabled by default — skipping`);
-                return false;
-            }
-            if (!isPluginEnabled(skill.name)) {
-                logger.debug(`Plugin '${skill.name}' is disabled by user — skipping`);
-                return false;
+            if (skill.enabled === false && !isPluginEnabled(skill.name)) {
+                // It's disabled by default and not turned on
+                skill._enabled = false;
+            } else if (!isPluginEnabled(skill.name)) {
+                skill._enabled = false;
+            } else {
+                skill._enabled = true;
             }
         }
 
