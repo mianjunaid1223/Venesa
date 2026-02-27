@@ -6,7 +6,8 @@
  */
 
 const { z } = require('zod');
-const { runPowerShell } = require('./_shared');
+const powershell = require('../src/lib/powershell');
+const runPowerShell = (script, args, timeout = 30000) => powershell.execute(script, args || [], timeout);
 
 module.exports = {
     schema: z.object({}),
@@ -14,7 +15,7 @@ module.exports = {
     description: 'List top 10 CPU-heavy processes',
     tags: ['system', 'processes'],
 
-    returns: 'data',
+    returnType: 'data',
     marker: 'silently',
     ui: 'table',
 

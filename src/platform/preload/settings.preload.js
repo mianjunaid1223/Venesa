@@ -37,7 +37,12 @@ contextBridge.exposeInMainWorld('settingsApi', {
 
     // Window
     close: () => ipcRenderer.send('close-settings'),
-    openUrl: (url) => ipcRenderer.invoke('open-url', url),
+    openUrl: (url) => {
+        if (typeof url !== 'string' || !/^https?:\/\//i.test(url)) {
+            return Promise.reject(new Error('Invalid URL protocol'));
+        }
+        return ipcRenderer.invoke('open-url', url);
+    },
 
     // API Keys (Extra)
     addCustomKey: (envVar, key) => ipcRenderer.invoke('add-custom-key', envVar, key),

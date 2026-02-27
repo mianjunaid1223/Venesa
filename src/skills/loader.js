@@ -10,16 +10,19 @@
  *  SKILL / PLUGIN STANDARD SCHEMA
  *  ──────────────────────────────
  *  module.exports = {
- *    name:        string,          // unique camelCase identifier
- *    description: string,          // shown in Settings and injected into AI prompt
- *    returns:     'data'|'none',   // 'data' = fetches info (AI waits for result), 'none' = performs action
- *    marker:      'silently'|'announce'|'confirm',  // execution feedback level
- *    ui:          string|null,     // optional: 'table'|'key-value'|'card-list'|'command-list'
- *    handler:     async (params) => any,  // REQUIRED — same contract for skills AND plugins
+ *    name:        string,                // unique camelCase identifier
+ *    description: string,                // shown in Settings + injected into AI prompt
+ *    returnType:  'data'|'action'|'ui'|'memory'|'hybrid',  // REQUIRED
+ *    marker:      'silently'|'announce'|'confirm',         // execution feedback level
+ *    ui:          string|null,           // optional: 'table'|'key-value'|'card-list'|'command-list'
+ *    schema:      ZodObject,             // Zod schema for parameter validation
+ *    config:      ZodObject,             // optional: plugin configuration schema
+ *    lifecycle:   { onLoad, onUnload, onEnable, onDisable },  // optional hooks
+ *    handler:     async (params) => any, // REQUIRED
  *  };
  *
  *  Plugins live in /plugins/ and may also include:
- *    enabled:    boolean           // (optional) start disabled if false
+ *    enabled:    boolean  // (optional) start disabled if false
  */
 
 const fs = require('fs');
@@ -29,18 +32,20 @@ const registry = require('./registry');
 const validator = require('./validator');
 
 const CORE_DIR = path.join(__dirname, 'core');
+const INTERNAL_DIR = path.join(__dirname, 'internal');
 const PLUGINS_DIR = path.join(__dirname, '../../plugins');
 
 // ── Helpers ──────────────────────────────────────────────────
 
-function isPluginEnabled(pluginName) {
+function getUserPluginState(pluginName) {
     try {
         const memory = require('../brain/memory');
         const states = memory.get('aliases', 'pluginStates') || {};
-        // Default to enabled unless explicitly set to false
-        return states[pluginName] !== false;
+        if (states[pluginName] === true) return true;
+        if (states[pluginName] === false) return false;
+        return null;
     } catch {
-        return true;
+        return null;
     }
 }
 
@@ -51,8 +56,13 @@ function loadSkillFile(filePath, source = 'core') {
         }
         const skill = require(filePath);
 
-        // Validate standard schema
+        // Validate against unified protocol standard
         const result = validator.validate(skill, filePath);
+
+        if (result.warnings && result.warnings.length > 0) {
+            result.warnings.forEach(w => logger.warn(`[loader] ${filePath}: ${w}`));
+        }
+
         if (!result.valid) {
             logger.warn(`Skipping invalid skill at ${filePath}: ${result.errors.join(', ')}`);
             return false;
@@ -60,13 +70,11 @@ function loadSkillFile(filePath, source = 'core') {
 
         // For plugins: check enabled state
         if (source === 'plugin') {
-            if (skill.enabled === false && !isPluginEnabled(skill.name)) {
-                // It's disabled by default and not turned on
-                skill._enabled = false;
-            } else if (!isPluginEnabled(skill.name)) {
-                skill._enabled = false;
+            const userState = getUserPluginState(skill.name);
+            if (skill.enabled === false) {
+                skill._enabled = (userState === true);
             } else {
-                skill._enabled = true;
+                skill._enabled = (userState !== false);
             }
         }
 
@@ -76,6 +84,19 @@ function loadSkillFile(filePath, source = 'core') {
         }
 
         registry.register(skill.name, skill, source);
+
+        // Call lifecycle onLoad hook (supports async)
+        if (skill.lifecycle?.onLoad) {
+            try {
+                const result = skill.lifecycle.onLoad();
+                if (result && typeof result.catch === 'function') {
+                    result.catch(e => logger.warn(`Lifecycle onLoad (async) failed for '${skill.name}': ${e?.message ?? String(e)}`));
+                }
+            } catch (e) {
+                logger.warn(`Lifecycle onLoad failed for '${skill.name}': ${e?.message ?? String(e)}`);
+            }
+        }
+
         return true;
     } catch (e) {
         logger.error(`Failed to load skill at ${filePath}: ${e.message}`);
@@ -83,7 +104,7 @@ function loadSkillFile(filePath, source = 'core') {
     }
 }
 
-function loadDirectory(dir, label) {
+function loadDirectory(dir, label, source = 'core') {
     if (!fs.existsSync(dir)) {
         logger.debug(`Skill directory not found: ${dir}`);
         return 0;
@@ -96,7 +117,7 @@ function loadDirectory(dir, label) {
 
     for (const file of files) {
         const filePath = path.join(dir, file);
-        if (loadSkillFile(filePath, 'core')) {
+        if (loadSkillFile(filePath, source)) {
             loaded++;
         }
     }
@@ -136,15 +157,18 @@ function loadPlugins() {
 
 // ── Boot: auto-run on require ──────────────────────────────
 
-loadDirectory(CORE_DIR, 'core');
+loadDirectory(CORE_DIR, 'core', 'core');
+loadDirectory(INTERNAL_DIR, 'internal', 'internal');
 loadPlugins();
 
 module.exports = {
     loadDirectory,
     loadPlugins,
     reload() {
+        // registry.clear() calls onUnload for all skills internally
         registry.clear();
-        loadDirectory(CORE_DIR, 'core');
+        loadDirectory(CORE_DIR, 'core', 'core');
+        loadDirectory(INTERNAL_DIR, 'internal', 'internal');
         loadPlugins();
     },
 };

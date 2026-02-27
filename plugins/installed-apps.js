@@ -6,7 +6,8 @@
  */
 
 const { z } = require('zod');
-const { runPowerShell } = require('./_shared');
+const powershell = require('../src/lib/powershell');
+const runPowerShell = (script, args, timeout = 30000) => powershell.execute(script, args || [], timeout);
 
 module.exports = {
     schema: z.object({}),
@@ -14,7 +15,7 @@ module.exports = {
     description: 'List installed applications',
     tags: ['app', 'installed', 'list'],
 
-    returns: 'data',
+    returnType: 'data',
     marker: 'silently',
     ui: 'card-list',
 
@@ -34,7 +35,7 @@ Sort-Object Name -Unique |
 Select-Object -First 50) | ConvertTo-Json -Compress -AsArray
 `;
         try {
-            return await runPowerShell(psScript, 30000);
+            return await runPowerShell(psScript, [], 30000);
         } catch (e) {
             return JSON.stringify({ error: e.message });
         }

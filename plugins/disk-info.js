@@ -6,14 +6,15 @@
  */
 
 const { z } = require('zod');
-const { runPowerShell } = require('./_shared');
+const powershell = require('../src/lib/powershell');
+const runPowerShell = (script, args, timeout = 30000) => powershell.execute(script, args || [], timeout);
 
 module.exports = {
     schema: z.object({}),
     name: 'getDiskInfo',
     description: 'Get disk usage information',
     tags: ['system', 'disk', 'storage'],
-    returns: 'data',
+    returnType: 'data',
     marker: 'silently',
     ui: 'key-value',
 
@@ -29,7 +30,7 @@ Select-Object DeviceID,
 ConvertTo-Json -Compress -AsArray
 `;
         try {
-            return await runPowerShell(psScript, 10000);
+            return await runPowerShell(psScript, [], 10000);
         } catch (e) {
             return JSON.stringify({ error: e.message });
         }

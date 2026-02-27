@@ -14,7 +14,7 @@ module.exports = {
     description: 'Search YouTube for a query and open results in browser',
     tags: ['web', 'search', 'youtube', 'video'],
 
-    returns: 'none',
+    returnType: 'action',
     marker: 'announce',
     ui: null,
 

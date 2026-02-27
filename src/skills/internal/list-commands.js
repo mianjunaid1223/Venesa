@@ -14,7 +14,7 @@ module.exports = {
     description: 'List all saved custom voice commands',
     tags: ['command', 'list', 'shortcuts'],
 
-    returns: 'data',
+    returnType: 'data',
     marker: 'silently',
     ui: 'command-list',
 

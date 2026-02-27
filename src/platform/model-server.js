@@ -2,6 +2,7 @@
  * ═══════════════════════════════════════════════════════════════
  *  MODULE: Model Server
  *  Serves Vosk model files to the renderer over localhost HTTP.
+ *  Uses streaming to avoid memory buffering large model files.
  * ═══════════════════════════════════════════════════════════════
  *  DEPENDS ON: (none)
  *  USED BY:    platform/main
@@ -17,18 +18,27 @@ let modelServerPort = 0;
 function startModelServer(modelTarGzPath) {
     return new Promise((resolve, reject) => {
         modelServer = http.createServer((req, res) => {
-            fs.readFile(modelTarGzPath, (err, data) => {
-                if (err) {
-                    res.writeHead(404);
-                    res.end('Not found');
-                    return;
-                }
+            // Stream the model file instead of buffering the entire file in memory
+            try {
+                const stat = fs.statSync(modelTarGzPath);
                 res.setHeader('Access-Control-Allow-Origin', '*');
                 res.setHeader('Content-Type', 'application/gzip');
-                res.setHeader('Content-Length', data.length);
+                res.setHeader('Content-Length', stat.size);
                 res.writeHead(200);
-                res.end(data);
-            });
+
+                const stream = fs.createReadStream(modelTarGzPath);
+                stream.pipe(res);
+                stream.on('error', (err) => {
+                    console.error(`[ModelServer] Stream error: ${err.message}`);
+                    if (!res.headersSent) {
+                        res.writeHead(500);
+                    }
+                    res.end();
+                });
+            } catch (err) {
+                res.writeHead(404);
+                res.end('Not found');
+            }
         });
 
         const onError = (err) => {

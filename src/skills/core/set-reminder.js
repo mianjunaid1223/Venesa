@@ -22,7 +22,7 @@ module.exports = {
     description: 'Set a timed reminder notification',
     tags: ['reminder', 'timer', 'notification'],
 
-    returns: 'none',
+    returnType: 'action',
     marker: 'announce',
     ui: null,
 

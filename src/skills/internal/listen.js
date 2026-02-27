@@ -1,28 +1,22 @@
 /**
  * ═══════════════════════════════════════════════════════════════
- *  SKILL: get-clipboard
- *  Read text from the clipboard.
+ *  SKILL: listen
+ *  Continue listening for voice input.
  * ═══════════════════════════════════════════════════════════════
  */
-
 const { z } = require('zod');
-const { clipboard } = require('electron');
 
 module.exports = {
     schema: z.object({}),
-    name: 'getClipboard',
-    description: 'Read text from the clipboard',
-    tags: ['clipboard', 'read'],
+    name: 'listen',
+    description: 'Continue listening for voice input',
+    tags: ['voice', 'listen'],
 
-    returns: 'data',
+    returnType: 'action',
     marker: 'silently',
     ui: null,
 
     handler() {
-        try {
-            return clipboard.readText() || '(clipboard is empty)';
-        } catch (e) {
-            return 'Failed to read clipboard.';
-        }
+        return 'Listening';
     },
 };

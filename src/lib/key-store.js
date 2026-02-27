@@ -190,7 +190,11 @@ async function getKeyStatus() {
         if (match) {
             const envVar = match[1];
             // Skip known base vars and their numbered variants (_2, _3 etc)
-            const isKnown = knownVars.some(base => envVar === base || envVar.startsWith(`${base}_`));
+            const isKnown = knownVars.some(base => {
+                if (envVar === base) return true;
+                const re = new RegExp(`^${base}_\\d+$`);
+                return re.test(envVar);
+            });
             if (!isKnown) {
                 const keyVal = match[2].replace(/^["']|["']$/g, '').trim();
                 custom.push({ envVar, masked: maskKey(keyVal) });

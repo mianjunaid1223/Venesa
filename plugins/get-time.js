@@ -9,10 +9,10 @@ const { z } = require('zod');
 module.exports = {
     schema: z.object({}),
     name: 'getTime',
-    description: 'Get current date and time',
+    description: 'Get the current date and time',
     tags: ['time', 'date'],
 
-    returns: 'data',
+    returnType: 'data',
     marker: 'silently',
     ui: null,
 

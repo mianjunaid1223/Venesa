@@ -44,7 +44,7 @@ module.exports = {
     description: 'Run a safe read-only PowerShell command',
     tags: ['system', 'powershell', 'advanced'],
 
-    returns: 'data',
+    returnType: 'data',
     marker: 'silently',
     ui: null,
 
@@ -68,9 +68,9 @@ module.exports = {
         }
 
         try {
-            return await runPowerShell(trimmed, 10000);
+            return await runPowerShell(trimmed, [], 10000);
         } catch (e) {
-            return JSON.stringify({ process_error: e.message });
+            return JSON.stringify({ process_error: e instanceof Error ? e.message : String(e) });
         }
     },
 };

@@ -7,10 +7,13 @@
 
 const { app, protocol, net, globalShortcut, ipcMain, screen } = require('electron');
 const path = require('path');
-const isPackaged = process.defaultApp ? false : /[\\/]electron-prebuilt[\\/]/.test(process.execPath) || /[\\/]electron[\\/]/.test(process.execPath) ? false : true;
-const envPath = isPackaged
-    ? path.join(process.resourcesPath, '.env')
-    : path.join(__dirname, '../../.env');
+
+let envPath;
+if (app.isPackaged) {
+    envPath = path.join(process.resourcesPath, '.env');
+} else {
+    envPath = path.join(__dirname, '../../.env');
+}
 require('dotenv').config({ path: envPath });
 app.commandLine.appendSwitch('autoplay-policy', 'no-user-gesture-required');
 app.commandLine.appendSwitch('disable-gpu-cache');
@@ -70,10 +73,11 @@ app.whenReady().then(async () => {
     try {
         if (fs.existsSync(settingsPath)) {
             const settings = JSON.parse(fs.readFileSync(settingsPath, 'utf8'));
-            autoStartEnabled = settings.openAtLogin !== false;
+            autoStartEnabled = settings.openAtLogin === true;
         }
     } catch (e) {
-        autoStartEnabled = true;
+        logger.error(`[Main] Failed to read settings: ${e?.message ?? String(e)}`);
+        autoStartEnabled = false;
     }
 
     app.setLoginItemSettings({

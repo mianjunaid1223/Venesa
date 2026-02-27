@@ -4,7 +4,7 @@
  *  Handles voice-mode interactions, TTS/STT dispatch, screen capture.
  * ═══════════════════════════════════════════════════════════════
  *  DEPENDS ON: brain/llm, brain/processor, platform/speech/tts,
- *              platform/speech/stt, platform/formatters
+ *              platform/speech/stt
  *  USED BY:    platform/main
  * ═══════════════════════════════════════════════════════════════
  */
@@ -18,7 +18,6 @@ const processor = require('../../brain/processor');
 const memory = require('../../brain/memory');
 const ttsService = require('../speech/tts');
 const sttService = require('../speech/stt');
-const { DISPLAY_ONLY_ACTIONS, formatForVoice } = require('../formatters');
 const uiPipeline = require('../ui-pipeline');
 
 let cachedScreenCapture = null;
@@ -55,17 +54,12 @@ function sendToMainWindow(channel, data) {
     const windows = BrowserWindow.getAllWindows();
     const mainWin = windows.find(w => !w.isDestroyed() && w.getTitle() !== 'Voice');
     if (mainWin && !mainWin.isDestroyed()) {
-        if (!mainWin.isVisible()) {
-            mainWin.show();
-        }
-        if (mainWin.isMinimized()) {
-            mainWin.restore();
-        }
+        if (!mainWin.isVisible()) mainWin.show();
+        if (mainWin.isMinimized()) mainWin.restore();
         mainWin.webContents.send(channel, data);
     }
 }
 
-/** Safe-send a status stage update to the voice window */
 function sendStatus(event, stage) {
     if (!event.sender.isDestroyed()) {
         event.sender.send('ai-status', stage);
@@ -111,15 +105,13 @@ function register(getVoiceWindow, hideVoiceWindow) {
             // Stage 2: Working (executing actions)
             sendStatus(event, 'working');
 
-            const { cleanResponse, results, uiDirective } = await processor.processResponse(rawResponse);
+            const { cleanResponse, results, uiDirective, uiBlocks } = await processor.processResponse(rawResponse, 'voice');
 
-            // The cleanResponse from processor already extracts [speak] content if present.
-            // It will NOT contain any [silent] block content, action tags, or plan syntax.
+            // AI's [speak] block is the sole source of spoken output.
+            // cleanResponse already contains only the speak text (processor extracted it).
             let finalResponse = cleanResponse.replace(/\[NEED_SCREEN\]/g, '').trim();
             let hasSearchResults = false;
             let searchResultData = null;
-
-            // shouldListenAgain is set ONLY if the AI explicitly returns [action: listen]
             let shouldListenAgain = false;
 
             if (results && results.length > 0) {
@@ -144,39 +136,21 @@ function register(getVoiceWindow, hideVoiceWindow) {
                 }
             }
 
-            // Only append formatted voice feedback for data-display actions (system info, time, etc.)
-            // Do NOT append for actions like launchApplication, saveCommand, etc.
-            if (results && results.length > 0) {
-                const dataActions = new Set([
-                    'getSystemInfo', 'getTime', 'calculate', 'listRunningApps',
-                    'closeApp', 'closeAllApps', 'getClipboard', 'setClipboard',
-                    'takeScreenshot', 'getNetworkInfo', 'getDiskInfo', 'listProcesses',
-                    'runPowerShell'
-                ]);
-                let dataFeedback = [];
-                for (const res of results) {
-                    if (res.actionName === 'searchFiles' || res.actionName === 'listen') continue;
-                    if (dataActions.has(res.actionName)) {
-                        let fb = formatForVoice(res);
-                        if (fb) dataFeedback.push(fb);
-                    }
-                }
-                if (dataFeedback.length > 0 && (!finalResponse || finalResponse.length === 0)) {
-                    finalResponse = dataFeedback.join(' ').trim();
-                } else if (dataFeedback.length > 0) {
-                    finalResponse = (finalResponse + ' ' + dataFeedback.join(' ')).trim();
+            // Dispatch [ui] markdown blocks to current window (halt mic)
+            if (uiBlocks && uiBlocks.length > 0) {
+                uiPipeline.dispatchUiBlocks(event.sender, uiBlocks);
+                // Halt microphone when UI is being rendered
+                if (!event.sender.isDestroyed()) {
+                    event.sender.send('halt-microphone');
                 }
             }
 
+            // Dispatch structured UI from skill metadata to current window
             if (results && results.length > 0) {
-                const senderWin = BrowserWindow.fromWebContents(event.sender) || BrowserWindow.getFocusedWindow();
-                if (senderWin && !senderWin.isDestroyed()) {
-                    uiPipeline.dispatchFromResults(senderWin, results, uiDirective);
-                } else {
-                    logger.warn('[voice] Discarding UI dispatch: senderWin is null or destroyed');
-                }
+                uiPipeline.dispatchFromResults(event.sender, results, uiDirective);
             }
 
+            // Handle search results presentation
             if (hasSearchResults && searchResultData) {
                 const apps = searchResultData.apps || [];
                 const files = searchResultData.files || [];
@@ -229,7 +203,10 @@ function register(getVoiceWindow, hideVoiceWindow) {
             }
 
             if (shouldListenAgain && !event.sender.isDestroyed()) {
-                event.sender.send('continue-listening');
+                const voiceWin = getVoiceWindow();
+                if (voiceWin && !voiceWin.isDestroyed() && voiceWin.isVisible()) {
+                    event.sender.send('continue-listening');
+                }
             }
 
             if (ttsService.isAvailable() && finalResponse.length > 0) {
@@ -266,7 +243,7 @@ function register(getVoiceWindow, hideVoiceWindow) {
                     voiceWindow.webContents.send(channel, data);
                 }
             } catch (err) {
-                console.error(`[Main] safeSend failed for channel ${channel}:`, err);
+                logger.error(`[voice] safeSend failed for channel ${channel}: ${err.message}`);
             }
         };
 
@@ -295,7 +272,7 @@ function register(getVoiceWindow, hideVoiceWindow) {
             const contextQuery = `The user said "${originalQuery}" and selected a ${selectedItem.type} named "${selectedItem.name}". The full path is "${selectedItem.path}". Based on the original request, what action should I take? If the user was searching for something to open/launch, open it. If they wanted to find/locate it, show it in the folder. Respond with the action to take.`;
 
             const rawResponse = await llm.sendQuery(contextQuery, null, 'voice');
-            const { cleanResponse, results } = await processor.processResponse(rawResponse);
+            const { cleanResponse, results } = await processor.processResponse(rawResponse, 'voice');
 
             let actionTaken = false;
             let finalResponse = cleanResponse;
@@ -346,7 +323,7 @@ function register(getVoiceWindow, hideVoiceWindow) {
                 if (!openError) {
                     finalResponse = `Opening ${selectedItem.name}.`;
                 } else {
-                    console.error('[Main] Failed to open path:', openError);
+                    logger.error(`[voice] Failed to open path: ${openError}`);
                     finalResponse = `I couldn't open that item.`;
                 }
             }
@@ -366,7 +343,7 @@ function register(getVoiceWindow, hideVoiceWindow) {
                             event.sender.send('voice-audio-ready', audioDataUrl);
                         }
                     })
-                    .catch((err) => { console.error('[Main] TTS synthesis failed:', err.message); });
+                    .catch((err) => { logger.error(`[voice] TTS synthesis failed: ${err.message}`); });
             }
         } catch (error) {
             logger.error(`[voice] voice-file-action error: ${error.message}`);

@@ -14,7 +14,7 @@ module.exports = {
     description: 'Remove a custom voice command',
     tags: ['command', 'remove', 'delete'],
 
-    returns: 'none',
+    returnType: 'memory',
     marker: 'announce',
     ui: null,
 

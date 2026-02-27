@@ -12,7 +12,10 @@
             padding: 0;
             box-sizing: border-box;
             text-wrap: balance;
+            animation: fadein 0.5s ease-in;
         }
+
+
 
         :root {
             --font: "Segoe UI Variable", "Inter", -apple-system, system-ui,
@@ -1146,7 +1149,7 @@
             background: rgba(201, 121, 238, 0.04);
             margin-bottom: 6px;
             animation: fadeIn 0.2s var(--ease-out) backwards;
-            transition: background 0.15s;
+            transition: all 0.15s;
         }
 
         .dui-cmd-card:hover {
@@ -2170,8 +2173,7 @@
             loader.classList.remove('visible');
             loader.style.display = 'none';
             resultsDiv.innerHTML = '';
-            geminiResponse.style.display = 'none';
-            geminiResponse.classList.remove('visible');
+            // Do not hide geminiResponse here so text + UI can be shown together
             noResults.style.display = 'none';
             resultsWrapper.classList.remove('collapsed');
             resultItems = [];

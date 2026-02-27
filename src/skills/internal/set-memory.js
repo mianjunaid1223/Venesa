@@ -18,7 +18,7 @@ module.exports = {
     description: 'Write a value to a memory bucket, or remove it by omitting the value',
     tags: ['memory', 'write', 'remember'],
 
-    returns: 'none',
+    returnType: 'memory',
     marker: 'silently',
     ui: null,
 
@@ -27,8 +27,9 @@ module.exports = {
         const key = params.key;
         const value = params.value;
 
-        if (!bucket || !memory.BUCKETS.includes(bucket)) {
-            return JSON.stringify({ error: `Invalid bucket. Use one of: ${memory.BUCKETS.join(', ')}` });
+        const buckets = memory.BUCKETS || ['preferences', 'context', 'aliases', 'history'];
+        if (!bucket || !buckets.includes(bucket)) {
+            return JSON.stringify({ error: `Invalid bucket. Use one of: ${buckets.join(', ')}` });
         }
 
         if (!key || typeof key !== 'string') {

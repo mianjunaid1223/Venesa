@@ -1,53 +1,49 @@
-# Venesa Development Standards
+# Venesa Standards
 
-This document defines the strict standards for modules, plugins, and pipelines within the Venesa architecture. All new developments must strictly adhere to these guidelines to maintain a deterministic, testable, and robust system.
+## Universal Protocol
 
-## 1. Plugin (Skill) Standard Schema
+One protocol governs all intelligence behavior:
+- **Response structure**: `[speak]`/`[silent]` for voice, plain text + `[action:]` for text
+- **Tool invocation**: `[action: name, param: value]` or `[plan]...[/plan]`
+- **UI rendering**: `[ui]...[/ui]` for GitHub-decoded markdown
+- **Return types**: Every plugin declares `returnType` (data/action/ui/memory/hybrid)
+- **Execution markers**: `silently`, `announce`, `confirm`
 
-All plugins MUST export a predefined structure representing their metadata, permissions, and handler. We use `zod` to enforce parameter typing and runtime validation.
+### Execution Marker Definitions
 
-### Required Fields:
-- `name` (String): A unique camelCase ID used by the AI as a tool name.
-- `description` (String): A clear, concise description of what the plugin does and exactly when to use it, which is injected into the AI system prompt.
-- `ui` (String | null): The UI component directive to render on the frontend. Standard values: `'table'`, `'key-value'`, `'card-list'`, `'command-list'`, or `null`.
-- `schema` (Zod Object): A rigorous `zod` schema to validate the parameters requested by the AI.
-- `handler` (Async Function): `async (params) => any`. The main execution function. Receives pre-validated `params`.
+| Marker | Semantics | Behavior |
+|--------|-----------|----------|
+| `silently` | Background execution | No UI feedback, no notification. Used for memory writes, data fetches. Idempotent — safe to retry. |
+| `announce` | User-visible operation | Result shown in UI or spoken. Used for app launches, file operations. Logs to interaction history. |
+| `confirm` | Requires user approval | Execution paused until user confirms. Used for destructive actions (delete, shutdown, wifi-passwords). |
 
-### Example Plugin (`sample-plugin.js`):
-```javascript
-const { z } = require('zod');
+Implementations set markers via the `marker` metadata field on each skill/plugin or per-step in a `[plan]`. The orchestrator reads the marker to decide notification behavior.
 
-module.exports = {
-    name: 'samplePlugin',
-    description: 'prompt for ai on how to use it and what it is." or "show the sample plugin". Do NOT use for general UI questions.',
-    ui: 'table', // table, key-value, card-list, etc.
-    schema: z.object({
-        query: z.string().optional().describe('The user query to demonstrate the plugin.'),
-    }),
-    handler: async (params) => {
-        // params are guaranteed to match schema
-        return {
-            success: true,
-            data: [{ id: 1, name: "Item", value: params.query }]
-        };
-    }
-};
-```
+## Plugin Standard
 
-## 2. Orchestration & Execution
+Every plugin MUST declare:
+- `name` — unique camelCase identifier
+- `description` — human-readable, injected into AI prompt
+- `returnType` — one of: `data`, `action`, `ui`, `memory`, `hybrid`
+- `schema` — Zod schema for parameter validation (essential, not optional)
+- `handler` — async function accepting validated params
 
-1. **Formal Parsing:** All actions MUST be emitted as `[action: actionName, paramName: paramValue]` or wrapped in `[plan]...[/plan]` for multi-step tasks. Do not process legacy JSON arrays for actions.
-2. **Deterministic Step Failure:** If a step in a `[plan]` fails, subsequent dependencies MUST be aborted. Error responses must be structured and fed back to the orchestrator.
-3. **Execution Results:** All executed actions via `executeAction` must return a structured payload:
-```typescript
-{
-  success: boolean,
-  output: any,
-  error?: string
-}
-```
+Optional fields: `ui`, `marker`, `tags`, `config`, `lifecycle`, `enabled`
 
-## 3. Module & Pipeline Mechanisms
-- **State Management:** Avoid global mutable state in plugins. If state must be preserved, delegate to `brain/memory.js`.
-- **Dependency Tracking:** Parameters that start with `$` denote a dynamically resolved dependency from a previous step's output. The pipeline evaluates these before injecting them into the handler.
-- **Fail-Fast:** Validate early using the registry's centralized input validation instead of adding ad-hoc checks in every handler.
+See `plugins/README.md` for full specification.
+
+## Code Standards
+
+- **Naming**: camelCase for files and functions, PascalCase forbidden in filenames
+- **Modules**: CommonJS (`require`/`module.exports`)
+- **Error handling**: Try-catch in all handlers, never crash the app
+- **Logging**: Use `lib/logger.js`, never raw `console.log` in production code
+- **Security**: Validate all user inputs, sandbox PowerShell, restrict file paths to home directory
+- **No hard-coding**: Derive behavior from skill metadata and protocol constants
+
+## Governance
+
+- User has absolute authority over configuration, extensions, and behavior
+- Settings stored in `.venesa-settings.json` per-user
+- Plugin enable/disable persisted in memory `aliases.pluginStates`
+- All system behavior configurable, no hidden defaults

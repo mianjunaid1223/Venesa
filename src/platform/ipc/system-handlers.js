@@ -9,6 +9,7 @@
  */
 
 const { ipcMain, app } = require('electron');
+const path = require('path');
 const llm = require('../../brain/llm');
 const settings = require('../../brain/settings');
 const sttService = require('../speech/stt');
@@ -184,10 +185,15 @@ function register(deps) {
     });
 
     ipcMain.handle('add-custom-key', async (event, envVar, key) => {
+        if (!envVar || typeof envVar !== 'string') throw new Error('Invalid envVar');
+        if (!key || typeof key !== 'string' || !key.trim()) throw new Error('Invalid key');
+
         const keyStore = require('../../lib/key-store');
         // Validate envVar (e.g. OPENWEATHER_KEY)
         const safeEnvVar = envVar.trim().toUpperCase().replace(/[^A-Z0-9_]/g, '');
-        if (safeEnvVar) await keyStore.writeKeyToEnv(safeEnvVar, key.trim());
+        if (!safeEnvVar) throw new Error('Invalid envVar after sanitization');
+
+        await keyStore.writeKeyToEnv(safeEnvVar, key.trim());
         const keyPool = require('../../lib/key-pool');
         keyPool.invalidate();
         return true;
@@ -195,7 +201,12 @@ function register(deps) {
 
     ipcMain.handle('get-api-key', async (event, envVar, svc) => {
         const keyStore = require('../../lib/key-store');
-        if (envVar) return keyStore.getKeyFromEnv(envVar);
+        if (envVar) {
+            if (typeof envVar !== 'string') return null;
+            const safeEnvVar = envVar.trim().toUpperCase().replace(/[^A-Z0-9_]/g, '');
+            if (!safeEnvVar || safeEnvVar !== envVar) return null; // reject if sanitization alters the string
+            return keyStore.getKeyFromEnv(safeEnvVar);
+        }
         if (svc) return keyStore.getKey(svc);
         return null;
     });
@@ -266,6 +277,18 @@ function register(deps) {
 
     ipcMain.handle('toggle-plugin', async (event, pluginName, enabled) => {
         try {
+            // Call lifecycle hooks before state change
+            const registry = require('../../skills/registry');
+            const skill = registry.get(pluginName);
+            if (skill?.lifecycle) {
+                const hook = enabled ? skill.lifecycle.onEnable : skill.lifecycle.onDisable;
+                if (typeof hook === 'function') {
+                    try { await hook(); } catch (e) {
+                        logger.warn(`Lifecycle ${enabled ? 'onEnable' : 'onDisable'} failed for '${pluginName}': ${e?.message ?? String(e)}`);
+                    }
+                }
+            }
+
             const states = memory.get('aliases', 'pluginStates') || {};
             states[pluginName] = enabled;
             memory.set('aliases', 'pluginStates', states);
@@ -328,7 +351,7 @@ function register(deps) {
     ipcMain.handle('open-url', async (event, url) => {
         try {
             const { shell } = require('electron');
-            if (url && (url.startsWith('https://') || url.startsWith('http://'))) {
+            if (url && typeof url === 'string' && /^https?:\/\//i.test(url)) {
                 await shell.openExternal(url);
                 return { success: true };
             }

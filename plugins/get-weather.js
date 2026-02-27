@@ -14,7 +14,7 @@ module.exports = {
     description: 'Open weather information for a location',
     tags: ['weather', 'forecast'],
 
-    returns: 'none',
+    returnType: 'action',
     marker: 'announce',
     ui: null,
 

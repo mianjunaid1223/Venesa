@@ -14,7 +14,7 @@ module.exports = {
     description: 'Close a specific running application by name',
     tags: ['app', 'close', 'kill'],
 
-    returns: 'none',
+    returnType: 'action',
     marker: 'announce',
     ui: null,
 
@@ -37,9 +37,9 @@ if ($procs) {
 }
 `;
         try {
-            return await runPowerShell(psScript, 10000);
+            return await runPowerShell(psScript, [], 10000);
         } catch (e) {
-            return JSON.stringify({ success: false, error: e.message });
+            return JSON.stringify({ success: false, error: e instanceof Error ? e.message : String(e) });
         }
     },
 };

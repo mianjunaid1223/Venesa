@@ -2,7 +2,7 @@
     "$schema": "https://raw.githubusercontent.com/electron-userland/electron-builder/master/packages/app-builder-lib/scheme.json",
     "appId": "com.venesa.app",
     "productName": "Venesa",
-    "copyright": "Copyright © 2026 Mian Junaid",
+    "copyright": "Open Source Mian Junaid",
     "directories": {
         "output": "dist",
         "buildResources": "build"
@@ -12,7 +12,8 @@
         "package.json",
         "!**/*.map",
         "!**/node_modules/*/{CHANGELOG.md,README.md,readme.md,README,readme,test,__tests__,tests,powered-test,*.ts,*.map}",
-        "!**/node_modules/.cache/**/*"
+        "!**/node_modules/.cache/**/*",
+        "!.env.production"
     ],
     "extraResources": [
         {
@@ -30,10 +31,10 @@
             ]
         },
         {
-            "from": ".env",
-            "to": ".",
+            "from": ".env.production",
+            "to": ".env",
             "filter": [
-                ".env"
+                ".env.production"
             ]
         }
     ],

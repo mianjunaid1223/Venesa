@@ -17,7 +17,7 @@ module.exports = {
     description: 'Control system settings (volume, brightness, wifi, bluetooth, power)',
     tags: ['system', 'control', 'volume', 'brightness'],
 
-    returns: 'none',
+    returnType: 'action',
     marker: 'confirm',
     ui: null,
 
@@ -79,7 +79,7 @@ for($i=0;$i-lt ${steps};$i++) { $w.SendKeys([char]175) }
             await runPowerShell(script);
             return `Done: ${command}` + ((levelRaw != null && levelRaw !== '') ? ` (${value})` : '');
         } catch (e) {
-            return `Error: ${e.message}`;
+            return `Error: ${e?.message ?? String(e)}`;
         }
     },
 };

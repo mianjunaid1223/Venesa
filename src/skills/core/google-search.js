@@ -14,7 +14,7 @@ module.exports = {
     description: 'Search Google for a query and open results in browser',
     tags: ['web', 'search', 'google'],
 
-    returns: 'none',
+    returnType: 'action',
     marker: 'announce',
     ui: null,
 

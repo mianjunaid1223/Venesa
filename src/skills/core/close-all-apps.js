@@ -14,7 +14,7 @@ module.exports = {
     description: 'Close all visible user applications',
     tags: ['app', 'close', 'all'],
 
-    returns: 'none',
+    returnType: 'action',
     marker: 'confirm',
     ui: null,
 

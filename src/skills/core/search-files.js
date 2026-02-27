@@ -38,9 +38,9 @@ async function searchFilesAndFolders(query, maxResults = 20) {
                 if (dirent.name.startsWith('.') || dirent.name.startsWith('$')) continue;
                 if (dirent.name.toLowerCase().includes(lowerQuery)) {
                     if (dirent.isDirectory()) {
-                        folders.push(getRelativePath(fullPath));
+                        folders.push(fullPath);
                     } else {
-                        files.push(getRelativePath(fullPath));
+                        files.push(fullPath);
                     }
                     foundCount++;
                 }
@@ -66,7 +66,7 @@ module.exports = {
     description: 'Search for files, folders, and apps on the system',
     tags: ['search', 'file', 'find'],
 
-    returns: 'data',
+    returnType: 'data',
     marker: 'silently',
     ui: 'card-list',
 

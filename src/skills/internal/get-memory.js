@@ -17,7 +17,7 @@ module.exports = {
     description: 'Read a value from a memory bucket',
     tags: ['memory', 'read', 'remember'],
 
-    returns: 'data',
+    returnType: 'memory',
     marker: 'silently',
     ui: null,
 

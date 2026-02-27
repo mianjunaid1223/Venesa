@@ -11,13 +11,7 @@
 const logger = require('../lib/logger');
 const registry = require('../skills/registry');
 const { z } = require('zod');
-
-const EXECUTION_MARKERS = {
-    silently: 'silently',
-    announce: 'announce',
-    ask: 'ask',
-    confirm: 'confirm',
-};
+const { EXECUTION_MARKERS } = require('./protocol');
 
 // Formal lexer and parser for Venesa's output schema
 function parseActionsStrict(text) {
@@ -230,7 +224,8 @@ async function executeAction(actionName, params, ctx = {}) {
             output,
             trace,
             marker: ctx.marker || skill.marker || 'announce',
-            ui: skill.ui || null
+            ui: skill.ui || null,
+            returnType: skill.returnType || 'action',
         };
     } catch (error) {
         const diff = process.hrtime(startTime);
@@ -293,6 +288,7 @@ async function executePlan(plan) {
                 skipped: false,
                 marker: result.marker,
                 ui: result.ui || null,
+                returnType: result.returnType || 'action',
             });
 
             // Step-level transaction handling - Abort remaining if failed

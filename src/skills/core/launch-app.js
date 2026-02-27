@@ -14,7 +14,7 @@ module.exports = {
     description: 'Search for and launch an application by name',
     tags: ['app', 'launch', 'open'],
 
-    returns: 'none',
+    returnType: 'action',
     marker: 'announce',
     ui: null,
 

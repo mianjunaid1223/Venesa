@@ -1160,15 +1160,23 @@
 
             <!-- Skills & Plugins -->
             <div class="panel" id="tab-skills">
-                <div class="panel-header">
+                <div class="panel-header" style="padding-bottom:12px;">
                     <h1>Skills & Plugins</h1>
                     <p>Built-in capabilities and custom extensions</p>
                 </div>
+                <div class="top-tabs">
+                    <button class="top-tab active" data-group="skills" data-tab="core"
+                        onclick="switchTopTab('skills', 'core')">Core Skills</button>
+                    <button class="top-tab" data-group="skills" data-tab="plugins"
+                        onclick="switchTopTab('skills', 'plugins')">Plugins</button>
+                </div>
                 <div class="panel-body">
-                    <div class="section-label">Plugins</div>
-                    <div class="card" id="plugins-list"></div>
-                    <div class="section-label" style="margin-top:10px">Core Skills</div>
-                    <div class="card" id="skills-list"></div>
+                    <div class="sub-panel active" data-group="skills" id="sub-skills-core">
+                        <div class="card" id="skills-list"></div>
+                    </div>
+                    <div class="sub-panel" data-group="skills" id="sub-skills-plugins">
+                        <div class="card" id="plugins-list"></div>
+                    </div>
                 </div>
             </div>
 
@@ -1200,8 +1208,12 @@
                                 </div><code id="about-node">-</code>
                             </div>
                         </div>
-                        <div style="margin-top:16px">
-                            <span class="about-link" onclick="settingsApi.openUrl('https://github.com')">GitHub</span>
+                        <div style="margin-top:16px; margin-bottom:12px;">
+                            <span class="about-link"
+                                onclick="settingsApi.openUrl('https://github.com/mianjunaid1223/Venesa')">GitHub</span>
+                        </div>
+                        <div style="font-size:11.5px; color:var(--text-3);">
+                            Created by <strong>Mian Junaid</strong>
                         </div>
                     </div>
                 </div>
@@ -1348,12 +1360,31 @@
                     const row = document.createElement('div');
                     row.className = 'key-existing';
                     row.innerHTML = `
-                        <div style="flex: 1; font-family: monospace; font-size: 11px; opacity: 0.8; user-select: text; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${escapeHtml(envVar)}">${escapeHtml(envVar)}</div>
-                        <span class="key-mask" data-env="${escapeHtml(envVar)}" data-svc="" data-masked="${escapeHtml(masked)}" tabindex="0" onfocus ="toggleMask(this)" onblur="toggleMask(this)" style="cursor: pointer; outline: none; margin-left: auto; text-align: right; overflow-x: auto; white-space: nowrap; max-width: 150px;" title="Double-click to toggle reveal">${escapeHtml(masked)}</span>
-                        <div class="key-actions" style="margin-left: 8px; flex-shrink: 0;">
-                            <button class="btn btn-sm btn-danger" onclick="removeCustomKey('${escapeHtml(envVar)}')">✕</button>
-                        </div>
+                        <div style="flex: 1; font-family: monospace; font-size: 11px; opacity: 0.8; user-select: text; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;"></div>
+                        <span class="key-mask" tabindex="0" style="cursor: pointer; outline: none; margin-left: auto; text-align: right; overflow-x: auto; white-space: nowrap; max-width: 150px;" title="Double-click to toggle reveal"></span>
+                        <div class="key-actions" style="margin-left: 8px; flex-shrink: 0;"></div>
                     `;
+                    row.querySelector('div').title = envVar;
+                    row.querySelector('div').textContent = envVar;
+
+                    const span = row.querySelector('.key-mask');
+                    span.dataset.env = envVar;
+                    span.dataset.svc = service;
+                    span.dataset.masked = masked;
+                    span.textContent = masked;
+                    span.addEventListener('focus', function () { toggleMask(this); });
+                    span.addEventListener('blur', function () { toggleMask(this); });
+
+                    const btn = document.createElement('button');
+                    btn.className = 'btn btn-sm btn-danger';
+                    btn.textContent = '✕';
+                    btn.dataset.env = envVar;
+                    btn.dataset.svc = service;
+                    btn.addEventListener('click', function () {
+                        removeKey(this.dataset.env, this.dataset.svc);
+                    });
+                    row.querySelector('.key-actions').appendChild(btn);
+
                     listEl.appendChild(row);
                 });
             } else {
@@ -1377,12 +1408,30 @@
                     const row = document.createElement('div');
                     row.className = 'key-existing';
                     row.innerHTML = `
-                        <div style="flex: 1; font-family: monospace; font-size: 11px; opacity: 0.8; user-select: text; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${escapeHtml(envVar)}">${escapeHtml(envVar)}</div>
-                        <span class="key-mask" data-env="${escapeHtml(envVar)}" data-svc="" data-masked="${escapeHtml(masked)}" tabindex="0" onfocus ="toggleMask(this)" onblur="toggleMask(this)" style="cursor: pointer; outline: none; margin-left: auto; text-align: right; overflow-x: auto; white-space: nowrap; max-width: 150px;" title="Double-click to toggle reveal">${escapeHtml(masked)}</span>
-                        <div class="key-actions" style="margin-left: 8px; flex-shrink: 0;">
-                            <button class="btn btn-sm btn-danger" onclick="removeCustomKey('${escapeHtml(envVar)}')">✕</button>
-                        </div>
+                        <div style="flex: 1; font-family: monospace; font-size: 11px; opacity: 0.8; user-select: text; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;"></div>
+                        <span class="key-mask" tabindex="0" style="cursor: pointer; outline: none; margin-left: auto; text-align: right; overflow-x: auto; white-space: nowrap; max-width: 150px;" title="Double-click to toggle reveal"></span>
+                        <div class="key-actions" style="margin-left: 8px; flex-shrink: 0;"></div>
                     `;
+                    row.querySelector('div').title = envVar;
+                    row.querySelector('div').textContent = envVar;
+
+                    const span = row.querySelector('.key-mask');
+                    span.dataset.env = envVar;
+                    span.dataset.svc = '';
+                    span.dataset.masked = masked;
+                    span.textContent = masked;
+                    span.addEventListener('focus', function () { toggleMask(this); });
+                    span.addEventListener('blur', function () { toggleMask(this); });
+
+                    const btn = document.createElement('button');
+                    btn.className = 'btn btn-sm btn-danger';
+                    btn.textContent = '✕';
+                    btn.dataset.env = envVar;
+                    btn.addEventListener('click', function () {
+                        removeCustomKey(this.dataset.env);
+                    });
+                    row.querySelector('.key-actions').appendChild(btn);
+
                     listEl.appendChild(row);
                 });
             } else {
@@ -1518,8 +1567,17 @@
                                 row.innerHTML = `
                                     <span class="mem-key">${escapeHtml(key)}</span>
                                     <span class="mem-val">${escapeHtml(displayVal)}</span>
-                                    <button class="mem-del" title="Delete" onclick="deleteEntry('${escapeHtml(bucket)}','${escapeHtml(key)}')">✕</button>
                                 `;
+                                const delBtn = document.createElement('button');
+                                delBtn.className = 'mem-del';
+                                delBtn.title = 'Delete';
+                                delBtn.textContent = '✕';
+                                delBtn.dataset.bucket = bucket;
+                                delBtn.dataset.key = key;
+                                delBtn.addEventListener('click', function () {
+                                    deleteEntry(this.dataset.bucket, this.dataset.key);
+                                });
+                                row.appendChild(delBtn);
                                 body.appendChild(row);
                             }
                         }
@@ -1628,10 +1686,13 @@
                                 ${p.description ? `<div class="skill-desc">${escapeHtml(p.description)}</div>` : ''}
                             </div>
                             <label class="toggle" aria-label="Toggle ${escapeHtml(p.name)}">
-                                <input type="checkbox" ${isEnabled ? 'checked' : ''} onchange="togglePlugin('${escapeHtml(p.name)}',this.checked)">
+                                <input class="plugin-toggle" type="checkbox" ${isEnabled ? 'checked' : ''}>
                                 <span class="toggle-track"></span>
                             </label>
         `;
+                        row.querySelector('.plugin-toggle').addEventListener('change', (event) => {
+                            togglePlugin(p.name, event.target.checked);
+                        });
                         pluginsList.appendChild(row);
                     });
                 } else {

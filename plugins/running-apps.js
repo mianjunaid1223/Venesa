@@ -6,7 +6,8 @@
  */
 
 const { z } = require('zod');
-const { runPowerShell } = require('./_shared');
+const powershell = require('../src/lib/powershell');
+const runPowerShell = (script, args, timeout = 30000) => powershell.execute(script, args || [], timeout);
 
 module.exports = {
     schema: z.object({}),
@@ -14,7 +15,7 @@ module.exports = {
     description: 'List currently running visible applications',
     tags: ['system', 'apps', 'running'],
 
-    returns: 'data',
+    returnType: 'data',
     marker: 'silently',
     ui: 'card-list',
 
@@ -26,7 +27,7 @@ Select-Object ProcessName, MainWindowTitle, @{N='MemoryMB';E={[math]::round($_.W
 Sort-Object MemoryMB -Descending) | ConvertTo-Json -Compress
 `;
         try {
-            return await runPowerShell(psScript, 10000);
+            return await runPowerShell(psScript, [], 10000);
         } catch (e) {
             return JSON.stringify({ error: e.message });
         }

@@ -6,7 +6,8 @@
  */
 
 const { z } = require('zod');
-const { runPowerShell } = require('./_shared');
+const powershell = require('../src/lib/powershell');
+const runPowerShell = (script, args, timeout = 30000) => powershell.execute(script, args || [], timeout);
 
 module.exports = {
     schema: z.object({}),
@@ -14,7 +15,7 @@ module.exports = {
     description: 'Get CPU, RAM, battery, and uptime info',
     tags: ['system', 'info', 'monitor'],
 
-    returns: 'data',
+    returnType: 'data',
     marker: 'silently',
     ui: 'key-value',
 

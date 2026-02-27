@@ -16,7 +16,7 @@ module.exports = {
     description: 'Open a URL in the default browser',
     tags: ['web', 'url', 'browse'],
 
-    returns: 'none',
+    returnType: 'action',
     marker: 'announce',
     ui: null,
 
@@ -34,7 +34,7 @@ module.exports = {
             await shell.openExternal(parsed.href);
             return `Opened ${parsed.href}`;
         } catch (e) {
-            return `Invalid URL: ${e.message}`;
+            return `Invalid URL: ${e instanceof Error ? e.message : String(e)}`;
         }
     },
 };

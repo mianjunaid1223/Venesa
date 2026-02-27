@@ -19,7 +19,7 @@ module.exports = {
     description: 'Save a custom voice command shortcut',
     tags: ['command', 'shortcut', 'custom', 'remember'],
 
-    returns: 'none',
+    returnType: 'memory',
     marker: 'announce',
     ui: null,
 

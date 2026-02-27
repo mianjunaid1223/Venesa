@@ -1,7 +1,7 @@
 {
   "name": "venesa",
   "version": "2.0.0",
-  "description": "Venesa - A powerful virtual voice assistant for Windows with wake word detection, speech recognition, and natural language processing",
+  "description": "Venesa — Programmable intelligence platform with typed skill execution, silent deferred processing, and community-powered plugin ecosystem",
   "main": "src/platform/main.js",
   "scripts": {
     "start": "electron .",

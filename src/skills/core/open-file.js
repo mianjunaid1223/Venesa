@@ -17,7 +17,7 @@ module.exports = {
     description: 'Open a file from the user home directory',
     tags: ['file', 'open'],
 
-    returns: 'none',
+    returnType: 'action',
     marker: 'announce',
     ui: null,
 
@@ -54,7 +54,7 @@ module.exports = {
             }
             return `Opened ${filePath}`;
         } catch (e) {
-            return `Error: ${e.message}`;
+            return `Error: ${e instanceof Error ? e.message : String(e)}`;
         }
     },
 };
