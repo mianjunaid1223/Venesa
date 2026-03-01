@@ -7,10 +7,10 @@
  * ═══════════════════════════════════════════════════════════════
  */
 
-const { Tray, Menu, app, nativeImage } = require('electron');
-const path = require('path');
-const os = require('os');
-const fs = require('fs');
+const { Tray, Menu, app, nativeImage } = require("electron");
+const path = require("path");
+const os = require("os");
+const fs = require("fs");
 
 let tray = null;
 
@@ -19,17 +19,17 @@ let tray = null;
  */
 function getIconPath() {
   const base = app.isPackaged
-    ? path.join(process.resourcesPath, 'assets')
-    : path.join(__dirname, '../../assets');
+    ? path.join(process.resourcesPath, "assets")
+    : path.join(__dirname, "../../assets");
 
   // Prefer a small 16×16 tray-specific icon when available, fall back to the
   // main icon.
-  const candidates = ['tray-icon.png', 'tray-icon.ico', 'icon.ico', 'logo.png'];
+  const candidates = ["tray-icon.png", "tray-icon.ico", "icon.ico", "logo.png"];
   for (const candidate of candidates) {
     const full = path.join(base, candidate);
     if (fs.existsSync(full)) return full;
   }
-  return path.join(base, 'icon.ico');
+  return path.join(base, "icon.ico");
 }
 
 /**
@@ -37,9 +37,9 @@ function getIconPath() {
  */
 function isAutoStartEnabled() {
   try {
-    const settingsPath = path.join(os.homedir(), '.venesa-settings.json');
+    const settingsPath = path.join(os.homedir(), ".venesa-settings.json");
     if (fs.existsSync(settingsPath)) {
-      const settings = JSON.parse(fs.readFileSync(settingsPath, 'utf8'));
+      const settings = JSON.parse(fs.readFileSync(settingsPath, "utf8"));
       return settings.openAtLogin === true;
     }
   } catch (_) {}
@@ -51,10 +51,10 @@ function isAutoStartEnabled() {
  */
 function setAutoStart(enabled) {
   try {
-    const settingsPath = path.join(os.homedir(), '.venesa-settings.json');
+    const settingsPath = path.join(os.homedir(), ".venesa-settings.json");
     let settings = {};
     if (fs.existsSync(settingsPath)) {
-      settings = JSON.parse(fs.readFileSync(settingsPath, 'utf8'));
+      settings = JSON.parse(fs.readFileSync(settingsPath, "utf8"));
     }
     settings.openAtLogin = enabled;
     fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
@@ -62,8 +62,8 @@ function setAutoStart(enabled) {
 
   app.setLoginItemSettings({
     openAtLogin: enabled,
-    path: app.getPath('exe'),
-    args: enabled ? ['--hidden'] : [],
+    path: app.getPath("exe"),
+    args: enabled ? ["--hidden"] : [],
   });
 }
 
@@ -82,29 +82,29 @@ function buildContextMenu(deps) {
 
   return Menu.buildFromTemplate([
     {
-      label: 'Venesa',
+      label: "Venesa",
       enabled: false,
       // This acts as a bold header row in most OS tray menus
     },
-    { type: 'separator' },
+    { type: "separator" },
     {
-      label: 'Show Venesa',
+      label: "Show Venesa",
       click: () => showMain(),
     },
     {
-      label: 'Voice Mode',
-      accelerator: 'Ctrl+Shift+V',
+      label: "Voice Mode",
+      accelerator: "Ctrl+Shift+V",
       click: () => showVoice(),
     },
     {
-      label: 'Settings',
-      accelerator: 'Ctrl+,',
+      label: "Settings",
+      accelerator: "Ctrl+,",
       click: () => showSettings(),
     },
-    { type: 'separator' },
+    { type: "separator" },
     {
-      label: 'Open at Login',
-      type: 'checkbox',
+      label: "Open at Login",
+      type: "checkbox",
       checked: autoStart,
       click: (menuItem) => {
         setAutoStart(menuItem.checked);
@@ -114,9 +114,9 @@ function buildContextMenu(deps) {
         }
       },
     },
-    { type: 'separator' },
+    { type: "separator" },
     {
-      label: 'Quit Venesa',
+      label: "Quit Venesa",
       click: () => {
         app.isQuitting = true;
         app.quit();
@@ -137,19 +137,19 @@ function createTray(deps) {
   const icon = nativeImage.createFromPath(iconPath);
 
   // On Windows the tray icon should be small (16×16); resize if needed.
-  if (process.platform === 'win32' && !icon.isEmpty()) {
+  if (process.platform === "win32" && !icon.isEmpty()) {
     const resized = icon.resize({ width: 16, height: 16 });
     tray = new Tray(resized);
   } else {
     tray = new Tray(icon);
   }
 
-  tray.setToolTip('Venesa — running in background');
+  tray.setToolTip("Venesa — Redy to assist");
   tray.setContextMenu(buildContextMenu(deps));
 
   // Left-click / double-click also opens the main window for convenience.
-  tray.on('click', () => deps.showMain());
-  tray.on('double-click', () => deps.showMain());
+  tray.on("click", () => deps.showMain());
+  tray.on("double-click", () => deps.showMain());
 }
 
 /**

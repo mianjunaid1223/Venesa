@@ -164,7 +164,10 @@ app.whenReady().then(async () => {
         mw.show();
         mw.focus();
       } else if (!llm.needsSetup()) {
-        llm.initializeAPI().then(() => createMainWindow()).catch(() => createMainWindow());
+        llm
+          .initializeAPI()
+          .then(() => createMainWindow())
+          .catch(() => createMainWindow());
       }
     },
     showVoice: async () => {
@@ -248,11 +251,7 @@ app.whenReady().then(async () => {
   });
 });
 
-app.on("window-all-closed", () => {
-  // The tray icon keeps Venesa alive in the background even when all windows
-  // are closed. The user can quit explicitly via the tray context menu.
-  // On macOS the app conventionally stays open until Cmd+Q regardless.
-});
+app.on("window-all-closed", () => {});
 
 app.on("before-quit", () => {
   trayManager.destroyTray();
