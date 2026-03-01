@@ -136,20 +136,65 @@ function getMetadataForPrompt() {
     const entries = Object.entries(enabled);
     if (entries.length === 0) return '';
 
-    const lines = entries.map(([name, skill]) => {
+    // Sort: core first, then internal, then plugins
+    const sourceOrder = { internal: 0, core: 1, plugin: 2 };
+    entries.sort((a, b) => (sourceOrder[a[1]._source] ?? 2) - (sourceOrder[b[1]._source] ?? 2));
+
+    const lines = [];
+    const examples = [];
+
+    for (const [name, skill] of entries) {
         // Build param hint from Zod schema if available
         let paramHint = '';
-        if (skill._hasSchema && skill.schema?._def?.shape) {
+        if (skill._hasSchema && skill.schema) {
             try {
-                const shape = skill.schema._def.shape();
-                const params = Object.keys(shape).join(', ');
-                if (params) paramHint = ` | params: ${params}`;
+                const z = require('zod');
+                let params = [];
+                if (typeof skill.schema.toJSONSchema === 'function') {
+                    // Zod 4+ instance API
+                    const jsonSchema = skill.schema.toJSONSchema();
+                    if (jsonSchema && jsonSchema.properties) {
+                        params = Object.keys(jsonSchema.properties);
+                    }
+                } else if (typeof z.toJSONSchema === 'function') {
+                    // Zod 4+ public API
+                    const jsonSchema = z.toJSONSchema(skill.schema);
+                    if (jsonSchema && jsonSchema.properties) {
+                        params = Object.keys(jsonSchema.properties);
+                    }
+                } else if (skill.schema._def?.shape !== undefined) {
+                    // Zod 3 fallback
+                    const shape = typeof skill.schema._def.shape === 'function'
+                        ? skill.schema._def.shape()
+                        : skill.schema._def.shape;
+                    params = Object.keys(shape || {});
+                }
+                if (params.length > 0) paramHint = ` | params: ${params.join(', ')}`;
             } catch { /* ignore schema introspection failures */ }
         }
-        return `- ${name}: ${skill.description} [${skill.returnType}]${paramHint}`;
-    });
+        lines.push(`- ${name}: ${skill.description} [${skill.returnType}]${paramHint}`);
 
-    return lines.join('\n');
+        // Collect examples from skills that define them
+        if (Array.isArray(skill.examples)) {
+            for (const ex of skill.examples) {
+                if (ex.user && ex.action) {
+                    examples.push(`- "${ex.user}" -> ${ex.action}`);
+                }
+            }
+        }
+    }
+
+    let output = lines.join('\n');
+
+    // Append dynamic examples section
+    if (examples.length > 0) {
+        output += '\n\n### ACTION EXAMPLES (from skills)\n';
+        output += 'ALWAYS use these exact patterns when intent matches:\n';
+        output += examples.join('\n');
+        output += '\nCRITICAL: When user says "find/search/look for X", ALWAYS emit the matching action. Never answer conversationally.';
+    }
+
+    return output;
 }
 
 function clear() {

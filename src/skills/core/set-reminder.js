@@ -16,6 +16,7 @@ module.exports = {
         message: z.string().optional().describe('The reminder message'),
         text: z.string().optional().describe('The reminder message (alias)'),
         delay: z.preprocess((val) => Number(val), z.number()).optional(),
+        minutes: z.preprocess((val) => Number(val), z.number()).optional().describe('Delay in minutes'),
         time: z.string().optional(),
     }),
     name: 'setReminder',
@@ -26,11 +27,22 @@ module.exports = {
     marker: 'announce',
     ui: null,
 
+    examples: [
+
+        { user: 'remind me in 5 minutes to check the oven', action: '[action: setReminder, message: check the oven, minutes: 5]' },
+
+        { user: 'set a timer for 30 minutes', action: '[action: setReminder, message: timer done, minutes: 30]' },
+
+    ],
+
+
     handler(params) {
         const message = params.message || params.text || 'Reminder';
         let delaySec = 5;
         if (params.delay !== undefined) {
             delaySec = parseInt(params.delay, 10);
+        } else if (params.minutes !== undefined) {
+            delaySec = parseInt(params.minutes, 10) * 60;
         } else if (params.time !== undefined) {
             if (params.time.includes(':')) {
                 const now = new Date();
@@ -45,6 +57,13 @@ module.exports = {
 
         if (isNaN(delaySec) || delaySec < 1) {
             return { success: false, message: 'Invalid delay.' };
+        }
+
+        const MAX_TIMEOUT = 2147483647;
+        const delayMs = delaySec * 1000;
+        if (delayMs > MAX_TIMEOUT) {
+            logger.warn(`[setReminder] Requested delay ${delaySec}s exceeds maximum safe setTimeout limit`);
+            return { success: false, message: `Delay too large (${delaySec}s). Maximum supported delay is ${Math.floor(MAX_TIMEOUT / 1000)} seconds.` };
         }
 
         const reminderId = nextReminderId++;

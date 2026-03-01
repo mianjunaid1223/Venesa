@@ -18,6 +18,11 @@ module.exports = {
     marker: 'announce',
     ui: null,
 
+    examples: [
+        { user: 'open Chrome', action: '[action: launchApplication, appName: Chrome]' },
+        { user: 'launch Notepad', action: '[action: launchApplication, appName: Notepad]' },
+    ],
+
     async handler(params) {
         const appName = params?.appName;
         if (!appName || typeof appName !== 'string') {
@@ -38,7 +43,7 @@ $startPaths = @(
 )
 foreach ($sp in $startPaths) {
     $shortcuts = Get-ChildItem -Path $sp -Recurse -Include '*.lnk' -ErrorAction SilentlyContinue |
-        Where-Object { $_.BaseName -match '${safeName}' } |
+        Where-Object { $_.BaseName -like '*${safeName}*' } |
         Select-Object -First 1
     if ($shortcuts) {
         $found = $shortcuts.FullName
@@ -60,7 +65,7 @@ if (-not $found) {
     )
     foreach ($rp in $regPaths) {
         $match = Get-ItemProperty -Path $rp -ErrorAction SilentlyContinue |
-            Where-Object { $_.PSChildName -match '${safeName}' } |
+            Where-Object { $_.PSChildName -like '*${safeName}*' } |
             Select-Object -First 1
         if ($match -and $match.'(default)') {
             $found = $match.'(default)'
@@ -70,7 +75,7 @@ if (-not $found) {
 }
 
 if ($found) {
-    Start-Process $found
+    Start-Process -FilePath $found
     @{ success = $true; launched = '${safeName}'; path = $found } | ConvertTo-Json -Compress
 } else {
     @{ success = $false; error = "Could not find application: ${safeName}" } | ConvertTo-Json -Compress

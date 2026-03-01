@@ -59,12 +59,23 @@ function createVoiceWindow() {
         voiceWindow = null;
     });
 
+    let blurTimeout = null;
+
     voiceWindow.on('blur', () => {
-        setTimeout(() => {
+        if (blurTimeout) clearTimeout(blurTimeout);
+        blurTimeout = setTimeout(() => {
+            blurTimeout = null;
             if (voiceWindow && !voiceWindow.isDestroyed() && voiceWindow.isVisible()) {
                 hideVoiceWindow();
             }
         }, 100);
+    });
+
+    voiceWindow.on('focus', () => {
+        if (blurTimeout) {
+            clearTimeout(blurTimeout);
+            blurTimeout = null;
+        }
     });
 
     voiceWindow.on('closed', () => {
@@ -101,13 +112,15 @@ function showVoiceWindow(closeAllFeatureWindows) {
     });
 
     if (voiceWindow.webContents.isLoading()) {
-        voiceWindow.webContents.removeAllListeners('did-finish-load');
-        voiceWindow.webContents.once('did-finish-load', () => {
+        const onDidFinishLoad = () => {
+            if (!voiceWindow || !voiceWindow.webContents) return;
+            voiceWindow.webContents.removeListener('did-finish-load', onDidFinishLoad);
             if (!startListeningSent) {
                 startListeningSent = true;
                 safeSend('start-listening');
             }
-        });
+        };
+        voiceWindow.webContents.on('did-finish-load', onDidFinishLoad);
     } else {
         if (!startListeningSent) {
             startListeningSent = true;

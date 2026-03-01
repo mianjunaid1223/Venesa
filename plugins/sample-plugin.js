@@ -7,8 +7,6 @@
  *  - returnType:  'data'|'action'|'ui'|'memory'|'hybrid' — REQUIRED
  *  - ui:          string  — 'table'|'key-value'|'card-list'|'command-list' (optional)
  *  - schema:      ZodObject — parameter validation schema
- *  - config:      ZodObject — optional plugin configuration schema
- *  - lifecycle:   { onLoad, onUnload, onEnable, onDisable } — optional hooks
  *  - handler:     async (params) => any — REQUIRED
  *
  * The AI decides when to call your plugin based on name + description.
@@ -28,6 +26,10 @@ module.exports = {
         query: z.string().optional().describe('The user query to demonstrate the plugin.'),
         text: z.string().optional().describe('Fallback text input.'),
     }),
+
+    examples: [
+        { user: 'test the table plugin', action: '[action: samplePlugin]' },
+    ],
 
     handler: async (params) => {
         const raw = params.query || params.text || '';

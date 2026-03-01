@@ -18,6 +18,15 @@ module.exports = {
     marker: 'announce',
     ui: null,
 
+    examples: [
+
+        { user: 'close Chrome', action: '[action: closeApp, appName: Chrome]' },
+
+        { user: 'kill Notepad', action: '[action: closeApp, appName: Notepad]' },
+
+    ],
+
+
     async handler(params) {
         const appName = params?.appName;
         if (!appName || typeof appName !== 'string') {
@@ -30,8 +39,11 @@ module.exports = {
 $appName = '${safeName}'
 $procs = Get-Process | Where-Object { $_.ProcessName -like "*$appName*" -or $_.MainWindowTitle -like "*$appName*" } | Where-Object { $_.MainWindowHandle -ne 0 }
 if ($procs) {
-    $procs | ForEach-Object { $_.CloseMainWindow() | Out-Null }
-    @{ success = $true; closed = $appName; count = $procs.Count } | ConvertTo-Json -Compress
+    $closedCount = 0
+    $procs | ForEach-Object {
+        if ($_.CloseMainWindow()) { $closedCount++ }
+    }
+    @{ success = ($closedCount -gt 0); closed = $appName; count = $closedCount } | ConvertTo-Json -Compress
 } else {
     @{ success = $false; error = "No running app found matching: $appName" } | ConvertTo-Json -Compress
 }

@@ -3,7 +3,7 @@
  *  MODULE: LLM
  *  Gemini API client — sends queries, manages chat sessions.
  * ═══════════════════════════════════════════════════════════════
- *  DEPENDS ON: lib/logger, lib/key-pool, brain/memory,
+ *  DEPENDS ON: lib/logger, lib/key-pool, brain/settings,
  *              brain/services.config, brain/system-prompt
  * ═══════════════════════════════════════════════════════════════
  */
@@ -11,7 +11,6 @@
 const { GoogleGenerativeAI } = require("@google/generative-ai");
 const logger = require('../lib/logger');
 const keyPool = require("../lib/key-pool");
-const memory = require("./memory");
 const settings = require("./settings");
 
 let genAI = null;
@@ -99,44 +98,55 @@ async function sendQuery(query, imageData = null, mode = 'text') {
     const maxRetries = 3;
     let lastError = null;
 
+    // Pre-parse imageData once before the retry loop so validation errors
+    // (e.g. invalid mimeType) are not counted as retryable failures.
+    let parsedMimeType = null;
+    let parsedBase64Data = null;
+
+    if (imageData) {
+        let mimeType = 'application/octet-stream';
+        let base64Data = imageData;
+        const dataUriMatch = imageData.match(/^data:([^;,]+)(?:;[^;,]+)*;base64,(.*)$/i);
+
+        if (dataUriMatch) {
+            mimeType = dataUriMatch[1];
+            base64Data = dataUriMatch[2];
+        } else if (imageData.startsWith('base64,')) {
+            base64Data = imageData.substring(7);
+        } else if (imageData.includes(',')) {
+            base64Data = imageData.split(',')[1];
+        } else {
+            const cleanData = imageData.replace(/\s/g, '');
+            if (cleanData.length >= 64 && cleanData.length % 4 === 0 && /^[A-Za-z0-9+/=]+$/.test(cleanData)) {
+                base64Data = cleanData;
+            } else {
+                logger.warn('[LLM] base64 validation failed — dropping image');
+                base64Data = null;
+            }
+        }
+
+        if (base64Data && mimeType === 'application/octet-stream') {
+            logger.error('[LLM] Invalid image mimeType "application/octet-stream". Please provide a valid IANA media type.');
+            throw new Error('Invalid image mimeType. Please provide a valid IANA media type.');
+        }
+
+        parsedMimeType = mimeType;
+        parsedBase64Data = base64Data;
+    }
+
     for (let attempt = 0; attempt < maxRetries; attempt++) {
         try {
             const chat = createFreshChat(mode);
             let result;
 
             if (imageData) {
-                let mimeType = 'application/octet-stream';
-                let base64Data = imageData;
-                const dataUriMatch = imageData.match(/^data:([^;]+);base64,(.*)$/);
-
-                if (dataUriMatch) {
-                    mimeType = dataUriMatch[1];
-                    base64Data = dataUriMatch[2];
-                } else if (imageData.startsWith('base64,')) {
-                    base64Data = imageData.substring(7);
-                } else if (imageData.includes(',')) {
-                    base64Data = imageData.split(',')[1];
-                } else {
-                    const cleanData = imageData.replace(/\s/g, '');
-                    if (cleanData.length >= 64 && cleanData.length % 4 === 0 && /^[A-Za-z0-9+/=]+$/.test(cleanData)) {
-                        base64Data = cleanData;
-                    } else {
-                        logger.warn('[LLM] base64 validation failed — dropping image');
-                        base64Data = null;
-                    }
-                }
-
-                if (base64Data) {
-                    if (mimeType === 'application/octet-stream') {
-                        logger.error('[LLM] Invalid image mimeType "application/octet-stream". Please provide a valid IANA media type.');
-                        throw new Error('Invalid image mimeType. Please provide a valid IANA media type.');
-                    }
+                if (parsedBase64Data) {
                     result = await chat.sendMessage([
                         query,
                         {
                             inlineData: {
-                                mimeType,
-                                data: base64Data,
+                                mimeType: parsedMimeType,
+                                data: parsedBase64Data,
                             },
                         },
                     ]);
@@ -149,15 +159,6 @@ async function sendQuery(query, imageData = null, mode = 'text') {
 
             const responseText = result.response.text();
             if (activeKey) keyPool.reportSuccess('gemini', activeKey);
-
-            // Write to memory AFTER successful response
-            try {
-                memory.addInteraction(query, responseText.substring(0, 200));
-                // Expire prompt cache so next query picks up the new history entry
-                invalidatePromptCache();
-            } catch (memErr) {
-                logger.warn(`[LLM] Memory write failed: ${memErr.message}`);
-            }
 
             return responseText;
 

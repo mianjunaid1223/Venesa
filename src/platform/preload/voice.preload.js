@@ -9,7 +9,7 @@ contextBridge.exposeInMainWorld('voiceApi', {
             'voice-window-closed',
             'auto-close-voice',
             'capture-screen',
-            'capture-region',
+            'capture-screen-fullres',
             'voice-action',
             'audio-data',
             'voice-audio',
@@ -31,6 +31,7 @@ contextBridge.exposeInMainWorld('voiceApi', {
             'voice-response',
             'voice-search-results',
             'screen-captured',
+            'screen-used',
             'focus-voice',
             'play-sound',
             'stt-result',
@@ -39,7 +40,8 @@ contextBridge.exposeInMainWorld('voiceApi', {
             'auto-close-voice',
             'action-complete',
             'dynamic-ui',
-            'ai-status'
+            'ai-status',
+            'ai-error'
         ];
         if (validChannels.includes(channel)) {
 

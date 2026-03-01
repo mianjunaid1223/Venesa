@@ -25,7 +25,7 @@ async function runPowerShell(script, args = [], timeout = 30000) {
 
 function getRelativePath(fullPath) {
     const relative = path.relative(HOME_DIR, fullPath);
-    return relative || fullPath;
+    return (relative || fullPath).replace(/\\/g, '/');
 }
 
 function escapeForPowerShell(str) {

@@ -48,7 +48,10 @@ function create() {
         },
     });
 
-    settingsWindow.loadFile(path.join(__dirname, '../../renderer/settings.window.html'));
+    settingsWindow.loadFile(path.join(__dirname, '../../renderer/settings.window.html'))
+        .catch(err => {
+            console.error(`[SettingsWindow] Failed to load settings HTML: ${err.message}`);
+        });
 
     settingsWindow.once('ready-to-show', () => {
         settingsWindow.show();

@@ -73,29 +73,9 @@ function dispatchUiBlocks(sender, uiBlocks) {
     }
 }
 
-/**
- * Find the main window (non-voice, non-setup).
- * Falls back to the provided window if no main is found.
- */
-function findMainWindow(senderWindow) {
-    const windows = BrowserWindow.getAllWindows();
-    const mainWin = windows.find(w =>
-        !w.isDestroyed() &&
-        w.getTitle() !== 'Voice' &&
-        w.getTitle() !== 'Setup'
-    );
 
-    if (mainWin) {
-        if (!mainWin.isVisible()) mainWin.show();
-        if (mainWin.isMinimized()) mainWin.restore();
-        return mainWin;
-    }
-
-    return senderWindow;
-}
 
 module.exports = {
     dispatchFromResults,
     dispatchUiBlocks,
-    findMainWindow,
 };

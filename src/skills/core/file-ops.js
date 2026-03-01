@@ -29,6 +29,15 @@ module.exports = {
     marker: 'announce',
     ui: null,
 
+    examples: [
+
+        { user: 'create a folder called Projects on Desktop', action: '[action: fileOps, operation: create, sourcePath: Desktop/Projects, isFolder: true]' },
+
+        { user: 'delete the file test.txt from Downloads', action: '[action: fileOps, operation: delete, sourcePath: Downloads/test.txt, isFolder: false]' },
+
+    ],
+
+
     async handler(params) {
         const { operation, sourcePath, destPath, content, isFolder } = params;
 
@@ -83,9 +92,32 @@ module.exports = {
                         fs.renameSync(src, dst);
                     } catch (renameErr) {
                         if (renameErr.code === 'EXDEV') {
-                            // Cross-device: copy then delete
-                            fs.copyFileSync(src, dst);
-                            fs.unlinkSync(src);
+                            // Cross-device: copy to temp then rename, then delete src
+                            const crypto = require('crypto');
+                            const tmpDst = dst + `.tmp-${crypto.randomBytes(4).toString('hex')}`;
+                            const srcStat = fs.statSync(src);
+                            try {
+                                if (srcStat.isDirectory()) {
+                                    fs.cpSync(src, tmpDst, { recursive: true });
+                                } else {
+                                    fs.copyFileSync(src, tmpDst);
+                                }
+                                fs.renameSync(tmpDst, dst);
+                            } catch (copyErr) {
+                                // Remove partial temp on failure
+                                try { fs.rmSync(tmpDst, { recursive: true, force: true }); } catch { }
+                                throw copyErr;
+                            }
+                            // Only remove source after successful copy+rename
+                            try {
+                                if (srcStat.isDirectory()) {
+                                    fs.rmSync(src, { recursive: true, force: true });
+                                } else {
+                                    fs.unlinkSync(src);
+                                }
+                            } catch (rmErr) {
+                                logger.warn(`[fileOps] Move: source removal failed: ${rmErr.message}`);
+                            }
                         } else {
                             throw renameErr;
                         }
@@ -112,7 +144,10 @@ module.exports = {
                 case 'rename': {
                     if (!dst) return JSON.stringify({ success: false, error: 'New name required.' });
                     const finalDst = path.isAbsolute(dst) || dst.includes(path.sep)
-                        ? dst : path.join(path.dirname(src), dst);
+                        ? path.resolve(dst) : path.resolve(path.dirname(src), dst);
+                    if (!isInsideHome(finalDst)) {
+                        return JSON.stringify({ success: false, error: 'Access denied: rename destination outside home directory.' });
+                    }
                     fs.renameSync(src, finalDst);
                     return JSON.stringify({ success: true, renamed: { from: src, to: finalDst } });
                 }
@@ -138,6 +173,9 @@ module.exports = {
 
                 case 'zip': {
                     const zipDst = dst || src + '.zip';
+                    if (!isInsideHome(zipDst)) {
+                        return JSON.stringify({ success: false, error: 'Access denied: zip destination outside home directory.' });
+                    }
                     await runPowerShell(
                         `param($S,$D) Compress-Archive -Path $S -DestinationPath $D -Force`,
                         [src, zipDst], 60000
@@ -147,6 +185,9 @@ module.exports = {
 
                 case 'unzip': {
                     const unzipDst = dst || path.join(path.dirname(src), path.basename(src, '.zip'));
+                    if (!isInsideHome(unzipDst)) {
+                        return JSON.stringify({ success: false, error: 'Access denied: unzip destination outside home directory.' });
+                    }
                     await runPowerShell(
                         `param($S,$D) Expand-Archive -Path $S -DestinationPath $D -Force`,
                         [src, unzipDst], 60000

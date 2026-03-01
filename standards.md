@@ -3,7 +3,7 @@
 ## Universal Protocol
 
 One protocol governs all intelligence behavior:
-- **Response structure**: `[speak]`/`[silent]` for voice, plain text + `[action:]` for text
+- **Response structure**: `[speak]`/`silently` for voice, plain text + `[action:]` for text
 - **Tool invocation**: `[action: name, param: value]` or `[plan]...[/plan]`
 - **UI rendering**: `[ui]...[/ui]` for GitHub-decoded markdown
 - **Return types**: Every plugin declares `returnType` (data/action/ui/memory/hybrid)
@@ -13,7 +13,7 @@ One protocol governs all intelligence behavior:
 
 | Marker | Semantics | Behavior |
 |--------|-----------|----------|
-| `silently` | Background execution | No UI feedback, no notification. Used for memory writes, data fetches. Idempotent — safe to retry. |
+| `silently` | Background execution | No UI feedback, no notification. Used for memory writes, data fetches. Controls visibility only — idempotency is the responsibility of plugin authors when retries are required. |
 | `announce` | User-visible operation | Result shown in UI or spoken. Used for app launches, file operations. Logs to interaction history. |
 | `confirm` | Requires user approval | Execution paused until user confirms. Used for destructive actions (delete, shutdown, wifi-passwords). |
 
@@ -38,12 +38,13 @@ See `plugins/README.md` for full specification.
 - **Modules**: CommonJS (`require`/`module.exports`)
 - **Error handling**: Try-catch in all handlers, never crash the app
 - **Logging**: Use `lib/logger.js`, never raw `console.log` in production code
-- **Security**: Validate all user inputs, sandbox PowerShell, restrict file paths to home directory
+- **Security**: Validate all user inputs, sandbox shell execution (e.g., restrict/virtualize any invoked shells), restrict file paths using a documented allowlist of permitted directories
+  - **Threat model and allowed paths**: File path restrictions exist to prevent plugins from reading/writing outside the user's intended scope. Permitted paths include the user's home directory and its subdirectories. Any path access outside the allowlist must be explicitly justified and validated at runtime.
 - **No hard-coding**: Derive behavior from skill metadata and protocol constants
 
 ## Governance
 
 - User has absolute authority over configuration, extensions, and behavior
 - Settings stored in `.venesa-settings.json` per-user
-- Plugin enable/disable persisted in memory `aliases.pluginStates`
+- Plugin enable/disable state is kept in memory at runtime and persisted to disk via the memory system (bucket: `aliases`, key: `pluginStates`). Changes take effect immediately on toggle and survive restarts through the memory persistence layer.
 - All system behavior configurable, no hidden defaults

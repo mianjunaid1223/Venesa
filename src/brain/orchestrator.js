@@ -90,7 +90,15 @@ function parseActionsStrict(text) {
 
             for (let k = 0; k < pStr.length; k++) {
                 const c = pStr[k];
-                if (escaped) { currentVal += c; escaped = false; continue; }
+                if (escaped) {
+                    if (c === '"' || c === "'" || c === '[' || c === ']' || c === '\\') {
+                        currentVal += c;
+                    } else {
+                        currentVal += '\\' + c;
+                    }
+                    escaped = false;
+                    continue;
+                }
                 if (c === '\\') { escaped = true; continue; }
 
                 if ((c === '"' || c === "'") && readingKey === false) {
@@ -180,6 +188,10 @@ async function executeAction(actionName, params, ctx = {}) {
         }
         if (skill._enabled === false) {
             throw new Error(`Skill ${actionName} is currently disabled.`);
+        }
+
+        if (typeof skill.handler !== 'function') {
+            throw new Error(`Skill ${actionName} has no handler or handler is not a function`);
         }
 
         // Schema validation

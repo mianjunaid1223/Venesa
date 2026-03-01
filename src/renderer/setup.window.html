@@ -1,862 +1,1004 @@
-<!DOCTYPE html>
+<!doctype html>
 <html>
+  <head>
+    <meta charset="UTF-8" />
+    <title>Venesa Setup</title>
+    <style>
+      @import url("https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap");
 
-<head>
-  <meta charset="UTF-8" />
-  <title>Venesa Setup</title>
-  <style>
-    @import url("https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap");
-
-    * {
-      margin: 0;
-      padding: 0;
-      box-sizing: border-box;
-    }
-
-    :root {
-      --font: "Segoe UI Variable", "Inter", -apple-system, system-ui, sans-serif;
-      --primary: #3154ff;
-      --primary-light: rgba(49, 84, 255, 0.12);
-      --primary-gradient: linear-gradient(135deg, #3154ff 0%, #7c6aff 100%);
-      --text-primary: rgba(20, 20, 30, 0.95);
-      --text-secondary: rgba(20, 20, 30, 0.55);
-      --bg-color: rgba(235, 235, 250, 0.98);
-      --surface: rgba(255, 255, 255, 0.92);
-      --border: rgba(49, 84, 255, 0.1);
-      --shadow-sm: 0 4px 16px rgba(49, 84, 255, 0.08);
-      --shadow-md: 0 12px 40px rgba(49, 84, 255, 0.14);
-      --error: #e8445a;
-      --success: #10b981;
-      --ease-smooth: cubic-bezier(0.16, 1, 0.3, 1);
-      --ease-spring: cubic-bezier(0.175, 0.885, 0.32, 1.275);
-    }
-
-    body {
-      height: 100vh;
-      width: 100vw;
-      overflow: hidden;
-      background: var(--bg-color);
-      font-family: var(--font);
-      color: var(--text-primary);
-      -webkit-app-region: drag;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      position: relative;
-    }
-
-    /* Venesa ambient background */
-    .bg-ambient {
-      position: absolute;
-      inset: 0;
-      overflow: hidden;
-      z-index: 0;
-      pointer-events: none;
-    }
-
-    .ambient-blob {
-      position: absolute;
-      border-radius: 50%;
-      filter: blur(90px);
-    }
-
-    .blob-1 {
-      top: -15%;
-      right: -10%;
-      width: 380px;
-      height: 380px;
-      background: rgba(49, 84, 255, 0.12);
-      animation: drift 14s ease-in-out infinite alternate;
-    }
-
-    .blob-2 {
-      bottom: -15%;
-      left: -10%;
-      width: 320px;
-      height: 320px;
-      background: rgba(124, 106, 255, 0.1);
-      animation: drift 18s ease-in-out infinite alternate-reverse;
-    }
-
-    .blob-3 {
-      top: 40%;
-      left: 30%;
-      width: 220px;
-      height: 220px;
-      background: rgba(201, 121, 238, 0.07);
-      animation: drift 22s ease-in-out infinite alternate;
-    }
-
-    @keyframes drift {
-      0% {
-        transform: translate(0, 0) scale(1);
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+        text-wrap: balance;
       }
 
-      100% {
-        transform: translate(24px, 18px) scale(1.08);
-      }
-    }
-
-    /* Slide layout */
-    .container {
-      width: 100%;
-      height: 100%;
-      overflow: hidden;
-      position: relative;
-      z-index: 1;
-    }
-
-    .slide-track {
-      display: flex;
-      height: 100%;
-      transition: transform 0.55s var(--ease-smooth);
-    }
-
-    .slide {
-      min-width: 100%;
-      height: 100%;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      padding: 40px 48px;
-      opacity: 0;
-      filter: blur(6px);
-      transform: scale(0.97);
-      transition: opacity 0.55s var(--ease-smooth), filter 0.55s var(--ease-smooth), transform 0.55s var(--ease-smooth);
-      pointer-events: none;
-    }
-
-    .slide.active {
-      opacity: 1;
-      filter: blur(0);
-      transform: scale(1);
-      pointer-events: all;
-    }
-
-    .slide-content {
-      width: 100%;
-      max-width: 360px;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      text-align: center;
-    }
-
-    /* Logo */
-    .logo-wrap {
-      width: 72px;
-      height: 72px;
-      margin-bottom: 22px;
-      filter: drop-shadow(0 8px 20px rgba(49, 84, 255, 0.18));
-    }
-
-    .logo-wrap img {
-      width: 100%;
-      height: 100%;
-      object-fit: contain;
-    }
-
-    /* Icon hero */
-    .icon-hero {
-      width: 64px;
-      height: 64px;
-      background: var(--surface);
-      border-radius: 18px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      margin-bottom: 22px;
-      box-shadow: var(--shadow-sm), 0 0 0 1px var(--border);
-      color: var(--primary);
-    }
-
-    .icon-hero svg {
-      width: 30px;
-      height: 30px;
-      stroke-width: 1.8;
-    }
-
-    h1 {
-      font-size: 24px;
-      font-weight: 700;
-      margin-bottom: 10px;
-      color: var(--text-primary);
-      letter-spacing: -0.4px;
-    }
-
-    p {
-      font-size: 14px;
-      line-height: 1.55;
-      color: var(--text-secondary);
-      max-width: 290px;
-    }
-
-    /* Feature list */
-    .feature-list {
-      display: flex;
-      flex-direction: column;
-      gap: 10px;
-      width: 100%;
-      margin-top: 24px;
-      text-align: left;
-    }
-
-    .feature-item {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      padding: 11px 14px;
-      background: var(--surface);
-      border-radius: 12px;
-      border: 1px solid var(--border);
-      transition: background 0.2s;
-    }
-
-    .feature-item:hover {
-      background: rgba(255, 255, 255, 1);
-    }
-
-    .feat-icon {
-      width: 34px;
-      height: 34px;
-      background: var(--primary-light);
-      border-radius: 9px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      color: var(--primary);
-      flex-shrink: 0;
-    }
-
-    .feat-icon svg {
-      width: 16px;
-      height: 16px;
-    }
-
-    .feat-text h3 {
-      font-size: 13px;
-      font-weight: 600;
-      color: var(--text-primary);
-      margin-bottom: 1px;
-    }
-
-    .feat-text p {
-      font-size: 11px;
-      color: var(--text-secondary);
-      max-width: 100%;
-    }
-
-    /* Inputs */
-    .input-group {
-      width: 100%;
-      margin-top: 22px;
-      position: relative;
-      -webkit-app-region: no-drag;
-    }
-
-    input[type="text"],
-    input[type="password"],
-    textarea {
-      width: 100%;
-      padding: 14px 18px;
-      border-radius: 12px;
-      border: 1.5px solid var(--border);
-      background: var(--surface);
-      font-size: 15px;
-      font-family: var(--font);
-      color: var(--text-primary);
-      outline: none;
-      transition: all 0.3s var(--ease-smooth);
-      box-shadow: var(--shadow-sm);
-      resize: none;
-    }
-
-    input[type="text"]:focus,
-    input[type="password"]:focus,
-    textarea:focus {
-      border-color: var(--primary);
-      box-shadow: 0 0 0 4px rgba(49, 84, 255, 0.1), var(--shadow-sm);
-      transform: translateY(-1px);
-    }
-
-    textarea {
-      height: 72px;
-      font-size: 13px;
-      padding: 12px 16px;
-    }
-
-    .input-label {
-      font-size: 12px;
-      font-weight: 500;
-      color: var(--text-secondary);
-      margin-bottom: 6px;
-      text-align: left;
-      display: block;
-    }
-
-    .error-msg {
-      position: absolute;
-      bottom: -22px;
-      left: 0;
-      width: 100%;
-      text-align: center;
-      font-size: 12px;
-      color: var(--error);
-      opacity: 0;
-      transform: translateY(-4px);
-      transition: all 0.25s;
-    }
-
-    .error-msg.visible {
-      opacity: 1;
-      transform: translateY(0);
-    }
-
-    /* Skip link */
-    .skip-link {
-      display: block;
-      margin-top: 12px;
-      font-size: 12px;
-      color: var(--text-secondary);
-      cursor: pointer;
-      text-decoration: underline;
-      -webkit-app-region: no-drag;
-      transition: color 0.2s;
-    }
-
-    .skip-link:hover {
-      color: var(--primary);
-    }
-
-    /* Key status badge */
-    .key-status {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      font-size: 12px;
-      color: var(--success);
-      margin-top: 8px;
-      opacity: 0;
-      transition: opacity 0.3s;
-    }
-
-    .key-status.visible {
-      opacity: 1;
-    }
-
-    .key-status-dot {
-      width: 7px;
-      height: 7px;
-      border-radius: 50%;
-      background: currentColor;
-    }
-
-    /* Voice visual */
-    .voice-visual {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 5px;
-      height: 44px;
-      margin: 20px 0;
-    }
-
-    .bar {
-      width: 5px;
-      background: var(--primary);
-      border-radius: 3px;
-      animation: wave 1.2s ease-in-out infinite;
-    }
-
-    .bar:nth-child(1) {
-      height: 14px;
-      animation-delay: 0s;
-      background: #c979ee;
-    }
-
-    .bar:nth-child(2) {
-      height: 26px;
-      animation-delay: 0.1s;
-      background: #7c6aff;
-    }
-
-    .bar:nth-child(3) {
-      height: 38px;
-      animation-delay: 0.2s;
-      background: var(--primary);
-    }
-
-    .bar:nth-child(4) {
-      height: 26px;
-      animation-delay: 0.3s;
-      background: #7c6aff;
-    }
-
-    .bar:nth-child(5) {
-      height: 14px;
-      animation-delay: 0.4s;
-      background: #74bcd6;
-    }
-
-    @keyframes wave {
-
-      0%,
-      100% {
-        transform: scaleY(1);
-        opacity: 0.6;
+      :root {
+        --font:
+          "Segoe UI Variable", "Inter", -apple-system, system-ui, sans-serif;
+        --primary: #3154ff;
+        --primary-light: rgba(49, 84, 255, 0.12);
+        --primary-gradient: linear-gradient(135deg, #3154ff 0%, #7c6aff 100%);
+        --text-primary: rgba(20, 20, 30, 0.95);
+        --text-secondary: rgba(20, 20, 30, 0.55);
+        --bg-color: rgba(235, 235, 250, 0.98);
+        --surface: rgba(255, 255, 255, 0.92);
+        --border: rgba(49, 84, 255, 0.1);
+        --shadow-sm: 0 4px 16px rgba(49, 84, 255, 0.08);
+        --shadow-md: 0 12px 40px rgba(49, 84, 255, 0.14);
+        --error: #e8445a;
+        --success: #10b981;
+        --ease-smooth: cubic-bezier(0.16, 1, 0.3, 1);
+        --ease-spring: cubic-bezier(0.175, 0.885, 0.32, 1.275);
       }
 
-      50% {
-        transform: scaleY(1.5);
+      body {
+        height: 100vh;
+        width: 100vw;
+        overflow: hidden;
+        background: var(--bg-color);
+        font-family: var(--font);
+        color: var(--text-primary);
+        -webkit-app-region: drag;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        position: relative;
+      }
+
+      /* Venesa ambient background */
+      .bg-ambient {
+        position: absolute;
+        inset: 0;
+        overflow: hidden;
+        z-index: 0;
+        pointer-events: none;
+      }
+
+      .ambient-blob {
+        position: absolute;
+        border-radius: 50%;
+        filter: blur(90px);
+      }
+
+      .blob-1 {
+        top: -15%;
+        right: -10%;
+        width: 380px;
+        height: 380px;
+        background: rgba(49, 84, 255, 0.12);
+        animation: drift 14s ease-in-out infinite alternate;
+      }
+
+      .blob-2 {
+        bottom: -15%;
+        left: -10%;
+        width: 320px;
+        height: 320px;
+        background: rgba(124, 106, 255, 0.1);
+        animation: drift 18s ease-in-out infinite alternate-reverse;
+      }
+
+      .blob-3 {
+        top: 40%;
+        left: 30%;
+        width: 220px;
+        height: 220px;
+        background: rgba(201, 121, 238, 0.07);
+        animation: drift 22s ease-in-out infinite alternate;
+      }
+
+      @keyframes drift {
+        0% {
+          transform: translate(0, 0) scale(1);
+        }
+
+        100% {
+          transform: translate(24px, 18px) scale(1.08);
+        }
+      }
+
+      /* Slide layout */
+      .container {
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
+        position: relative;
+        z-index: 1;
+      }
+
+      .slide-track {
+        display: flex;
+        height: 100%;
+        transition: transform 0.55s var(--ease-smooth);
+      }
+
+      .slide {
+        min-width: 100%;
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        padding: 40px 48px;
+        opacity: 0;
+        filter: blur(6px);
+        transform: scale(0.97);
+        transition:
+          opacity 0.55s var(--ease-smooth),
+          filter 0.55s var(--ease-smooth),
+          transform 0.55s var(--ease-smooth);
+        pointer-events: none;
+      }
+
+      .slide.active {
+        opacity: 1;
+        filter: blur(0);
+        transform: scale(1);
+        pointer-events: all;
+      }
+
+      .slide-content {
+        width: 100%;
+        max-width: 360px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        text-align: center;
+      }
+
+      /* Logo */
+      .logo-wrap {
+        width: 72px;
+        height: 72px;
+        margin-bottom: 22px;
+        filter: drop-shadow(0 8px 20px rgba(49, 84, 255, 0.18));
+      }
+
+      .logo-wrap img {
+        width: 100%;
+        height: 100%;
+        object-fit: contain;
+      }
+
+      /* Icon hero */
+      .icon-hero {
+        width: 64px;
+        height: 64px;
+        background: var(--surface);
+        border-radius: 18px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin-bottom: 22px;
+        box-shadow:
+          var(--shadow-sm),
+          0 0 0 1px var(--border);
+        color: var(--primary);
+      }
+
+      .icon-hero svg {
+        width: 30px;
+        height: 30px;
+        stroke-width: 1.8;
+      }
+
+      h1 {
+        font-size: 24px;
+        font-weight: 700;
+        margin-bottom: 10px;
+        color: var(--text-primary);
+        letter-spacing: -0.4px;
+      }
+
+      p {
+        font-size: 14px;
+        line-height: 1.55;
+        color: var(--text-secondary);
+        max-width: 290px;
+      }
+
+      /* Feature list */
+      .feature-list {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        width: 100%;
+        margin-top: 24px;
+        text-align: left;
+      }
+
+      .feature-item {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 11px 14px;
+        background: var(--surface);
+        border-radius: 12px;
+        border: 1px solid var(--border);
+        transition: background 0.2s;
+      }
+
+      .feature-item:hover {
+        background: rgba(255, 255, 255, 1);
+      }
+
+      .feat-icon {
+        width: 34px;
+        height: 34px;
+        background: var(--primary-light);
+        border-radius: 9px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: var(--primary);
+        flex-shrink: 0;
+      }
+
+      .feat-icon svg {
+        width: 16px;
+        height: 16px;
+      }
+
+      .feat-text h3 {
+        font-size: 13px;
+        font-weight: 600;
+        color: var(--text-primary);
+        margin-bottom: 1px;
+      }
+
+      .feat-text p {
+        font-size: 11px;
+        color: var(--text-secondary);
+        max-width: 100%;
+      }
+
+      /* Inputs */
+      .input-group {
+        width: 100%;
+        margin-top: 22px;
+        position: relative;
+        -webkit-app-region: no-drag;
+      }
+
+      input[type="text"],
+      input[type="password"],
+      textarea {
+        width: 100%;
+        padding: 14px 18px;
+        border-radius: 12px;
+        border: 1.5px solid var(--border);
+        background: var(--surface);
+        font-size: 15px;
+        font-family: var(--font);
+        color: var(--text-primary);
+        outline: none;
+        transition: all 0.3s var(--ease-smooth);
+        box-shadow: var(--shadow-sm);
+        resize: none;
+      }
+
+      input[type="text"]:focus,
+      input[type="password"]:focus,
+      textarea:focus {
+        border-color: var(--primary);
+        box-shadow:
+          0 0 0 4px rgba(49, 84, 255, 0.1),
+          var(--shadow-sm);
+        transform: translateY(-1px);
+      }
+
+      textarea {
+        height: 72px;
+        font-size: 13px;
+        padding: 12px 16px;
+      }
+
+      .input-label {
+        font-size: 12px;
+        font-weight: 500;
+        color: var(--text-secondary);
+        margin-bottom: 6px;
+        text-align: left;
+        display: block;
+      }
+
+      .error-msg {
+        position: absolute;
+        bottom: -22px;
+        left: 0;
+        width: 100%;
+        text-align: center;
+        font-size: 12px;
+        color: var(--error);
+        opacity: 0;
+        transform: translateY(-4px);
+        transition: all 0.25s;
+      }
+
+      .error-msg.visible {
+        opacity: 1;
+        transform: translateY(0);
+      }
+
+      /* Skip link */
+      .skip-link {
+        display: block;
+        margin-top: 12px;
+        font-size: 12px;
+        color: var(--text-secondary);
+        cursor: pointer;
+        text-decoration: underline;
+        -webkit-app-region: no-drag;
+        transition: color 0.2s;
+      }
+
+      .skip-link:hover {
+        color: var(--primary);
+      }
+
+      /* Key status badge */
+      .key-status {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 12px;
+        color: var(--success);
+        margin-top: 8px;
+        opacity: 0;
+        transition: opacity 0.3s;
+      }
+
+      .key-status.visible {
         opacity: 1;
       }
-    }
 
-    /* Buttons */
-    .btn-container {
-      margin-top: auto;
-      width: 100%;
-      max-width: 360px;
-      display: flex;
-      justify-content: center;
-      padding-top: 14px;
-      -webkit-app-region: no-drag;
-    }
+      .key-status-dot {
+        width: 7px;
+        height: 7px;
+        border-radius: 50%;
+        background: currentColor;
+      }
 
-    button.primary-btn {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 8px;
-      padding: 13px 32px;
-      border-radius: 28px;
-      border: none;
-      background: var(--primary-gradient);
-      color: white;
-      font-family: var(--font);
-      font-size: 14px;
-      font-weight: 600;
-      cursor: pointer;
-      box-shadow: 0 6px 20px rgba(49, 84, 255, 0.3);
-      transition: all 0.3s var(--ease-spring);
-      min-width: 140px;
-    }
+      /* Voice visual */
+      .voice-visual {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 5px;
+        height: 44px;
+        margin: 20px 0;
+      }
 
-    button.primary-btn:hover {
-      transform: translateY(-2px) scale(1.02);
-      box-shadow: 0 10px 28px rgba(49, 84, 255, 0.4);
-    }
+      .bar {
+        width: 5px;
+        background: var(--primary);
+        border-radius: 3px;
+        animation: wave 1.2s ease-in-out infinite;
+      }
 
-    button.primary-btn:active {
-      transform: translateY(0) scale(0.98);
-    }
+      .bar:nth-child(1) {
+        height: 14px;
+        animation-delay: 0s;
+        background: #c979ee;
+      }
 
-    button.primary-btn svg {
-      width: 15px;
-      height: 15px;
-    }
+      .bar:nth-child(2) {
+        height: 26px;
+        animation-delay: 0.1s;
+        background: #7c6aff;
+      }
 
-    /* Progress dots */
-    .dots {
-      position: absolute;
-      top: 16px;
-      left: 0;
-      width: 100%;
-      display: flex;
-      justify-content: center;
-      gap: 6px;
-      pointer-events: none;
-      z-index: 2;
-    }
+      .bar:nth-child(3) {
+        height: 38px;
+        animation-delay: 0.2s;
+        background: var(--primary);
+      }
 
-    .dot {
-      width: 6px;
-      height: 6px;
-      border-radius: 50%;
-      background: rgba(49, 84, 255, 0.2);
-      transition: all 0.4s var(--ease-spring);
-    }
+      .bar:nth-child(4) {
+        height: 26px;
+        animation-delay: 0.3s;
+        background: #7c6aff;
+      }
 
-    .dot.active {
-      width: 20px;
-      border-radius: 10px;
-      background: var(--primary);
-    }
+      .bar:nth-child(5) {
+        height: 14px;
+        animation-delay: 0.4s;
+        background: #74bcd6;
+      }
 
-    /* Inline code */
-    code {
-      background: var(--primary-light);
-      padding: 2px 7px;
-      border-radius: 5px;
-      font-family: inherit;
-      font-weight: 600;
-      color: var(--primary);
-      font-size: 0.9em;
-    }
-  </style>
-</head>
+      @keyframes wave {
+        0%,
+        100% {
+          transform: scaleY(1);
+          opacity: 0.6;
+        }
 
-<body>
-  <div class="bg-ambient">
-    <div class="ambient-blob blob-1"></div>
-    <div class="ambient-blob blob-2"></div>
-    <div class="ambient-blob blob-3"></div>
-  </div>
+        50% {
+          transform: scaleY(1.5);
+          opacity: 1;
+        }
+      }
 
-  <div class="container">
-    <div class="slide-track" id="slideTrack">
+      /* Buttons */
+      .btn-container {
+        margin-top: auto;
+        width: 100%;
+        max-width: 360px;
+        display: flex;
+        justify-content: center;
+        padding-top: 14px;
+        -webkit-app-region: no-drag;
+      }
 
-      <!-- Slide 0: Welcome + Name -->
-      <div class="slide active">
-        <div class="slide-content">
-          <div class="logo-wrap">
-            <img src="venesa-asset://logo.png" alt="Venesa">
-          </div>
-          <h1>Welcome to Venesa</h1>
-          <p>Your intelligent desktop companion. Let's set things up quickly.</p>
+      button.primary-btn {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        padding: 13px 32px;
+        border-radius: 28px;
+        border: none;
+        background: var(--primary-gradient);
+        color: white;
+        font-family: var(--font);
+        font-size: 14px;
+        font-weight: 600;
+        cursor: pointer;
+        box-shadow: 0 6px 20px rgba(49, 84, 255, 0.3);
+        transition: all 0.3s var(--ease-spring);
+        min-width: 140px;
+      }
 
-          <div class="input-group">
-            <input type="text" id="userName" placeholder="What should I call you?" autocomplete="off" spellcheck="false"
-              aria-label="Your name" aria-describedby="nameError" />
-            <div class="error-msg" id="nameError">Please enter your name to continue</div>
-          </div>
+      button.primary-btn:hover {
+        transform: translateY(-2px) scale(1.02);
+        box-shadow: 0 10px 28px rgba(49, 84, 255, 0.4);
+      }
 
-          <div class="input-group" style="margin-top:14px;">
-            <textarea id="userBio"
-              placeholder="Tell me a bit about yourself — your job, hobbies, or how you work. (Optional)"
-              spellcheck="false"></textarea>
-          </div>
-        </div>
-        <div class="btn-container">
-          <button class="primary-btn" onclick="slide0Next()">
-            Continue
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"
-              stroke-linejoin="round">
-              <path d="M5 12h14M12 5l7 7-7 7" />
-            </svg>
-          </button>
-        </div>
-      </div>
+      button.primary-btn:active {
+        transform: translateY(0) scale(0.98);
+      }
 
-      <!-- Slide 1: API Key (Gemini required) -->
-      <div class="slide">
-        <div class="slide-content">
-          <div class="icon-hero">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
-              <path
-                d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4" />
-            </svg>
-          </div>
-          <h1>Connect AI</h1>
-          <p>Paste your <strong>Google Gemini API key</strong> below. Venesa needs this to think and act for you.</p>
+      button.primary-btn svg {
+        width: 15px;
+        height: 15px;
+      }
 
-          <div class="input-group" style="margin-top:22px;">
-            <label class="input-label">Gemini API Key <span style="color:var(--error)">*</span></label>
-            <input type="password" id="geminiKey" placeholder="AIzaSy..." autocomplete="off" />
-            <div class="error-msg" id="keyError">A Gemini API key is required to continue</div>
-          </div>
-          <div class="key-status" id="gemini-key-status">
-            <span class="key-status-dot"></span> Key saved
-          </div>
+      /* Progress dots */
+      .dots {
+        position: absolute;
+        top: 16px;
+        left: 0;
+        width: 100%;
+        display: flex;
+        justify-content: center;
+        gap: 6px;
+        pointer-events: none;
+        z-index: 2;
+      }
 
-          <div class="input-group" style="margin-top:18px;">
-            <label class="input-label">ElevenLabs API Key <span
-                style="color:var(--text-secondary);font-weight:400">(optional – for voice TTS)</span></label>
-            <input type="password" id="elevenLabsKey" placeholder="sk_..." autocomplete="off" />
-          </div>
+      .dot {
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: rgba(49, 84, 255, 0.2);
+        transition: all 0.4s var(--ease-spring);
+      }
 
-          <a class="skip-link" href="#" onclick="skipApiSlide()">Skip for now (you can add keys in Settings)</a>
-        </div>
-        <div class="btn-container">
-          <button class="primary-btn" onclick="slide1Next()">
-            Save & Continue
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"
-              stroke-linejoin="round">
-              <path d="M5 12h14M12 5l7 7-7 7" />
-            </svg>
-          </button>
-        </div>
-      </div>
+      .dot.active {
+        width: 20px;
+        border-radius: 10px;
+        background: var(--primary);
+      }
 
-      <!-- Slide 2: Text Mode features -->
-      <div class="slide">
-        <div class="slide-content">
-          <div class="icon-hero">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
-              <circle cx="11" cy="11" r="8" />
-              <line x1="21" y1="21" x2="16.65" y2="16.65" />
-            </svg>
-          </div>
-          <h1>Text Mode</h1>
-          <p>Your command center, always a keystroke away.</p>
+      /* Inline code */
+      code {
+        background: var(--primary-light);
+        padding: 2px 7px;
+        border-radius: 5px;
+        font-family: inherit;
+        font-weight: 600;
+        color: var(--primary);
+        font-size: 0.9em;
+      }
+    </style>
+  </head>
 
-          <div class="feature-list">
-            <div class="feature-item">
-              <div class="feat-icon">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round"
-                  stroke-linejoin="round">
-                  <circle cx="11" cy="11" r="8" />
-                  <line x1="21" y1="21" x2="16.65" y2="16.65" />
-                </svg>
-              </div>
-              <div class="feat-text">
-                <h3>Find anything instantly</h3>
-                <p>Press <code>Alt + Space</code> to search files, apps, and folders.</p>
-              </div>
-            </div>
-            <div class="feature-item">
-              <div class="feat-icon">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round"
-                  stroke-linejoin="round">
-                  <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-                </svg>
-              </div>
-              <div class="feat-text">
-                <h3>Natural language commands</h3>
-                <p>Type <code>/</code> to tell Venesa what to do.</p>
-              </div>
-            </div>
-            <div class="feature-item">
-              <div class="feat-icon">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round"
-                  stroke-linejoin="round">
-                  <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
-                </svg>
-              </div>
-              <div class="feat-text">
-                <h3>System control</h3>
-                <p>Volume, brightness, WiFi, processes — all from the bar.</p>
-              </div>
-            </div>
-          </div>
-        </div>
-        <div class="btn-container">
-          <button class="primary-btn" onclick="goTo(3)">
-            Next
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"
-              stroke-linejoin="round">
-              <path d="M5 12h14M12 5l7 7-7 7" />
-            </svg>
-          </button>
-        </div>
-      </div>
-
-      <!-- Slide 3: Voice Mode -->
-      <div class="slide">
-        <div class="slide-content">
-          <div class="icon-hero">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" />
-              <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
-              <line x1="12" y1="19" x2="12" y2="23" />
-              <line x1="8" y1="23" x2="16" y2="23" />
-            </svg>
-          </div>
-          <h1>Voice Mode</h1>
-          <p>Hands-free control for your workflow.</p>
-
-          <div class="voice-visual">
-            <div class="bar"></div>
-            <div class="bar"></div>
-            <div class="bar"></div>
-            <div class="bar"></div>
-            <div class="bar"></div>
-          </div>
-
-          <p style="font-size:16px;font-weight:600;color:var(--primary);margin-bottom:6px;">"Hey Venesa"</p>
-          <p style="font-size:13px;">Say the wake word to activate voice mode from anywhere.</p>
-
-          <div
-            style="margin-top:20px;padding:14px 16px;background:var(--surface);border-radius:12px;border:1px solid var(--border);width:100%;text-align:left;">
-            <p style="font-size:13px;color:var(--text-secondary);line-height:1.6;">
-              Try: <em>"Open Spotify"</em> · <em>"What's on my screen?"</em> · <em>"Close everything and sleep"</em>
-            </p>
-          </div>
-        </div>
-        <div class="btn-container">
-          <button class="primary-btn" id="finishBtn" onclick="finishSetup()">
-            Get Started
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"
-              stroke-linejoin="round">
-              <line x1="5" y1="12" x2="19" y2="12" />
-              <polyline points="12 5 19 12 12 19" />
-            </svg>
-          </button>
-        </div>
-      </div>
-
-    </div><!-- /slide-track -->
-
-    <div class="dots" id="dotsContainer">
-      <div class="dot active"></div>
-      <div class="dot"></div>
-      <div class="dot"></div>
-      <div class="dot"></div>
+  <body>
+    <div class="bg-ambient">
+      <div class="ambient-blob blob-1"></div>
+      <div class="ambient-blob blob-2"></div>
+      <div class="ambient-blob blob-3"></div>
     </div>
-  </div>
 
-  <script>
-    let currentSlide = 0;
-    const totalSlides = 4;
-    const slideTrack = document.getElementById('slideTrack');
-    const slides = document.querySelectorAll('.slide');
-    const dots = document.querySelectorAll('.dot');
-    const userNameInput = document.getElementById('userName');
-    const userBioInput = document.getElementById('userBio');
-    let userName = '';
-    let userBio = '';
+    <div class="container">
+      <div class="slide-track" id="slideTrack">
+        <!-- Slide 0: Welcome + Name -->
+        <div class="slide active">
+          <div class="slide-content">
+            <div class="logo-wrap">
+              <img src="venesa-asset://logo.png" alt="Venesa" />
+            </div>
+            <h1>Welcome to Venesa</h1>
+            <p>
+              Your intelligent desktop companion. Let's set things up quickly.
+            </p>
 
-    setTimeout(() => userNameInput.focus(), 400);
+            <div class="input-group">
+              <input
+                type="text"
+                id="userName"
+                placeholder="What should I call you?"
+                autocomplete="off"
+                spellcheck="false"
+                aria-label="Your name"
+                aria-describedby="nameError"
+              />
+              <div class="error-msg" id="nameError">
+                Please enter your name to continue
+              </div>
+            </div>
 
-    function goTo(index) {
-      if (index < 0 || index >= totalSlides) return;
-      slides[currentSlide].classList.remove('active');
-      dots[currentSlide].classList.remove('active');
-      currentSlide = index;
-      slides[currentSlide].classList.add('active');
-      dots[currentSlide].classList.add('active');
-      const trackWidth = slideTrack.parentElement.offsetWidth;
-      slideTrack.style.transform = `translateX(-${currentSlide * trackWidth}px)`;
-    }
+            <div class="input-group" style="margin-top: 14px">
+              <textarea
+                id="userBio"
+                placeholder="Tell me a bit about yourself — your job, hobbies, or how you work. (Optional)"
+                spellcheck="false"
+              ></textarea>
+            </div>
+          </div>
+          <div class="btn-container">
+            <button class="primary-btn" onclick="slide0Next()">
+              Continue
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2.5"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <path d="M5 12h14M12 5l7 7-7 7" />
+              </svg>
+            </button>
+          </div>
+        </div>
 
-    // Handle browser resize
-    window.addEventListener('resize', () => {
-      const trackWidth = slideTrack.parentElement.offsetWidth;
-      slideTrack.style.transform = `translateX(-${currentSlide * trackWidth}px)`;
-    });
+        <!-- Slide 1: API Key (Gemini required) -->
+        <div class="slide">
+          <div class="slide-content">
+            <div class="icon-hero">
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <path
+                  d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"
+                />
+              </svg>
+            </div>
+            <h1>Connect AI</h1>
+            <p>
+              Paste your <strong>Google Gemini API key</strong> below. Venesa
+              needs this to think and act for you.
+            </p>
 
-    function shakeInput(el) {
-      const offsets = [6, -6, 6, 0];
-      offsets.forEach((offset, i) =>
-        setTimeout(() => { el.style.transform = `translateX(${offset}px)`; }, i * 55));
-    }
+            <div class="input-group" style="margin-top: 22px">
+              <label class="input-label"
+                >Gemini API Key
+                <span style="color: var(--error)">*</span></label
+              >
+              <input
+                type="password"
+                id="geminiKey"
+                placeholder="AIzaSy..."
+                autocomplete="off"
+              />
+              <div class="error-msg" id="keyError">
+                A Gemini API key is required to continue
+              </div>
+            </div>
+            <div class="key-status" id="gemini-key-status">
+              <span class="key-status-dot"></span> Key saved
+            </div>
 
-    // Slide 0: Name validation
-    function slide0Next() {
-      const val = userNameInput.value.trim();
-      if (!val || val.toLowerCase() === 'user') {
-        const err = document.getElementById('nameError');
-        err.textContent = val ? "Please enter a specific name (not 'User')" : "Please enter your name to continue";
-        err.classList.add('visible');
-        shakeInput(userNameInput);
-        userNameInput.focus();
-        return;
+            <div class="input-group" style="margin-top: 18px">
+              <label class="input-label"
+                >ElevenLabs API Key
+                <span style="color: var(--text-secondary); font-weight: 400"
+                  >(optional – for voice TTS)</span
+                ></label
+              >
+              <input
+                type="password"
+                id="elevenLabsKey"
+                placeholder="sk_..."
+                autocomplete="off"
+              />
+            </div>
+
+            <a class="skip-link" href="#" onclick="event.preventDefault(); skipApiSlide()"
+              >Skip for now (you can add keys in Settings)</a
+            >
+          </div>
+          <div class="btn-container">
+            <button class="primary-btn" onclick="slide1Next()">
+              Save & Continue
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2.5"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <path d="M5 12h14M12 5l7 7-7 7" />
+              </svg>
+            </button>
+          </div>
+        </div>
+
+        <!-- Slide 2: Text Mode features -->
+        <div class="slide">
+          <div class="slide-content">
+            <div class="icon-hero">
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <circle cx="11" cy="11" r="8" />
+                <line x1="21" y1="21" x2="16.65" y2="16.65" />
+              </svg>
+            </div>
+            <h1>Text Mode</h1>
+            <p>Your command center, always a keystroke away.</p>
+
+            <div class="feature-list">
+              <div class="feature-item">
+                <div class="feat-icon">
+                  <svg
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  >
+                    <circle cx="11" cy="11" r="8" />
+                    <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                  </svg>
+                </div>
+                <div class="feat-text">
+                  <h3>Find anything instantly</h3>
+                  <p>
+                    Press <code>Alt + Space</code> to search files, apps, and
+                    folders.
+                  </p>
+                </div>
+              </div>
+              <div class="feature-item">
+                <div class="feat-icon">
+                  <svg
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  >
+                    <path
+                      d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"
+                    />
+                  </svg>
+                </div>
+                <div class="feat-text">
+                  <h3>Natural language commands</h3>
+                  <p>Type <code>/</code> to tell Venesa what to do.</p>
+                </div>
+              </div>
+              <div class="feature-item">
+                <div class="feat-icon">
+                  <svg
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  >
+                    <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
+                  </svg>
+                </div>
+                <div class="feat-text">
+                  <h3>System control</h3>
+                  <p>Volume, brightness, WiFi, processes — all from the bar.</p>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="btn-container">
+            <button class="primary-btn" onclick="goTo(3)">
+              Next
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2.5"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <path d="M5 12h14M12 5l7 7-7 7" />
+              </svg>
+            </button>
+          </div>
+        </div>
+
+        <!-- Slide 3: Voice Mode -->
+        <div class="slide">
+          <div class="slide-content">
+            <div class="icon-hero">
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <path
+                  d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"
+                />
+                <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
+                <line x1="12" y1="19" x2="12" y2="23" />
+                <line x1="8" y1="23" x2="16" y2="23" />
+              </svg>
+            </div>
+            <h1>Voice Mode</h1>
+            <p>Hands-free control for your workflow.</p>
+
+            <div class="voice-visual">
+              <div class="bar"></div>
+              <div class="bar"></div>
+              <div class="bar"></div>
+              <div class="bar"></div>
+              <div class="bar"></div>
+            </div>
+
+            <p
+              style="
+                font-size: 16px;
+                font-weight: 600;
+                color: var(--primary);
+                margin-bottom: 6px;
+              "
+            >
+              "Hey Venesa"
+            </p>
+            <p style="font-size: 13px">
+              Say the wake word to activate voice mode from anywhere.
+            </p>
+
+            <div
+              style="
+                margin-top: 20px;
+                padding: 14px 16px;
+                background: var(--surface);
+                border-radius: 12px;
+                border: 1px solid var(--border);
+                width: 100%;
+                text-align: left;
+              "
+            >
+              <p
+                style="
+                  font-size: 13px;
+                  color: var(--text-secondary);
+                  line-height: 1.6;
+                "
+              >
+                Try: <em>"Open Spotify"</em> · <em>"What's on my screen?"</em> ·
+                <em>"Close everything and sleep"</em>
+              </p>
+            </div>
+          </div>
+          <div class="btn-container">
+            <button class="primary-btn" id="finishBtn" onclick="finishSetup()">
+              Get Started
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2.5"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <line x1="5" y1="12" x2="19" y2="12" />
+                <polyline points="12 5 19 12 12 19" />
+              </svg>
+            </button>
+          </div>
+        </div>
+      </div>
+      <!-- /slide-track -->
+
+      <div class="dots" id="dotsContainer">
+        <div class="dot active"></div>
+        <div class="dot"></div>
+        <div class="dot"></div>
+        <div class="dot"></div>
+      </div>
+    </div>
+
+    <script>
+      let currentSlide = 0;
+      const totalSlides = 4;
+      const slideTrack = document.getElementById("slideTrack");
+      const slides = document.querySelectorAll(".slide");
+      const dots = document.querySelectorAll(".dot");
+      const userNameInput = document.getElementById("userName");
+      const userBioInput = document.getElementById("userBio");
+      let userName = "";
+      let userBio = "";
+
+      setTimeout(() => userNameInput.focus(), 400);
+
+      function goTo(index) {
+        if (index < 0 || index >= totalSlides) return;
+        slides[currentSlide].classList.remove("active");
+        dots[currentSlide].classList.remove("active");
+        currentSlide = index;
+        slides[currentSlide].classList.add("active");
+        dots[currentSlide].classList.add("active");
+        const trackWidth = slideTrack.parentElement.offsetWidth;
+        slideTrack.style.transform = `translateX(-${currentSlide * trackWidth}px)`;
       }
-      userName = val;
-      userBio = (userBioInput.value || '').trim();
-      document.getElementById('nameError').classList.remove('visible');
-      checkExistingKeysAndGoToNext();
-    }
 
-    async function checkExistingKeysAndGoToNext() {
-      try {
-        if (window.api && typeof window.api.invoke === 'function') {
-          const status = await window.api.invoke('get-key-status');
-          if (status && status.gemini && status.gemini.length > 0) {
-            goTo(2); // Skip API keys slide
-            return;
-          }
-        }
-      } catch (e) {
-        console.error('Error checking existing keys:', e);
-      }
-      goTo(1);
-    }
-
-    // Slide 1: API key save
-    async function slide1Next() {
-      const gemini = document.getElementById('geminiKey').value.trim();
-      const el = document.getElementById('elevenLabsKey').value.trim();
-      const errEl = document.getElementById('keyError');
-
-      if (!gemini) {
-        errEl.classList.add('visible');
-        shakeInput(document.getElementById('geminiKey'));
-        return;
-      }
-      errEl.classList.remove('visible');
-
-      try {
-        if (window.api && typeof window.api.invoke === 'function') {
-          await window.api.invoke('set-api-key', 'gemini', gemini);
-          if (el) await window.api.invoke('set-api-key', 'elevenlabs', el);
-        } else if (window.api && typeof window.api.send === 'function') {
-          // Fallback: send via IPC and move on
-          window.api.send('set-api-keys-setup', { gemini, elevenlabs: el || null });
-        }
-        document.getElementById('gemini-key-status').classList.add('visible');
-        goTo(2);
-      } catch (e) {
-        console.error('Failed to save API keys during setup:', e);
-        errEl.textContent = 'Failed to save API key. Please try again. ' + (e.message || '');
-        errEl.classList.add('visible');
-        shakeInput(document.getElementById('geminiKey'));
-      }
-    }
-
-    function skipApiSlide() {
-      goTo(2);
-    }
-
-    // Finish
-    function finishSetup() {
-      const btn = document.getElementById('finishBtn');
-      btn.innerHTML = `Starting… <svg style="width:15px;height:15px;animation:spin .8s linear infinite" viewBox="0 0 50 50"><circle cx="25" cy="25" r="20" fill="none" stroke="white" stroke-width="5" stroke-dasharray="80" stroke-dashoffset="0"/></svg>`;
-      btn.disabled = true;
-
-      if (!document.getElementById('spinStyle')) {
-        const s = document.createElement('style');
-        s.id = 'spinStyle';
-        s.textContent = '@keyframes spin { to { transform: rotate(360deg); } }';
-        document.head.appendChild(s);
-      }
-
-      const payload = {
-        modelName: 'gemini-2.5-flash-lite',
-        userName: userName || 'User',
-      };
-      if (userBio) payload.userBio = userBio;
-
-      if (window.api && typeof window.api.send === 'function') {
-        window.api.send('save-settings', payload);
-      } else {
-        const btnEl = document.getElementById('finishBtn');
-        btnEl.innerHTML = 'Error: API unavailable';
-        btnEl.disabled = false;
-      }
-    }
-
-    // Listen for settings-saved confirmation
-    if (window.api && typeof window.api.receive === 'function') {
-      window.api.receive('settings-saved', (success) => {
-        if (!success) {
-          const btn = document.getElementById('finishBtn');
-          btn.innerHTML = 'Try Again';
-          btn.disabled = false;
-        }
+      // Handle browser resize
+      window.addEventListener("resize", () => {
+        const trackWidth = slideTrack.parentElement.offsetWidth;
+        slideTrack.style.transform = `translateX(-${currentSlide * trackWidth}px)`;
       });
-    }
 
-    // Enter key support
-    userNameInput.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter') slide0Next();
-      document.getElementById('nameError').classList.remove('visible');
-    });
+      function shakeInput(el) {
+        const offsets = [6, -6, 6, 0];
+        offsets.forEach((offset, i) =>
+          setTimeout(() => {
+            el.style.transform = `translateX(${offset}px)`;
+          }, i * 55),
+        );
+      }
 
-    userNameInput.addEventListener('input', () => {
-      document.getElementById('nameError').classList.remove('visible');
-    });
+      // Slide 0: Name validation
+      function slide0Next() {
+        const val = userNameInput.value.trim();
+        if (!val || val.toLowerCase() === "user") {
+          const err = document.getElementById("nameError");
+          err.textContent = val
+            ? "Please enter a specific name (not 'User')"
+            : "Please enter your name to continue";
+          err.classList.add("visible");
+          shakeInput(userNameInput);
+          userNameInput.focus();
+          return;
+        }
+        userName = val;
+        userBio = (userBioInput.value || "").trim();
+        document.getElementById("nameError").classList.remove("visible");
+        checkExistingKeysAndGoToNext();
+      }
 
-    document.getElementById('geminiKey').addEventListener('keydown', (e) => {
-      if (e.key === 'Enter') slide1Next();
-    });
+      async function checkExistingKeysAndGoToNext() {
+        try {
+          if (window.api && typeof window.api.invoke === "function") {
+            const status = await window.api.invoke("get-key-status");
+            if (status && status.gemini && status.gemini.length > 0) {
+              goTo(2); // Skip API keys slide
+              return;
+            }
+          }
+        } catch (e) {
+          console.error("Error checking existing keys:", e);
+        }
+        goTo(1);
+      }
 
-    document.getElementById('geminiKey').addEventListener('input', () => {
-      document.getElementById('keyError').classList.remove('visible');
-    });
-  </script>
+      // Slide 1: API key save
+      async function slide1Next() {
+        const gemini = document.getElementById("geminiKey").value.trim();
+        const el = document.getElementById("elevenLabsKey").value.trim();
+        const errEl = document.getElementById("keyError");
 
-</body>
+        if (!gemini) {
+          errEl.classList.add("visible");
+          shakeInput(document.getElementById("geminiKey"));
+          return;
+        }
+        errEl.classList.remove("visible");
 
+        try {
+          if (window.api && typeof window.api.invoke === "function") {
+            await window.api.invoke("set-api-key", "gemini", gemini);
+            if (el) await window.api.invoke("set-api-key", "elevenlabs", el);
+          } else if (window.api && typeof window.api.send === "function") {
+            // Fallback: send via IPC and move on
+            window.api.send("set-api-keys-setup", {
+              gemini,
+              elevenlabs: el || null,
+            });
+          }
+          document.getElementById("gemini-key-status").classList.add("visible");
+          goTo(2);
+        } catch (e) {
+          console.error("Failed to save API keys during setup:", e);
+          errEl.textContent =
+            "Failed to save API key. Please try again. " + (e.message || "");
+          errEl.classList.add("visible");
+          shakeInput(document.getElementById("geminiKey"));
+        }
+      }
+
+      function skipApiSlide() {
+        goTo(2);
+      }
+
+      // Finish
+      function finishSetup() {
+        const btn = document.getElementById("finishBtn");
+        btn.innerHTML = `Starting… <svg style="width:15px;height:15px;animation:spin .8s linear infinite" viewBox="0 0 50 50"><circle cx="25" cy="25" r="20" fill="none" stroke="white" stroke-width="5" stroke-dasharray="80" stroke-dashoffset="0"/></svg>`;
+        btn.disabled = true;
+
+        if (!document.getElementById("spinStyle")) {
+          const s = document.createElement("style");
+          s.id = "spinStyle";
+          s.textContent =
+            "@keyframes spin { to { transform: rotate(360deg); } }";
+          document.head.appendChild(s);
+        }
+
+        const payload = {
+          modelName: "gemini-2.5-flash-lite",
+          userName: userName || "User",
+        };
+        if (userBio) payload.userBio = userBio;
+
+        if (window.api && typeof window.api.send === "function") {
+          window.api.send("save-settings", payload);
+        } else {
+          const btnEl = document.getElementById("finishBtn");
+          btnEl.innerHTML = "Error: API unavailable";
+          btnEl.disabled = false;
+        }
+      }
+
+      // Listen for settings-saved confirmation
+      if (window.api && typeof window.api.receive === "function") {
+        window.api.receive("settings-saved", (success) => {
+          if (!success) {
+            const btn = document.getElementById("finishBtn");
+            btn.innerHTML = "Try Again";
+            btn.disabled = false;
+          }
+        });
+      }
+
+      // Enter key support
+      userNameInput.addEventListener("keydown", (e) => {
+        if (e.key === "Enter") slide0Next();
+      });
+
+      userNameInput.addEventListener("input", () => {
+        document.getElementById("nameError").classList.remove("visible");
+      });
+
+      document.getElementById("geminiKey").addEventListener("keydown", (e) => {
+        if (e.key === "Enter") slide1Next();
+      });
+
+      document.getElementById("geminiKey").addEventListener("input", () => {
+        document.getElementById("keyError").classList.remove("visible");
+      });
+    </script>
+  </body>
 </html>

@@ -23,6 +23,13 @@ module.exports = {
     marker: 'announce',
     ui: null,
 
+    examples: [
+
+        { user: 'save a command called goodnight', action: '[action: saveCommand, trigger: goodnight, actions: [plan][step: systemControl, marker: silently, command: lock][/plan], description: Locks the PC]' },
+
+    ],
+
+
     handler(params) {
         if (!params.trigger || !params.trigger.trim()) {
             return JSON.stringify({ success: false, error: 'Missing trigger phrase' });

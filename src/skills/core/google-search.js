@@ -18,6 +18,15 @@ module.exports = {
     marker: 'announce',
     ui: null,
 
+    examples: [
+
+        { user: 'google best restaurants near me', action: '[action: googleSearch, query: best restaurants near me]' },
+
+        { user: 'search the web for Python tutorials', action: '[action: googleSearch, query: Python tutorials]' },
+
+    ],
+
+
     async handler(params) {
         const query = params.query;
         if (!query || typeof query !== 'string' || !query.trim()) {

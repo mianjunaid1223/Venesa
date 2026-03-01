@@ -9,13 +9,14 @@ const { z } = require('zod');
 const { runPowerShell } = require('./_shared');
 
 const SAFE_PS_PATTERNS = [
-    /^Get-CimInstance\b/i,
-    /^Get-Process\b/i,
-    /^Get-Service\b/i,
-    /^Get-ChildItem\b/i,
-    /^Get-Content\b/i,
-    /^Get-Date\b/i,
-    /^Get-Location\b/i,
+    /^\(?\s*Get-CimInstance\b/i,
+    /^\(?\s*Get-Process\b/i,
+    /^\(?\s*Get-Service\b/i,
+    /^\(?\s*Get-ChildItem\b/i,
+    /^\(?\s*Get-Content\b/i,
+    /^\(?\s*Get-Date\b/i,
+    /^\(?\s*Get-Location\b/i,
+    /^\(?\s*Get-NetIPAddress\b/i,
     /^\$env:/i,
     /^\[math\]::/i,
 ];
@@ -36,6 +37,10 @@ const DANGEROUS_PS_PATTERNS = [
     /out-file\b/i, /copy-item\b/i, /move-item\b/i, /rename-item\b/i,
     /export-csv\b/i, /export-clixml\b/i, /tee-object\b/i,
     />>/, /(?<!-)>/,
+    /`/,
+    /^\s*\.\s+/,
+    /;\s*\.\s+/,
+    /\$\([^)]*\$[^)]*\)/,
 ];
 
 module.exports = {
@@ -47,6 +52,13 @@ module.exports = {
     returnType: 'data',
     marker: 'silently',
     ui: null,
+
+    examples: [
+
+        { user: 'check my IP address', action: '[action: runPowerShell, script: (Get-NetIPAddress -AddressFamily IPv4).IPAddress]' },
+
+    ],
+
 
     async handler(params) {
         const script = params.script;

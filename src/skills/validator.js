@@ -19,9 +19,10 @@ const {
 function validate(skill, filePath) {
     const errors = [];
     const warnings = [];
+    const loc = filePath ? `[${filePath}] ` : '';
 
     if (!skill || typeof skill !== 'object') {
-        return { valid: false, errors: ['Module does not export an object'], warnings: [] };
+        return { valid: false, errors: [`${loc}Module does not export an object`], warnings: [] };
     }
 
     // ── Required fields ────────────────────────────────────
@@ -34,8 +35,8 @@ function validate(skill, filePath) {
         errors.push('Missing or invalid "description" (must be a non-empty string)');
     }
 
-    if (typeof skill.handler !== 'function' && typeof skill.execute !== 'function') {
-        errors.push('Missing or invalid "handler" or "execute" (must be a function)');
+    if (typeof skill.handler !== 'function') {
+        errors.push('Missing or invalid "handler" (must be a function)');
     }
 
     // ── returnType (required) ──────────────────────────────

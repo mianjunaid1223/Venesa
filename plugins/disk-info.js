@@ -18,6 +18,13 @@ module.exports = {
     marker: 'silently',
     ui: 'key-value',
 
+    examples: [
+
+        { user: 'how much disk space do I have', action: '[action: getDiskInfo]' },
+
+    ],
+
+
     async handler() {
         const psScript = `
 $ErrorActionPreference = 'Stop'
@@ -27,7 +34,7 @@ Select-Object DeviceID,
   @{N='SizeGB';E={[math]::round($_.Size/1GB,1)}},
   @{N='FreeGB';E={[math]::round($_.FreeSpace/1GB,1)}},
   @{N='UsedPercent';E={if($_.Size -gt 0){[math]::round((($_.Size-$_.FreeSpace)/$_.Size)*100,1)}else{0}}}) |
-ConvertTo-Json -Compress -AsArray
+ConvertTo-Json -Compress
 `;
         try {
             return await runPowerShell(psScript, [], 10000);

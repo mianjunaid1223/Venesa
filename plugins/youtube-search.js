@@ -18,6 +18,13 @@ module.exports = {
     marker: 'announce',
     ui: null,
 
+    examples: [
+
+        { user: 'search YouTube for lo-fi music', action: '[action: youtubeSearch, query: lo-fi music]' },
+
+    ],
+
+
     async handler(params) {
         const query = params.query;
         if (!query || typeof query !== 'string' || !query.trim()) {

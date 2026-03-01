@@ -21,6 +21,15 @@ module.exports = {
     marker: 'silently',
     ui: null,
 
+    examples: [
+
+        { user: 'what did I copy', action: '[action: clipboard, operation: read]' },
+
+        { user: 'copy this text hello world', action: '[action: clipboard, operation: write, text: hello world]' },
+
+    ],
+
+
     handler(params) {
         try {
             if (params.operation === 'write') {

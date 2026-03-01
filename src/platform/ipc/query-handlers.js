@@ -29,22 +29,39 @@ function register() {
             const { cleanResponse, results, uiDirective, uiBlocks } = await processor.processResponse(rawResponse, 'text');
 
             // AI's response is sent directly — no formatter intermediary
-            if (!event.sender.isDestroyed()) {
+            if (event.sender && !event.sender.isDestroyed()) {
                 event.sender.send('gemini-response', cleanResponse || 'Done.');
             }
 
             // Dispatch [ui] markdown blocks to renderer
-            if (uiBlocks && uiBlocks.length > 0) {
+            if (uiBlocks && uiBlocks.length > 0 && event.sender && !event.sender.isDestroyed()) {
                 uiPipeline.dispatchUiBlocks(event.sender, uiBlocks);
             }
 
             // Dispatch structured UI from skill metadata
             if (results && results.length > 0) {
-                uiPipeline.dispatchFromResults(event.sender, results, uiDirective);
+                // Route searchFiles results through action-result for same UI as spotlight
+                const searchResult = results.find(r => r.actionName === 'searchFiles' && r.result && !r.error);
+                if (searchResult && event.sender && !event.sender.isDestroyed()) {
+                    const resultStr = typeof searchResult.result === 'string'
+                        ? searchResult.result
+                        : JSON.stringify(searchResult.result);
+                    event.sender.send('action-result', resultStr);
+                }
+
+                // Dispatch remaining results through dynamic-ui
+                const otherResults = results.filter(r => r.actionName !== 'searchFiles');
+                if (otherResults.length > 0 && event.sender && !event.sender.isDestroyed()) {
+                    uiPipeline.dispatchFromResults(event.sender, otherResults, uiDirective);
+                }
             }
 
-            // Silent memory operations
-            memory.addInteraction(query, cleanResponse);
+            // Silent memory operations — wrapped separately so errors don't send a duplicate response
+            try {
+                memory.addInteraction(query, cleanResponse, rawResponse);
+            } catch (memErr) {
+                logger.error(`[query] Memory write failed: ${memErr.message}`);
+            }
 
         } catch (error) {
             logger.error(`[query] Error processing query: ${error.message}`);

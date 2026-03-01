@@ -18,6 +18,13 @@ module.exports = {
     marker: 'announce',
     ui: null,
 
+    examples: [
+
+        { user: 'what is the weather in London', action: '[action: getWeather, location: London]' },
+
+    ],
+
+
     async handler(params) {
         const location = params?.location || '';
         const query = location ? `weather ${location}` : 'weather';

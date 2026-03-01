@@ -30,6 +30,15 @@ module.exports = {
     marker: 'announce',
     ui: null,
 
+    examples: [
+
+        { user: 'snap Chrome to the left', action: '[action: windowManager, appName: Chrome, command: snap-left]' },
+
+        { user: 'maximize Notepad', action: '[action: windowManager, appName: Notepad, command: maximize]' },
+
+    ],
+
+
     async handler(params) {
         const { appName, command, monitor } = params;
 
@@ -114,11 +123,14 @@ switch ($Command) {
     }
 }
 
-[WinAPI]::SetForegroundWindow($hwnd) | Out-Null
+# Only bring to foreground for actions that need it (not close/minimize)
+if ($Command -ne 'close' -and $Command -ne 'minimize') {
+    [WinAPI]::SetForegroundWindow($hwnd) | Out-Null
+}
 @{ success = $true; window = $proc.MainWindowTitle; command = $Command } | ConvertTo-Json -Compress
 `;
         try {
-            return await runPowerShell(psScript, [appName, command, String(monitor || 1)], 10000);
+            return await runPowerShell(psScript, [appName, command, String(monitor ?? 1)], 10000);
         } catch (e) {
             return JSON.stringify({ success: false, error: e?.message ?? String(e) });
         }

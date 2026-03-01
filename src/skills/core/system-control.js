@@ -21,10 +21,24 @@ module.exports = {
     marker: 'confirm',
     ui: null,
 
+    examples: [
+
+        { user: 'turn the volume up', action: '[action: systemControl, command: volumeUp]' },
+
+        { user: 'set brightness to 50', action: '[action: systemControl, command: setBrightness, value: 50]' },
+
+        { user: 'mute', action: '[action: systemControl, command: volumeMute]' },
+
+        { user: 'lock my PC', action: '[action: systemControl, command: lock]' },
+
+    ],
+
+
     async handler(params) {
         const command = params.command;
         const levelRaw = params.value ?? params.level;
-        const value = parseInt(levelRaw ?? 0, 10);
+        const parsedValue = parseInt(levelRaw ?? 0, 10);
+        const value = isNaN(parsedValue) ? 0 : parsedValue;
 
         const getScript = () => {
             switch (command) {
@@ -60,13 +74,13 @@ for($i=0;$i-lt ${steps};$i++) { $w.SendKeys([char]175) }
                 case 'restart':
                     return 'shutdown /r /t 15';
                 case 'sleep':
-                    return 'rundll32.exe powrprof.dll,SetSuspendState 0,1,0';
+                    return 'rundll32.exe powrprof.dll,SetSuspendState 0,0,0';
                 case 'lock':
                     return 'rundll32.exe user32.dll,LockWorkStation';
                 case 'emptyTrash':
                     return 'Clear-RecycleBin -Force -ErrorAction SilentlyContinue';
                 case 'openSettings':
-                    return 'start ms-settings:';
+                    return '__OPEN_SETTINGS__';
                 default:
                     return null;
             }
@@ -74,6 +88,17 @@ for($i=0;$i-lt ${steps};$i++) { $w.SendKeys([char]175) }
 
         const script = getScript();
         if (!script) return `Unknown command: ${command}`;
+
+        // Use Electron shell for protocol URIs — avoids PowerShell timeout
+        if (script === '__OPEN_SETTINGS__') {
+            try {
+                const { shell } = require('electron');
+                await shell.openExternal('ms-settings:');
+                return 'Done: openSettings';
+            } catch (e) {
+                return `Error opening settings: ${e?.message ?? String(e)}`;
+            }
+        }
 
         try {
             await runPowerShell(script);

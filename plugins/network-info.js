@@ -19,9 +19,16 @@ module.exports = {
     marker: 'silently',
     ui: 'key-value',
 
+    examples: [
+
+        { user: 'show my network info', action: '[action: getNetworkInfo]' },
+
+    ],
+
+
     async handler() {
         const psScript = `
-$ErrorActionPreference = 'SilentlyContinue'
+$ErrorActionPreference = 'Stop'
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
 $adapters = Get-NetAdapter | Where-Object { $_.Status -eq 'Up' } | Select-Object Name, InterfaceDescription, Status, LinkSpeed
 $ipConfig = Get-NetIPAddress -AddressFamily IPv4 | Where-Object { $_.IPAddress -ne '127.0.0.1' } | Select-Object IPAddress, InterfaceAlias

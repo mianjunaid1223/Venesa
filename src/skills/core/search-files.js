@@ -11,9 +11,10 @@ const fs = require('fs');
 const { HOME_DIR, getRelativePath, logger } = require('./_shared');
 
 async function searchFilesAndFolders(query, maxResults = 20) {
-    const folders = [];
-    const files = [];
-    const lowerQuery = query.toLowerCase();
+    const results = []; // { path, isDir, score }
+    const keywords = query.toLowerCase().split(/\s+/).filter(k => k.length > 0);
+    if (keywords.length === 0) return { files: [], folders: [] };
+
     const searchDirs = [
         path.join(HOME_DIR, 'Desktop'),
         path.join(HOME_DIR, 'Documents'),
@@ -25,24 +26,24 @@ async function searchFilesAndFolders(query, maxResults = 20) {
         path.join(HOME_DIR, 'OneDrive', 'Documents'),
     ];
 
-    let foundCount = 0;
-
     const searchDir = async (dir, depth) => {
-        if (foundCount >= maxResults || depth > 2) return;
+        if (depth > 2) return;
         try {
             if (!fs.existsSync(dir)) return;
             const contents = await fs.promises.readdir(dir, { withFileTypes: true });
             for (const dirent of contents) {
-                if (foundCount >= maxResults) break;
                 const fullPath = path.join(dir, dirent.name);
                 if (dirent.name.startsWith('.') || dirent.name.startsWith('$')) continue;
-                if (dirent.name.toLowerCase().includes(lowerQuery)) {
-                    if (dirent.isDirectory()) {
-                        folders.push(fullPath);
-                    } else {
-                        files.push(fullPath);
-                    }
-                    foundCount++;
+                const lowerName = dirent.name.toLowerCase();
+
+                // Score: count how many keywords match
+                const score = keywords.filter(k => lowerName.includes(k)).length;
+                if (score > 0) {
+                    results.push({
+                        path: getRelativePath(fullPath),
+                        isDir: dirent.isDirectory(),
+                        score,
+                    });
                 }
                 if (dirent.isDirectory()) {
                     await searchDir(fullPath, depth + 1);
@@ -57,6 +58,12 @@ async function searchFilesAndFolders(query, maxResults = 20) {
         await searchDir(dir, 0);
     }
 
+    // Sort by score descending (best matches first), then take top N
+    results.sort((a, b) => b.score - a.score);
+    const top = results.slice(0, maxResults);
+
+    const folders = top.filter(r => r.isDir).map(r => r.path);
+    const files = top.filter(r => !r.isDir).map(r => r.path);
     return { files, folders };
 }
 
@@ -69,6 +76,13 @@ module.exports = {
     returnType: 'data',
     marker: 'silently',
     ui: 'card-list',
+
+    examples: [
+        { user: 'find my  <file name>', action: '[action: searchFiles, query:  <file name>]' },
+        { user: 'where is Chrome', action: '[action: searchFiles, query: Chrome]' },
+        { user: 'look for report.pdf', action: '[action: searchFiles, query: report.pdf]' },
+        { user: 'search for my documents', action: '[action: searchFiles, query: documents]' },
+    ],
 
     async handler(params) {
         const query = params?.query?.trim();

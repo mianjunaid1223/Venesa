@@ -20,6 +20,15 @@ module.exports = {
     marker: 'announce',
     ui: null,
 
+    examples: [
+
+        { user: 'open github.com', action: '[action: openUrl, url: https://github.com]' },
+
+        { user: 'go to youtube', action: '[action: openUrl, url: https://youtube.com]' },
+
+    ],
+
+
     async handler(params) {
         const url = params?.url;
         if (!url || typeof url !== 'string') {

@@ -16,6 +16,13 @@ module.exports = {
     marker: 'silently',
     ui: null,
 
+    examples: [
+
+        { user: '(used internally after asking a question)', action: '[action: listen]' },
+
+    ],
+
+
     handler() {
         return 'Listening';
     },

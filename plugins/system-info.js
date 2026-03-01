@@ -19,6 +19,15 @@ module.exports = {
     marker: 'silently',
     ui: 'key-value',
 
+    examples: [
+
+        { user: 'how is my PC doing', action: '[action: getSystemInfo]' },
+
+        { user: 'check battery level', action: '[action: getSystemInfo]' },
+
+    ],
+
+
     async handler() {
         const psScript = `
 $os = Get-CimInstance Win32_OperatingSystem -Property TotalVisibleMemorySize,FreePhysicalMemory,LastBootUpTime,Caption

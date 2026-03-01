@@ -19,13 +19,20 @@ module.exports = {
     marker: 'silently',
     ui: 'table',
 
+    examples: [
+
+        { user: 'what processes are using the most CPU', action: '[action: listProcesses]' },
+
+    ],
+
+
     async handler() {
         try {
             return await runPowerShell(
                 'Get-Process | Sort-Object CPU -Descending | Select-Object -First 10 -Property Id, ProcessName, CPU, WorkingSet | ConvertTo-Json -Compress'
             );
         } catch (e) {
-            return JSON.stringify({ error: e.message });
+            throw e;
         }
     },
 };

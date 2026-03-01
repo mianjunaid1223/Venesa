@@ -22,6 +22,11 @@ function createBackgroundAudioWindow() {
         show: false,
         skipTaskbar: true,
         webPreferences: {
+            // Dedicated persistent session so Chromium's disk cache keeps the
+            // 39 MB Vosk model tar.gz across app restarts. Without a named
+            // partition the default session may be shared/cleared by other
+            // windows, or affected by command-line flags from previous sessions.
+            partition: 'persist:vosk-audio',
             preload: path.join(__dirname, '../preload/background.preload.js'),
             contextIsolation: true,
             nodeIntegration: false,
@@ -63,22 +68,23 @@ function startBackgroundWakeWordDetection(showVoiceWindow, captureScreenForVoice
     ipcMain.removeAllListeners('resume-failed');
 
     ipcMain.on('wake-word-detected', () => {
-        console.log('[Main] Wake word detected, opening voice window');
+        if (typeof onWakeDetected === 'function') onWakeDetected('hey venesa');
+    });
 
+    function onWakeDetected(wakeWord) {
+        console.log(`[Main] Wake word detected ("${wakeWord}"), opening voice window`);
         wakeWordService.pauseDetection();
         if (backgroundAudioWindow && !backgroundAudioWindow.isDestroyed()) {
             backgroundAudioWindow.webContents.send('pause-detection');
         }
-
         showVoiceWindow();
         captureScreenForVoice();
-
         if (backgroundAudioWindow && !backgroundAudioWindow.isDestroyed()) {
             backgroundAudioWindow.webContents.send('play-acknowledgment');
         }
-    });
+    }
 
-    wakeWordService.startDetection(() => { });
+    wakeWordService.startDetection(onWakeDetected);
 
     ipcMain.on('background-audio-ready', () => {
         console.log('[Main] Background audio window ready');

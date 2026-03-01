@@ -21,6 +21,13 @@ module.exports = {
     marker: 'silently',
     ui: null,
 
+    examples: [
+
+        { user: 'what do you remember about me', action: '[action: getMemory, bucket: context]' },
+
+    ],
+
+
     handler(params) {
         const bucket = params.bucket;
         const key = params.key;

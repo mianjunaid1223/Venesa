@@ -22,13 +22,26 @@ module.exports = {
         operation: z.enum(['scan', 'clean', 'empty-recycle-bin']).describe('scan to preview, clean to delete, empty-recycle-bin to empty trash'),
     }),
 
+    examples: [
+
+        { user: 'clean up my system', action: '[action: systemCleaner, operation: scan]' },
+
+        { user: 'empty the recycle bin', action: '[action: systemCleaner, operation: empty-recycle-bin]' },
+
+    ],
+
+
     async handler(params) {
         const { operation } = params;
 
         if (operation === 'empty-recycle-bin') {
             const ps = `
-Clear-RecycleBin -Force -ErrorAction SilentlyContinue
-@{ success = $true; action = 'Recycle bin emptied' } | ConvertTo-Json -Compress
+try {
+    Clear-RecycleBin -Force -ErrorAction Stop
+    @{ success = $true; action = 'Recycle bin emptied' } | ConvertTo-Json -Compress
+} catch {
+    @{ success = $false; action = 'empty-recycle-bin'; error = $_.Exception.Message } | ConvertTo-Json -Compress
+}
 `;
             return await runPowerShell(ps, [], 15000);
         }
@@ -36,8 +49,7 @@ Clear-RecycleBin -Force -ErrorAction SilentlyContinue
         const targetsBlock = `
 $targets = @(
     @{ name = 'Windows Temp';       path = "$env:TEMP" },
-    @{ name = 'System Temp';        path = "C:\\Windows\\Temp" },
-    @{ name = 'Prefetch';           path = "C:\\Windows\\Prefetch" },
+    @{ name = 'System Temp';        path = "$env:SystemRoot\\Temp" },
     @{ name = 'Thumbnails';         path = "$env:LOCALAPPDATA\\Microsoft\\Windows\\Explorer" },
     @{ name = 'Chrome Cache';       path = "$env:LOCALAPPDATA\\Google\\Chrome\\User Data\\Default\\Cache" },
     @{ name = 'Edge Cache';         path = "$env:LOCALAPPDATA\\Microsoft\\Edge\\User Data\\Default\\Cache" },

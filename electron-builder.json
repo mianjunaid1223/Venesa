@@ -2,7 +2,7 @@
     "$schema": "https://raw.githubusercontent.com/electron-userland/electron-builder/master/packages/app-builder-lib/scheme.json",
     "appId": "com.venesa.app",
     "productName": "Venesa",
-    "copyright": "Open Source Mian Junaid",
+    "copyright": "Copyright © 2026 Mian Junaid - MIT License",
     "directories": {
         "output": "dist",
         "buildResources": "build"

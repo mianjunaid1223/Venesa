@@ -1,1738 +1,2500 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-
-<head>
+  <head>
     <meta charset="UTF-8" />
     <title>Venesa Settings</title>
     <style>
-        *,
-        *::before,
-        *::after {
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0;
-            text-wrap: balance;
-        }
-
-        :root {
-            --font: "Segoe UI Variable", "Segoe UI", system-ui, sans-serif;
-
-            /* Surfaces */
-            --bg: #202024;
-            --sidebar-bg: #18181b;
-            --card-bg: rgba(255, 255, 255, 0.04);
-            --card-hover: rgba(255, 255, 255, 0.07);
-
-            /* Borders */
-            --border: rgba(255, 255, 255, 0.08);
-            --border-focus: rgba(255, 255, 255, 0.35);
-
-            /* Text */
-            --text-1: rgba(255, 255, 255, 0.90);
-            --text-2: rgba(255, 255, 255, 0.50);
-            --text-3: rgba(255, 255, 255, 0.28);
-
-            /* Accent */
-            --accent: rgba(255, 255, 255, 0.92);
-            --accent-bg: rgba(255, 255, 255, 0.10);
-            --accent-dim: rgba(255, 255, 255, 0.06);
-
-            /* Status */
-            --green: #4ade80;
-            --green-bg: rgba(74, 222, 128, 0.10);
-            --red: #f87171;
-            --red-bg: rgba(248, 113, 113, 0.10);
-            --yellow: #fbbf24;
-            --yellow-bg: rgba(251, 191, 36, 0.10);
-
-            --radius: 8px;
-            --radius-sm: 6px;
-        }
-
-        html,
-        body {
-            height: 100%;
-            font-family: var(--font);
-            background: transparent;
-            color: var(--text-1);
-            font-size: 13px;
-            line-height: 1.5;
-            overflow: auto;
-            display: flex;
-            flex-direction: column;
-        }
-
-        /* ─── Layout ─── */
-        .shell {
-            flex: 1;
-            min-height: 0;
-            display: flex;
-            overflow: auto;
-        }
-
-        /* ─── Sidebar ─── */
-        .sidebar {
-            width: 200px;
-            min-width: 200px;
-            background: #00000057;
-            border-right: 1px solid var(--border);
-            display: flex;
-            flex-direction: column;
-            -webkit-app-region: drag;
-        }
-
-        .sb-header {
-            display: flex;
-            align-items: center;
-            gap: 9px;
-            padding: 18px 14px 12px;
-            border-bottom: 1px solid var(--border);
-        }
-
-        .sb-header img {
-            width: 26px;
-            height: 26px;
-            border-radius: 6px;
-            object-fit: contain;
-        }
-
-        .sb-header .app-name {
-            font-size: 14px;
-            font-weight: 600;
-            color: var(--text-1);
-            letter-spacing: -0.2px;
-        }
-
-        .sb-nav {
-            flex: 1;
-            overflow-y: auto;
-            padding: 6px 8px;
-        }
-
-        .sb-nav::-webkit-scrollbar {
-            display: none;
-        }
-
-        .sb-section {
-            font-size: 10px;
-            font-weight: 600;
-            color: var(--text-3);
-            letter-spacing: 0.07em;
-            text-transform: uppercase;
-            padding: 10px 6px 3px;
-        }
-
-        .nav-btn {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            width: 100%;
-            padding: 7px 8px;
-            border: none;
-            border-radius: var(--radius-sm);
-            background: transparent;
-            color: var(--text-2);
-            font-family: var(--font);
-            font-size: 12.5px;
-            font-weight: 500;
-            cursor: pointer;
-            text-align: left;
-            transition: background 0.12s, color 0.12s;
-            -webkit-app-region: no-drag;
-        }
-
-        .nav-btn svg {
-            width: 14px;
-            height: 14px;
-            flex-shrink: 0;
-            stroke: currentColor;
-            fill: none;
-            stroke-width: 1.8;
-            stroke-linecap: round;
-            stroke-linejoin: round;
-        }
-
-        .nav-btn:hover {
-            background: var(--accent-dim);
-            color: var(--text-1);
-        }
-
-        .nav-btn.active {
-            background: var(--accent-bg);
-            color: var(--text-1);
-        }
-
-        /* ─── Top Tabs ─── */
-        .top-tabs {
-            display: flex;
-            gap: 20px;
-            padding: 10px 24px 0;
-            border-bottom: 1px solid var(--border);
-            flex-shrink: 0;
-        }
-
-        .top-tab {
-            background: transparent;
-            border: none;
-            color: var(--text-2);
-            font-size: 13px;
-            font-weight: 500;
-            padding: 8px 0;
-            cursor: pointer;
-            position: relative;
-            transition: color 0.15s;
-        }
-
-        .top-tab:hover {
-            color: var(--text-1);
-        }
-
-        .top-tab.active {
-            color: var(--text-1);
-            font-weight: 600;
-        }
-
-        .top-tab.active::after {
-            content: '';
-            position: absolute;
-            bottom: -1px;
-            left: 0;
-            width: 100%;
-            height: 2px;
-            background: var(--accent);
-            border-radius: 2px 2px 0 0;
-        }
-
-        .sub-panel {
-            display: none;
-            flex: 1;
-            flex-direction: column;
-            animation: fadeIn 0.2s ease-out;
-        }
-
-        .sub-panel.active {
-            display: flex;
-        }
-
-        @keyframes fadeIn {
-            from {
-                opacity: 0;
-                transform: translateY(2px);
-            }
-
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
-        }
-
-        /* ─── Content ─── */
-        .content {
-            flex: 1;
-            display: flex;
-            flex-direction: column;
-            min-width: 0;
-            min-height: 0;
-            overflow: auto;
-        }
-
-        .panel {
-            display: none;
-            flex-direction: column;
-            flex: 1;
-            min-height: 0;
-            overflow: auto;
-            opacity: 0;
-            transform: translateY(4px);
-            transition: opacity 0.18s, transform 0.18s;
-        }
-
-        .panel.active {
-            display: flex;
-            opacity: 1;
-            transform: translateY(0);
-        }
-
-        .panel-header {
-            padding: 20px 24px 0;
-            flex-shrink: 0;
-        }
-
-        .panel-header h1 {
-            font-size: 17px;
-            font-weight: 700;
-            letter-spacing: -0.3px;
-            color: var(--text-1);
-            margin-bottom: 2px;
-        }
-
-        .panel-header p {
-            font-size: 11.5px;
-            color: var(--text-2);
-        }
-
-        .panel-body {
-            flex: 1;
-            overflow-y: auto;
-            padding: 14px 24px 20px;
-            display: flex;
-            flex-direction: column;
-            gap: 10px;
-        }
-
-        /* Scrollbar */
-        ::-webkit-scrollbar {
-            width: 3px;
-            background-color: transparent;
-        }
-
-        ::-webkit-scrollbar-thumb {
-            background: rgba(255, 255, 255, 0.12);
-            border-radius: 2px;
-        }
-
-        /* ─── Cards ─── */
-        .card {
-            background: var(--card-bg);
-            border: 1px solid var(--border);
-            border-radius: var(--radius);
-            height: 100%;
-        }
-
-        #skills-list {
-            overflow-y: auto;
-            height: max-content !important;
-            max-height: 70vh !important;
-            min-height: max-content !important;
-        }
-
-        .row {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            padding: 12px 14px;
-            gap: 12px;
-            border-bottom: 1px solid var(--border);
-        }
-
-        .row:last-child {
-            border-bottom: none;
-        }
-
-        .row-info .row-label {
-            font-size: 12.5px;
-            font-weight: 500;
-            color: var(--text-1);
-        }
-
-        .row-info .row-sub {
-            font-size: 11px;
-            color: var(--text-3);
-            margin-top: 1px;
-        }
-
-        /* ─── Inputs ─── */
-        input[type="text"],
-        input[type="password"],
-        select,
-        textarea {
-            background: rgba(255, 255, 255, 0.06);
-            border: 1px solid var(--border);
-            border-radius: var(--radius-sm);
-            color: var(--text-1);
-            font-family: var(--font);
-            font-size: 12.5px;
-            padding: 6px 9px;
-            outline: none;
-            transition: border-color 0.15s;
-        }
-
-        input[type="text"]:focus,
-        input[type="password"]:focus,
-        select:focus,
-        textarea:focus {
-            border-color: var(--border-focus);
-        }
-
-        ::placeholder {
-            color: var(--text-3);
-        }
-
-        select {
-            cursor: pointer;
-            appearance: none;
-            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='11' height='11' viewBox='0 0 24 24' fill='none' stroke='rgba(255,255,255,0.3)' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
-            background-repeat: no-repeat;
-            background-position: right 9px center;
-            padding-right: 26px;
-        }
-
-        select option {
-            background: #202024;
-        }
-
-        textarea {
-            resize: vertical;
-            min-height: 60px;
-        }
-
-        /* ─── Toggle ─── */
-        .toggle {
-            position: relative;
-            width: 36px;
-            height: 20px;
-            flex-shrink: 0;
-            cursor: pointer;
-            display: inline-flex;
-        }
-
-        .toggle input {
-            opacity: 0;
-            width: 0;
-            height: 0;
-            position: absolute;
-        }
-
-        .toggle-track {
-            width: 36px;
-            height: 20px;
-            background: rgba(255, 255, 255, 0.14);
-            border-radius: 10px;
-            position: relative;
-            transition: background 0.18s;
-        }
-
-        .toggle-track::after {
-            content: '';
-            position: absolute;
-            top: 3px;
-            left: 3px;
-            width: 14px;
-            height: 14px;
-            border-radius: 50%;
-            background: rgba(255, 255, 255, 0.7);
-            transition: transform 0.18s, background 0.18s;
-        }
-
-        .toggle input:checked+.toggle-track {
-            background: rgba(255, 255, 255, 0.82);
-        }
-
-        .toggle input:checked+.toggle-track::after {
-            transform: translateX(16px);
-            background: #18181b;
-        }
-
-        /* ─── Buttons ─── */
-        .btn {
-            display: inline-flex;
-            align-items: center;
-            gap: 5px;
-            padding: 6px 12px;
-            border-radius: var(--radius-sm);
-            border: 1px solid var(--border);
-            background: rgba(255, 255, 255, 0.06);
-            color: var(--text-1);
-            font-family: var(--font);
-            font-size: 12px;
-            font-weight: 500;
-            cursor: pointer;
-            white-space: nowrap;
-            transition: all 0.12s;
-        }
-
-        .btn:hover {
-            background: rgba(255, 255, 255, 0.1);
-        }
-
-        .btn:active {
-            transform: scale(0.97);
-        }
-
-        .btn-primary {
-            background: rgba(255, 255, 255, 0.90);
-            border-color: transparent;
-            color: #18181b;
-            font-weight: 600;
-        }
-
-        .btn-primary:hover {
-            background: white;
-            border-color: transparent;
-        }
-
-        .btn-danger {
-            background: var(--red-bg);
-            border-color: rgba(248, 113, 113, 0.2);
-            color: var(--red);
-        }
-
-        .btn-danger:hover {
-            background: rgba(248, 113, 113, 0.18);
-        }
-
-        .btn-sm {
-            padding: 4px 9px;
-            font-size: 11px;
-        }
-
-        /* ─── Badges ─── */
-        .badge {
-            display: inline-flex;
-            align-items: center;
-            gap: 5px;
-            padding: 2px 8px;
-            border-radius: 20px;
-            font-size: 11px;
-            font-weight: 500;
-        }
-
-        .dot {
-            width: 5px;
-            height: 5px;
-            border-radius: 50%;
-            background: currentColor;
-        }
-
-        .badge-ok {
-            background: var(--green-bg);
-            color: var(--green);
-        }
-
-        .badge-off {
-            background: rgba(255, 255, 255, 0.06);
-            color: var(--text-3);
-        }
-
-        .badge-warn {
-            background: var(--yellow-bg);
-            color: var(--yellow);
-        }
-
-        /* ─── API Key ─── */
-        .svc-block {
-            padding: 14px;
-            border-bottom: 1px solid var(--border);
-        }
-
-        .svc-block:last-child {
-            border-bottom: none;
-        }
-
-        .svc-head {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            margin-bottom: 10px;
-        }
-
-        .svc-name {
-            font-size: 12.5px;
-            font-weight: 600;
-            color: var(--text-1);
-        }
-
-        .svc-sub {
-            font-size: 11px;
-            color: var(--text-3);
-            margin-top: 1px;
-        }
-
-        .key-existing {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            padding: 6px 9px;
-            border-radius: var(--radius-sm);
-            background: rgba(255, 255, 255, 0.04);
-            border: 1px solid var(--border);
-            margin-bottom: 6px;
-        }
-
-        .key-mask {
-            font-family: "Cascadia Code", "Consolas", monospace;
-            font-size: 11.5px;
-            color: var(--text-2);
-            letter-spacing: 0.05em;
-        }
-
-        .key-actions {
-            display: flex;
-            gap: 4px;
-        }
-
-        .svc-input-row {
-            display: flex;
-            gap: 6px;
-            align-items: center;
-            padding: 12px 14px;
-            background: rgba(0, 0, 0, 0.2);
-            border-bottom: 1px solid var(--border);
-        }
-
-        .svc-input-row input {
-            flex: 1;
-            min-width: 0;
-            background: rgba(255, 255, 255, 0.08);
-            border-color: rgba(255, 255, 255, 0.15);
-        }
-
-        .svc-input-row input:focus {
-            background: rgba(255, 255, 255, 0.12);
-            border-color: var(--accent);
-        }
-
-        /* ─── Skills / Plugins ─── */
-        .skill-row {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            padding: 9px 14px;
-            border-bottom: 1px solid var(--border);
-        }
-
-        .skill-row:last-child {
-            border-bottom: none;
-        }
-
-        .skill-icon {
-            width: 28px;
-            height: 28px;
-            border-radius: 6px;
-            background: rgba(255, 255, 255, 0.06);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            flex-shrink: 0;
-        }
-
-        .skill-icon svg {
-            width: 13px;
-            height: 13px;
-            stroke: var(--text-2);
-            fill: none;
-            stroke-width: 2;
-            stroke-linecap: round;
-            stroke-linejoin: round;
-        }
-
-        .skill-name {
-            font-size: 12px;
-            font-weight: 600;
-            color: var(--text-1);
-        }
-
-        .skill-desc {
-            font-size: 11px;
-            color: var(--text-3);
-        }
-
-        .skill-info {
-            flex: 1;
-            min-width: 0;
-        }
-
-        .section-label {
-            font-size: 10.5px;
-            font-weight: 600;
-            color: var(--text-3);
-            letter-spacing: 0.06em;
-            text-transform: uppercase;
-            margin-top: 4px;
-            margin-bottom: 6px;
-        }
-
-        /* ─── Memory ─── */
-        .bucket-card {
-            margin-bottom: 10px;
-        }
-
-        .bucket-head {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            padding: 11px 14px;
-            cursor: pointer;
-            user-select: none;
-        }
-
-        .bucket-head:hover {
-            background: var(--card-hover);
-        }
-
-        .bucket-name {
-            font-size: 12.5px;
-            font-weight: 600;
-            color: var(--text-1);
-            text-transform: capitalize;
-        }
-
-        .bucket-count {
-            font-size: 11px;
-            color: var(--text-3);
-        }
-
-        .bucket-body {
-            padding: 4px 14px 12px;
-        }
-
-        .mem-row {
-            display: flex;
-            align-items: flex-start;
-            gap: 10px;
-            padding: 6px 0;
-            border-bottom: 1px solid var(--border);
-            font-size: 12px;
-            position: relative;
-        }
-
-        .mem-row:last-child {
-            border-bottom: none;
-        }
-
-        .mem-key {
-            font-weight: 600;
-            color: var(--text-2);
-            min-width: 80px;
-            flex-shrink: 0;
-            word-break: break-word;
-        }
-
-        .mem-val {
-            color: var(--text-1);
-            word-break: break-word;
-            flex: 1;
-        }
-
-        .mem-del {
-            opacity: 0;
-            background: none;
-            border: none;
-            color: var(--red);
-            font-size: 14px;
-            cursor: pointer;
-            padding: 0 4px;
-            flex-shrink: 0;
-            transition: opacity 0.12s;
-            line-height: 1;
-        }
-
-        .mem-row:hover .mem-del {
-            opacity: 1;
-        }
-
-        .hist-row {
-            padding: 8px 0;
-            border-bottom: 1px solid var(--border);
-            position: relative;
-        }
-
-        .hist-row:last-child {
-            border-bottom: none;
-        }
-
-        .hist-q {
-            font-size: 12px;
-            font-weight: 500;
-            color: var(--text-1);
-            margin-bottom: 2px;
-        }
-
-        .hist-a {
-            font-size: 11px;
-            color: var(--text-3);
-            white-space: nowrap;
-            overflow: hidden;
-
-            text-overflow: ellipsis;
-            display: block;
-        }
-
-        .hist-del {
-            position: absolute;
-            right: 0;
-            top: 8px;
-            opacity: 0;
-            background: none;
-            border: none;
-            color: var(--red);
-            font-size: 14px;
-            cursor: pointer;
-            padding: 0 4px;
-            transition: opacity 0.12s;
-        }
-
-        .hist-row:hover .hist-del {
-            opacity: 1;
-        }
-
-        /* ─── About ─── */
-        .about-wrap {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            padding: 32px 24px 20px;
-            text-align: center;
-        }
-
-        .about-logo {
-            width: 56px;
-            height: 56px;
-            border-radius: 14px;
-            margin-bottom: 14px;
-            object-fit: contain;
-        }
-
-        .about-name {
-            font-size: 18px;
-            font-weight: 700;
-            margin-bottom: 4px;
-        }
-
-        .about-ver {
-            font-size: 11.5px;
-            color: var(--text-3);
-            margin-bottom: 20px;
-        }
-
-        .about-link {
-            font-size: 12px;
-            color: var(--text-2);
-            cursor: pointer;
-            text-decoration: underline;
-            text-underline-offset: 2px;
-        }
-
-        .about-link:hover {
-            color: var(--text-1);
-        }
-
-        /* ─── Utility ─── */
-        .empty {
-            padding: 16px 14px;
-            font-size: 12px;
-            color: var(--text-3);
-            text-align: center;
-        }
-
-        code {
-            font-size: 11px;
-            font-family: "Cascadia Code", "Consolas", monospace;
-            color: var(--text-2);
-            background: rgba(255, 255, 255, 0.06);
-            padding: 1px 5px;
-            border-radius: 3px;
-        }
-
-        /* ─── Footer ─── */
-        .footer {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            padding: 9px 24px;
-            border-top: 1px solid var(--border);
-            background: var(--bg);
-            flex-shrink: 0;
-        }
-
-        .footer-msg {
-            font-size: 11px;
-            color: var(--text-3);
-        }
-
-        .footer-actions {
-            display: flex;
-            gap: 7px;
-        }
-
-        /* ─── Toast ─── */
-        #toast {
-            position: fixed;
-            bottom: 56px;
-            left: 50%;
-            transform: translateX(-50%) translateY(6px);
-            background: rgba(32, 32, 36, 0.97);
-            border: 1px solid var(--border);
-            border-radius: 20px;
-            padding: 7px 16px;
-            font-size: 12px;
-            font-weight: 500;
-            color: var(--text-1);
-            opacity: 0;
-            pointer-events: none;
-            white-space: nowrap;
-            z-index: 9;
-            transition: opacity 0.22s, transform 0.22s;
-        }
-
-        #toast.show {
-            opacity: 1;
-            transform: translateX(-50%) translateY(0);
-        }
-
-        #toast.ok {
-            color: var(--green);
-            border-color: rgba(74, 222, 128, 0.25);
-        }
-
-        #toast.err {
-            color: var(--red);
-            border-color: rgba(248, 113, 113, 0.25);
-        }
+      *,
+      *::before,
+      *::after {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+        text-wrap: balance;
+      }
+
+      :root {
+        --font: "Segoe UI Variable", "Segoe UI", system-ui, sans-serif;
+
+        /* Surfaces */
+        --bg: #202024;
+        --sidebar-bg: #18181b;
+        --card-bg: rgba(255, 255, 255, 0.04);
+        --card-hover: rgba(255, 255, 255, 0.07);
+
+        /* Borders */
+        --border: rgba(255, 255, 255, 0.08);
+        --border-focus: rgba(255, 255, 255, 0.35);
+
+        /* Text */
+        --text-1: rgba(255, 255, 255, 0.9);
+        --text-2: rgba(255, 255, 255, 0.5);
+        --text-3: rgba(255, 255, 255, 0.28);
+
+        /* Accent */
+        --accent: rgba(255, 255, 255, 0.92);
+        --accent-bg: rgba(255, 255, 255, 0.1);
+        --accent-dim: rgba(255, 255, 255, 0.06);
+
+        /* Status */
+        --green: #4ade80;
+        --green-bg: rgba(74, 222, 128, 0.1);
+        --red: #f87171;
+        --red-bg: rgba(248, 113, 113, 0.1);
+        --yellow: #fbbf24;
+        --yellow-bg: rgba(251, 191, 36, 0.1);
+
+        --radius: 8px;
+        --radius-sm: 6px;
+      }
+
+      html,
+      body {
+        height: 100%;
+        font-family: var(--font);
+        background: transparent;
+        color: var(--text-1);
+        font-size: 13px;
+        line-height: 1.5;
+        overflow: auto;
+        display: flex;
+        flex-direction: column;
+      }
+
+      /* ─── Layout ─── */
+      .shell {
+        flex: 1;
+        min-height: 0;
+        display: flex;
+        overflow: auto;
+      }
+
+      /* ─── Sidebar ─── */
+      .sidebar {
+        width: 200px;
+        min-width: 200px;
+        background: #00000057;
+        border-right: 1px solid var(--border);
+        display: flex;
+        flex-direction: column;
+        -webkit-app-region: drag;
+      }
+
+      .sb-header {
+        display: flex;
+        align-items: center;
+        gap: 9px;
+        padding: 18px 14px 12px;
+        border-bottom: 1px solid var(--border);
+      }
+
+      .sb-header img {
+        width: 26px;
+        height: 26px;
+        border-radius: 6px;
+        object-fit: contain;
+      }
+
+      .sb-header .app-name {
+        font-size: 14px;
+        font-weight: 600;
+        color: var(--text-1);
+        letter-spacing: -0.2px;
+      }
+
+      .sb-nav {
+        flex: 1;
+        overflow-y: auto;
+        padding: 6px 8px;
+      }
+
+      .sb-nav::-webkit-scrollbar {
+        display: none;
+      }
+
+      .sb-section {
+        font-size: 10px;
+        font-weight: 600;
+        color: var(--text-3);
+        letter-spacing: 0.07em;
+        text-transform: uppercase;
+        padding: 10px 6px 3px;
+      }
+
+      .nav-btn {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        width: 100%;
+        padding: 7px 8px;
+        border: none;
+        border-radius: var(--radius-sm);
+        background: transparent;
+        color: var(--text-2);
+        font-family: var(--font);
+        font-size: 12.5px;
+        font-weight: 500;
+        cursor: pointer;
+        text-align: left;
+        transition:
+          background 0.12s,
+          color 0.12s;
+        -webkit-app-region: no-drag;
+      }
+
+      .nav-btn svg {
+        width: 14px;
+        height: 14px;
+        flex-shrink: 0;
+        stroke: currentColor;
+        fill: none;
+        stroke-width: 1.8;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+      }
+
+      .nav-btn:hover {
+        background: var(--accent-dim);
+        color: var(--text-1);
+      }
+
+      .nav-btn.active {
+        background: var(--accent-bg);
+        color: var(--text-1);
+      }
+
+      /* ─── Top Tabs ─── */
+      .top-tabs {
+        display: flex;
+        gap: 20px;
+        padding: 10px 24px 0;
+        border-bottom: 1px solid var(--border);
+        flex-shrink: 0;
+      }
+
+      .top-tab {
+        background: transparent;
+        border: none;
+        color: var(--text-2);
+        font-size: 13px;
+        font-weight: 500;
+        padding: 8px 0;
+        cursor: pointer;
+        position: relative;
+        transition: color 0.15s;
+      }
+
+      .top-tab:hover {
+        color: var(--text-1);
+      }
+
+      .top-tab.active {
+        color: var(--text-1);
+        font-weight: 600;
+      }
+
+      .top-tab.active::after {
+        content: "";
+        position: absolute;
+        bottom: -1px;
+        left: 0;
+        width: 100%;
+        height: 2px;
+        background: var(--accent);
+        border-radius: 2px 2px 0 0;
+      }
+
+      .sub-panel {
+        display: none;
+        flex: 1;
+        flex-direction: column;
+        animation: fadeIn 0.2s ease-out;
+      }
+
+      .sub-panel.active {
+        display: flex;
+      }
+
+      @keyframes fadeIn {
+        from {
+          opacity: 0;
+          transform: translateY(2px);
+        }
+
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+
+      /* ─── Content ─── */
+      .content {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        min-width: 0;
+        min-height: 0;
+        overflow: auto;
+      }
+
+      .panel {
+        display: none;
+        flex-direction: column;
+        flex: 1;
+        min-height: 0;
+        overflow: hidden;
+        opacity: 0;
+        transform: translateY(4px);
+        transition:
+          opacity 0.18s,
+          transform 0.18s;
+      }
+
+      .panel.active {
+        display: flex;
+        opacity: 1;
+        transform: translateY(0);
+      }
+
+      .panel-header {
+        padding: 20px 24px 0;
+        flex-shrink: 0;
+      }
+
+      .panel-header h1 {
+        font-size: 17px;
+        font-weight: 700;
+        letter-spacing: -0.3px;
+        color: var(--text-1);
+        margin-bottom: 2px;
+      }
+
+      .panel-header p {
+        font-size: 11.5px;
+        color: var(--text-2);
+      }
+
+      .panel-body {
+        flex: 1;
+        min-height: 0;
+        overflow-y: auto;
+        padding: 14px 24px 20px;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+      }
+
+      /* Scrollbar */
+      ::-webkit-scrollbar {
+        width: 3px;
+        background-color: transparent;
+      }
+
+      ::-webkit-scrollbar-thumb {
+        background: rgba(255, 255, 255, 0.12);
+        border-radius: 2px;
+      }
+
+      /* ─── Cards ─── */
+      .card {
+        background: var(--card-bg);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        height: 100%;
+      }
+
+      #skills-list {
+        overflow-y: auto;
+        height: max-content !important;
+        max-height: 70vh !important;
+        min-height: max-content !important;
+      }
+
+      .row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 12px 14px;
+        gap: 12px;
+        border-bottom: 1px solid var(--border);
+      }
+
+      .row:last-child {
+        border-bottom: none;
+      }
+
+      .row-info .row-label {
+        font-size: 12.5px;
+        font-weight: 500;
+        color: var(--text-1);
+      }
+
+      .row-info .row-sub {
+        font-size: 11px;
+        color: var(--text-3);
+        margin-top: 1px;
+      }
+
+      /* ─── Inputs ─── */
+      input[type="text"],
+      input[type="password"],
+      select,
+      textarea {
+        background: rgba(255, 255, 255, 0.06);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-sm);
+        color: var(--text-1);
+        font-family: var(--font);
+        font-size: 12.5px;
+        padding: 6px 9px;
+        outline: none;
+        transition: border-color 0.15s;
+      }
+
+      input[type="text"]:focus,
+      input[type="password"]:focus,
+      select:focus,
+      textarea:focus {
+        border-color: var(--border-focus);
+      }
+
+      ::placeholder {
+        color: var(--text-3);
+      }
+
+      select {
+        cursor: pointer;
+        appearance: none;
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='11' height='11' viewBox='0 0 24 24' fill='none' stroke='rgba(255,255,255,0.3)' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+        background-repeat: no-repeat;
+        background-position: right 9px center;
+        padding-right: 26px;
+      }
+
+      select option {
+        background: #202024;
+      }
+
+      textarea {
+        resize: vertical;
+        min-height: 60px;
+      }
+
+      /* ─── Toggle ─── */
+      .toggle {
+        position: relative;
+        width: 36px;
+        height: 20px;
+        flex-shrink: 0;
+        cursor: pointer;
+        display: inline-flex;
+      }
+
+      .toggle input {
+        opacity: 0;
+        width: 0;
+        height: 0;
+        position: absolute;
+      }
+
+      .toggle-track {
+        width: 36px;
+        height: 20px;
+        background: rgba(255, 255, 255, 0.14);
+        border-radius: 10px;
+        position: relative;
+        transition: background 0.18s;
+      }
+
+      .toggle-track::after {
+        content: "";
+        position: absolute;
+        top: 3px;
+        left: 3px;
+        width: 14px;
+        height: 14px;
+        border-radius: 50%;
+        background: rgba(255, 255, 255, 0.7);
+        transition:
+          transform 0.18s,
+          background 0.18s;
+      }
+
+      .toggle input:checked + .toggle-track {
+        background: rgba(255, 255, 255, 0.82);
+      }
+
+      .toggle input:checked + .toggle-track::after {
+        transform: translateX(16px);
+        background: #18181b;
+      }
+
+      /* ─── Buttons ─── */
+      .btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        padding: 6px 12px;
+        border-radius: var(--radius-sm);
+        border: 1px solid var(--border);
+        background: rgba(255, 255, 255, 0.06);
+        color: var(--text-1);
+        font-family: var(--font);
+        font-size: 12px;
+        font-weight: 500;
+        cursor: pointer;
+        white-space: nowrap;
+        transition: all 0.12s;
+      }
+
+      .btn:hover {
+        background: rgba(255, 255, 255, 0.1);
+      }
+
+      .btn:active {
+        transform: scale(0.97);
+      }
+
+      .btn-primary {
+        background: rgba(255, 255, 255, 0.9);
+        border-color: transparent;
+        color: #18181b;
+        font-weight: 600;
+      }
+
+      .btn-primary:hover {
+        background: white;
+        border-color: transparent;
+      }
+
+      .btn-danger {
+        background: var(--red-bg);
+        border-color: rgba(248, 113, 113, 0.2);
+        color: var(--red);
+      }
+
+      .btn-danger:hover {
+        background: rgba(248, 113, 113, 0.18);
+      }
+
+      .btn-sm {
+        padding: 4px 9px;
+        font-size: 11px;
+      }
+
+      /* ─── Badges ─── */
+      .badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        padding: 2px 8px;
+        border-radius: 20px;
+        font-size: 11px;
+        font-weight: 500;
+      }
+
+      .dot {
+        width: 5px;
+        height: 5px;
+        border-radius: 50%;
+        background: currentColor;
+      }
+
+      .badge-ok {
+        background: var(--green-bg);
+        color: var(--green);
+      }
+
+      .badge-off {
+        background: rgba(255, 255, 255, 0.06);
+        color: var(--text-3);
+      }
+
+      .badge-warn {
+        background: var(--yellow-bg);
+        color: var(--yellow);
+      }
+
+      /* ─── API Key ─── */
+      .svc-block {
+        padding: 14px;
+        border-bottom: 1px solid var(--border);
+      }
+
+      .svc-block:last-child {
+        border-bottom: none;
+      }
+
+      .svc-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 10px;
+      }
+
+      .svc-name {
+        font-size: 12.5px;
+        font-weight: 600;
+        color: var(--text-1);
+      }
+
+      .svc-sub {
+        font-size: 11px;
+        color: var(--text-3);
+        margin-top: 1px;
+      }
+
+      .key-existing {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 6px 9px;
+        border-radius: var(--radius-sm);
+        background: rgba(255, 255, 255, 0.04);
+        border: 1px solid var(--border);
+        margin-bottom: 6px;
+      }
+
+      .key-mask {
+        font-family: "Cascadia Code", "Consolas", monospace;
+        font-size: 11.5px;
+        color: var(--text-2);
+        letter-spacing: 0.05em;
+      }
+
+      .key-actions {
+        display: flex;
+        gap: 4px;
+      }
+
+      .svc-input-row {
+        display: flex;
+        gap: 6px;
+        align-items: center;
+        padding: 12px 14px;
+        background: rgba(0, 0, 0, 0.2);
+        border-bottom: 1px solid var(--border);
+      }
+
+      .svc-input-row input {
+        flex: 1;
+        min-width: 0;
+        background: rgba(255, 255, 255, 0.08);
+        border-color: rgba(255, 255, 255, 0.15);
+      }
+
+      .svc-input-row input:focus {
+        background: rgba(255, 255, 255, 0.12);
+        border-color: var(--accent);
+      }
+
+      /* ─── Skills / Plugins ─── */
+      .skill-row {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 9px 14px;
+        border-bottom: 1px solid var(--border);
+      }
+
+      .skill-row:last-child {
+        border-bottom: none;
+      }
+
+      .skill-icon {
+        width: 28px;
+        height: 28px;
+        border-radius: 6px;
+        background: rgba(255, 255, 255, 0.06);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+      }
+
+      .skill-icon svg {
+        width: 13px;
+        height: 13px;
+        stroke: var(--text-2);
+        fill: none;
+        stroke-width: 2;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+      }
+
+      .skill-name {
+        font-size: 12px;
+        font-weight: 600;
+        color: var(--text-1);
+      }
+
+      .skill-desc {
+        font-size: 11px;
+        color: var(--text-3);
+      }
+
+      .skill-info {
+        flex: 1;
+        min-width: 0;
+      }
+
+      .section-label {
+        font-size: 10.5px;
+        font-weight: 600;
+        color: var(--text-3);
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        margin-top: 4px;
+        margin-bottom: 6px;
+      }
+
+      /* ─── Memory ─── */
+      .bucket-card {
+        margin-bottom: 10px;
+      }
+
+      .bucket-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 11px 14px;
+        cursor: pointer;
+        user-select: none;
+      }
+
+      .bucket-head:hover {
+        background: var(--card-hover);
+      }
+
+      .bucket-name {
+        font-size: 12.5px;
+        font-weight: 600;
+        color: var(--text-1);
+        text-transform: capitalize;
+      }
+
+      .bucket-count {
+        font-size: 11px;
+        color: var(--text-3);
+      }
+
+      .bucket-body {
+        padding: 4px 14px 12px;
+      }
+
+      .mem-row {
+        display: flex;
+        align-items: flex-start;
+        gap: 10px;
+        padding: 6px 0;
+        border-bottom: 1px solid var(--border);
+        font-size: 12px;
+        position: relative;
+      }
+
+      .mem-row:last-child {
+        border-bottom: none;
+      }
+
+      .mem-key {
+        font-weight: 600;
+        color: var(--text-2);
+        min-width: 80px;
+        flex-shrink: 0;
+        word-break: break-word;
+      }
+
+      .mem-val {
+        color: var(--text-1);
+        word-break: break-word;
+        flex: 1;
+      }
+
+      .mem-del {
+        opacity: 0;
+        background: none;
+        border: none;
+        color: var(--red);
+        font-size: 14px;
+        cursor: pointer;
+        padding: 0 4px;
+        flex-shrink: 0;
+        transition: opacity 0.12s;
+        line-height: 1;
+      }
+
+      .mem-row:hover .mem-del {
+        opacity: 1;
+      }
+
+      .hist-row {
+        padding: 8px 0;
+        border-bottom: 1px solid var(--border);
+        position: relative;
+      }
+
+      .hist-row:last-child {
+        border-bottom: none;
+      }
+
+      .hist-q {
+        font-size: 12px;
+        font-weight: 500;
+        color: var(--text-1);
+        margin-bottom: 2px;
+      }
+
+      .hist-a {
+        font-size: 11px;
+        color: var(--text-3);
+        white-space: nowrap;
+        overflow: hidden;
+
+        text-overflow: ellipsis;
+        display: block;
+      }
+
+      .hist-del {
+        position: absolute;
+        right: 0;
+        top: 8px;
+        opacity: 0;
+        background: none;
+        border: none;
+        color: var(--red);
+        font-size: 14px;
+        cursor: pointer;
+        padding: 0 4px;
+        transition: opacity 0.12s;
+      }
+
+      .hist-row:hover .hist-del {
+        opacity: 1;
+      }
+
+      /* ─── Plan Timeline ─── */
+      .plan-toggle {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        margin-top: 6px;
+        padding: 3px 8px;
+        border-radius: 6px;
+        font-size: 10px;
+        font-weight: 600;
+        color: var(--text-3);
+        background: rgba(255, 255, 255, 0.04);
+        border: 1px solid var(--border);
+        cursor: pointer;
+        user-select: none;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+        transition:
+          color 0.12s,
+          background 0.12s;
+      }
+      .plan-toggle:hover {
+        color: var(--text-1);
+        background: rgba(255, 255, 255, 0.07);
+      }
+      .plan-toggle-icon {
+        font-size: 8px;
+        transition: transform 0.18s;
+      }
+      .plan-toggle.open .plan-toggle-icon {
+        transform: rotate(90deg);
+      }
+
+      .plan-timeline {
+        display: none;
+        flex-direction: column;
+        gap: 0;
+        margin-top: 6px;
+        padding-left: 8px;
+        border-left: 2px solid rgba(255, 255, 255, 0.1);
+      }
+      .plan-timeline.visible {
+        display: flex;
+      }
+
+      .plan-step {
+        display: flex;
+        align-items: flex-start;
+        gap: 8px;
+        padding: 4px 0;
+        position: relative;
+      }
+      .plan-step-dot {
+        width: 7px;
+        height: 7px;
+        border-radius: 50%;
+        background: var(--primary);
+        margin-top: 3px;
+        flex-shrink: 0;
+        margin-left: -4px;
+        opacity: 0.7;
+      }
+      .plan-step-body {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        flex-wrap: wrap;
+      }
+      .plan-step-name {
+        font-size: 11px;
+        font-weight: 600;
+        color: var(--text-1);
+      }
+      .plan-step-param {
+        font-size: 10.5px;
+        color: var(--text-3);
+        background: rgba(255, 255, 255, 0.05);
+        border: 1px solid var(--border);
+        border-radius: 4px;
+        padding: 1px 5px;
+      }
+
+      /* ─── About ─── */
+      .about-wrap {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        padding: 28px 24px 8px;
+        text-align: center;
+      }
+
+      .about-logo {
+        width: 52px;
+        height: 52px;
+        border-radius: 13px;
+        margin-bottom: 12px;
+        object-fit: contain;
+      }
+
+      .about-name {
+        font-size: 18px;
+        font-weight: 700;
+        margin-bottom: 2px;
+      }
+
+      .about-ver {
+        font-size: 11.5px;
+        color: var(--text-3);
+        margin-bottom: 16px;
+      }
+
+      .about-link {
+        font-size: 12px;
+        color: var(--text-2);
+        cursor: pointer;
+        text-decoration: underline;
+        text-underline-offset: 2px;
+      }
+
+      .about-link:hover {
+        color: var(--text-1);
+      }
+
+      .about-stats {
+        display: grid;
+        grid-template-columns: 1fr 1fr 1fr;
+        gap: 8px;
+        width: 100%;
+        margin-bottom: 10px;
+      }
+
+      .about-stat {
+        background: var(--card-bg);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        padding: 10px 8px;
+        text-align: center;
+      }
+
+      .about-stat-val {
+        font-size: 18px;
+        font-weight: 700;
+        color: var(--text-1);
+        line-height: 1.1;
+      }
+
+      .about-stat-label {
+        font-size: 10px;
+        color: var(--text-3);
+        margin-top: 2px;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+      }
+
+      /* ─── Danger Zone ─── */
+      .danger-zone {
+        border: 1px solid rgba(248, 113, 113, 0.25);
+        border-radius: var(--radius);
+        overflow: hidden;
+        min-height: 120px;
+      }
+
+      .danger-head {
+        padding: 10px 14px;
+        background: rgba(248, 113, 113, 0.06);
+        border-bottom: 1px solid rgba(248, 113, 113, 0.15);
+        font-size: 11px;
+        font-weight: 600;
+        color: var(--red);
+        letter-spacing: 0.07em;
+        text-transform: uppercase;
+      }
+
+      .danger-body {
+        padding: 12px 14px;
+      }
+
+      /* ─── Utility ─── */
+      .empty {
+        padding: 16px 14px;
+        font-size: 12px;
+        color: var(--text-3);
+        text-align: center;
+      }
+
+      code {
+        font-size: 11px;
+        font-family: "Cascadia Code", "Consolas", monospace;
+        color: var(--text-2);
+        background: rgba(255, 255, 255, 0.06);
+        padding: 1px 5px;
+        border-radius: 3px;
+      }
+
+      /* ─── Footer ─── */
+      .footer {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 9px 24px;
+        border-top: 1px solid var(--border);
+        background: var(--bg);
+        flex-shrink: 0;
+      }
+
+      .footer-msg {
+        font-size: 11px;
+        color: var(--text-3);
+      }
+
+      .footer-actions {
+        display: flex;
+        gap: 7px;
+      }
+
+      /* ─── Toast ─── */
+      #toast {
+        position: fixed;
+        bottom: 56px;
+        left: 50%;
+        transform: translateX(-50%) translateY(6px);
+        background: rgba(32, 32, 36, 0.97);
+        border: 1px solid var(--border);
+        border-radius: 20px;
+        padding: 7px 16px;
+        font-size: 12px;
+        font-weight: 500;
+        color: var(--text-1);
+        opacity: 0;
+        pointer-events: none;
+        white-space: nowrap;
+        z-index: 9;
+        transition:
+          opacity 0.22s,
+          transform 0.22s;
+      }
+
+      #toast.show {
+        opacity: 1;
+        transform: translateX(-50%) translateY(0);
+      }
+
+      #toast.ok {
+        color: var(--green);
+        border-color: rgba(74, 222, 128, 0.25);
+      }
+
+      #toast.err {
+        color: var(--red);
+        border-color: rgba(248, 113, 113, 0.25);
+      }
     </style>
-</head>
+  </head>
 
-<body>
+  <body>
     <div class="shell">
-
-        <!-- Sidebar -->
-        <aside class="sidebar">
-            <div class="sb-header">
-                <img src="venesa-asset://logo.png" alt="" onerror="this.style.display='none'">
-                <span class="app-name">Venesa</span>
-            </div>
-            <nav class="sb-nav">
-                <div class="sb-section">Preferences</div>
-                <button class="nav-btn active" data-tab="general">
-                    <svg viewBox="0 0 24 24">
-                        <circle cx="12" cy="12" r="3" />
-                        <path
-                            d="M12 1v2m0 18v2M4.22 4.22l1.42 1.42m12.72 12.72l1.42 1.42M1 12h2m18 0h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42" />
-                    </svg>
-                    General
-                </button>
-                <button class="nav-btn" data-tab="apikeys">
-                    <svg viewBox="0 0 24 24">
-                        <path
-                            d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4" />
-                    </svg>
-                    API Keys
-                </button>
-                <button class="nav-btn" data-tab="voice">
-                    <svg viewBox="0 0 24 24">
-                        <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" />
-                        <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
-                        <line x1="12" y1="19" x2="12" y2="23" />
-                        <line x1="8" y1="23" x2="16" y2="23" />
-                    </svg>
-                    Voice
-                </button>
-                <div class="sb-section">Data</div>
-                <button class="nav-btn" data-tab="memory">
-                    <svg viewBox="0 0 24 24">
-                        <ellipse cx="12" cy="5" rx="9" ry="3" />
-                        <path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3" />
-                        <path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5" />
-                    </svg>
-                    AI Memory
-                </button>
-                <div class="sb-section">System</div>
-                <button class="nav-btn" data-tab="skills">
-                    <svg viewBox="0 0 24 24">
-                        <path
-                            d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z" />
-                    </svg>
-                    Skills & Plugins
-                </button>
-                <button class="nav-btn" data-tab="about">
-                    <svg viewBox="0 0 24 24">
-                        <circle cx="12" cy="12" r="10" />
-                        <line x1="12" y1="16" x2="12" y2="12" />
-                        <line x1="12" y1="8" x2="12.01" y2="8" />
-                    </svg>
-                    About
-                </button>
-            </nav>
-        </aside>
-
-        <!-- Content -->
-        <div class="content">
-
-            <!-- General -->
-            <div class="panel active" id="tab-general">
-                <div class="panel-header">
-                    <h1>General</h1>
-                    <p>Core preferences</p>
-                </div>
-                <div class="panel-body">
-                    <div class="card">
-                        <div class="row">
-                            <div class="row-info">
-                                <div class="row-label">Your Name</div>
-                                <div class="row-sub">How Venesa addresses you</div>
-                            </div>
-                            <input type="text" id="s-name" placeholder="User" style="width:150px">
-                        </div>
-                        <div class="row">
-                            <div class="row-info">
-                                <div class="row-label">Launch on Startup</div>
-                                <div class="row-sub">Start Venesa silently on boot</div>
-                            </div>
-                            <label class="toggle" aria-label="Launch on Startup"><input type="checkbox"
-                                    id="s-autostart"><span class="toggle-track"></span></label>
-                        </div>
-                        <div class="row">
-                            <div class="row-info">
-                                <div class="row-label">AI Model</div>
-                                <div class="row-sub">Which Gemini model to use</div>
-                            </div>
-                            <select id="s-model" style="width:200px">
-                                <option value="gemini-2.5-flash-lite">Gemini 2.5 Flash Lite</option>
-                                <option value="gemini-2.0-flash">Gemini 2.0 Flash</option>
-                                <option value="gemini-2.5-flash">Gemini 2.5 Flash</option>
-                                <option value="gemini-2.5-pro">Gemini 2.5 Pro</option>
-                            </select>
-                        </div>
-                    </div>
-                    <div class="section-label">Profile</div>
-                    <div class="card">
-                        <div class="row" style="flex-direction:column;align-items:stretch;gap:8px">
-                            <div class="row-info">
-                                <div class="row-label">Bio</div>
-                                <div class="row-sub">Tell Venesa about yourself for better context</div>
-                            </div>
-                            <textarea id="s-bio"
-                                placeholder="e.g. I'm a software developer who prefers concise answers..."
-                                rows="3"></textarea>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- API Keys -->
-            <div class="panel" id="tab-apikeys">
-                <div class="panel-header" style="padding-bottom:12px;">
-                    <h1>API Keys</h1>
-                    <p>Manage API credentials</p>
-                </div>
-                <div class="top-tabs">
-                    <button class="top-tab active" data-group="api" data-tab="gemini"
-                        onclick="switchTopTab('api', 'gemini')">Google Gemini</button>
-                    <button class="top-tab" data-group="api" data-tab="elevenlabs"
-                        onclick="switchTopTab('api', 'elevenlabs')">ElevenLabs</button>
-                    <button class="top-tab" data-group="api" data-tab="custom"
-                        onclick="switchTopTab('api', 'custom')">Custom Keys</button>
-                </div>
-                <div class="panel-body">
-                    <div class="sub-panel active" data-group="api" id="sub-api-gemini">
-                        <div class="card">
-                            <div class="svc-block" id="gemini-keys">
-                                <div class="svc-head">
-                                    <div>
-                                        <div class="svc-name">Google Gemini</div>
-                                        <div class="svc-sub">Required for AI features</div>
-                                    </div>
-                                    <span class="badge badge-off" id="gemini-badge"><span class="dot"></span>No
-                                        keys</span>
-                                </div>
-                                <div class="svc-input-row">
-                                    <input type="password" id="gemini-input"
-                                        placeholder="Paste your Google Gemini API key here...">
-                                    <button class="btn btn-primary btn-sm" onclick="addKey('gemini')">Add Key</button>
-                                </div>
-                                <div id="gemini-key-list" style="padding: 14px 14px 0;"></div>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="sub-panel" data-group="api" id="sub-api-elevenlabs">
-                        <div class="card">
-                            <div class="svc-block" id="elevenlabs-keys">
-                                <div class="svc-head">
-                                    <div>
-                                        <div class="svc-name">ElevenLabs</div>
-                                        <div class="svc-sub">Optional — enables voice synthesis</div>
-                                    </div>
-                                    <span class="badge badge-off" id="elevenlabs-badge"><span class="dot"></span>No
-                                        keys</span>
-                                </div>
-                                <div class="svc-input-row">
-                                    <input type="password" id="elevenlabs-input"
-                                        placeholder="Paste your ElevenLabs API key here...">
-                                    <button class="btn btn-primary btn-sm" onclick="addKey('elevenlabs')">Add
-                                        Key</button>
-                                </div>
-                                <div id="elevenlabs-key-list" style="padding: 14px 14px 0;"></div>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="sub-panel" data-group="api" id="sub-api-custom">
-                        <div class="card">
-                            <div class="svc-block" id="custom-keys">
-                                <div class="svc-head">
-                                    <div>
-                                        <div class="svc-name">Custom Service Keys</div>
-                                        <div class="svc-sub">Provide keys required by community plugins</div>
-                                    </div>
-                                    <span class="badge badge-off" id="custom-badge"><span class="dot"></span>No
-                                        keys</span>
-                                </div>
-                                <div class="svc-input-row" style="gap:8px;">
-                                    <input type="text" id="custom-svc-name"
-                                        placeholder="Service name (e.g. OPENWEATHER)"
-                                        style="width: 140px; flex-shrink: 0;">
-                                    <input type="password" id="custom-input" placeholder="Paste API key here...">
-                                    <button class="btn btn-primary btn-sm" onclick="addCustomKey()">Add Key</button>
-                                </div>
-                                <div id="custom-key-list" style="padding: 14px 14px 0;"></div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Voice -->
-            <div class="panel" id="tab-voice">
-                <div class="panel-header">
-                    <h1>Voice</h1>
-                    <p>Voice interaction settings</p>
-                </div>
-                <div class="panel-body">
-                    <div class="card">
-                        <div class="row">
-                            <div class="row-info">
-                                <div class="row-label">Wake Word</div>
-                                <div class="row-sub">Say "Hey Venesa" to activate voice mode</div>
-                            </div>
-                            <label class="toggle" aria-label="Wake Word"><input type="checkbox" id="s-wakeword"><span
-                                    class="toggle-track"></span></label>
-                        </div>
-                        <div class="row">
-                            <div class="row-info">
-                                <div class="row-label">Voice ID</div>
-                                <div class="row-sub">ElevenLabs voice identifier</div>
-                            </div>
-                            <input type="text" id="s-voiceid" placeholder="pFZP5JQG7iQjIQuC4Bku" style="width:200px">
-                        </div>
-                        <div class="row">
-                            <div class="row-info">
-                                <div class="row-label">TTS Model</div>
-                                <div class="row-sub">ElevenLabs model variant</div>
-                            </div>
-                            <select id="s-ttsmodel" style="width:200px">
-                                <option value="eleven_flash_v2_5">Flash v2.5</option>
-                                <option value="eleven_multilingual_v2">Multilingual v2</option>
-                                <option value="eleven_turbo_v2_5">Turbo v2.5</option>
-                            </select>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Memory -->
-            <div class="panel" id="tab-memory">
-                <div class="panel-header" style="padding-bottom:12px;">
-                    <h1>AI Memory</h1>
-                    <p>What Venesa remembers about you</p>
-                </div>
-                <div class="top-tabs">
-                    <button class="top-tab active" data-group="mem" data-tab="preferences"
-                        onclick="switchTopTab('mem', 'preferences')">Preferences</button>
-                    <button class="top-tab" data-group="mem" data-tab="context"
-                        onclick="switchTopTab('mem', 'context')">Context</button>
-                    <button class="top-tab" data-group="mem" data-tab="aliases"
-                        onclick="switchTopTab('mem', 'aliases')">Aliases</button>
-                    <button class="top-tab" data-group="mem" data-tab="history"
-                        onclick="switchTopTab('mem', 'history')">History</button>
-                </div>
-                <div class="panel-body">
-                    <div class="sub-panel active" data-group="mem" id="sub-mem-preferences">
-                        <div class="card">
-                            <div id="mem-content-preferences"></div>
-                        </div>
-                    </div>
-                    <div class="sub-panel" data-group="mem" id="sub-mem-context">
-                        <div class="card">
-                            <div id="mem-content-context"></div>
-                        </div>
-                    </div>
-                    <div class="sub-panel" data-group="mem" id="sub-mem-aliases">
-                        <div class="card">
-                            <div id="mem-content-aliases"></div>
-                        </div>
-                    </div>
-                    <div class="sub-panel" data-group="mem" id="sub-mem-history">
-                        <div class="card">
-                            <div id="mem-content-history"></div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Skills & Plugins -->
-            <div class="panel" id="tab-skills">
-                <div class="panel-header" style="padding-bottom:12px;">
-                    <h1>Skills & Plugins</h1>
-                    <p>Built-in capabilities and custom extensions</p>
-                </div>
-                <div class="top-tabs">
-                    <button class="top-tab active" data-group="skills" data-tab="core"
-                        onclick="switchTopTab('skills', 'core')">Core Skills</button>
-                    <button class="top-tab" data-group="skills" data-tab="plugins"
-                        onclick="switchTopTab('skills', 'plugins')">Plugins</button>
-                </div>
-                <div class="panel-body">
-                    <div class="sub-panel active" data-group="skills" id="sub-skills-core">
-                        <div class="card" id="skills-list"></div>
-                    </div>
-                    <div class="sub-panel" data-group="skills" id="sub-skills-plugins">
-                        <div class="card" id="plugins-list"></div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- About -->
-            <div class="panel" id="tab-about">
-                <div class="panel-header">
-                    <h1>About</h1>
-                    <p>Application info</p>
-                </div>
-                <div class="panel-body">
-                    <div class="about-wrap">
-                        <img src="venesa-asset://logo.png" class="about-logo" onerror="this.style.display='none'">
-                        <div class="about-name">Venesa</div>
-                        <div class="about-ver">v2.0.0</div>
-                        <div class="card" style="width:100%;text-align:left">
-                            <div class="row">
-                                <div class="row-info">
-                                    <div class="row-label">Platform</div>
-                                </div><code id="about-platform">-</code>
-                            </div>
-                            <div class="row">
-                                <div class="row-info">
-                                    <div class="row-label">Electron</div>
-                                </div><code id="about-electron">-</code>
-                            </div>
-                            <div class="row">
-                                <div class="row-info">
-                                    <div class="row-label">Node.js</div>
-                                </div><code id="about-node">-</code>
-                            </div>
-                        </div>
-                        <div style="margin-top:16px; margin-bottom:12px;">
-                            <span class="about-link"
-                                onclick="settingsApi.openUrl('https://github.com/mianjunaid1223/Venesa')">GitHub</span>
-                        </div>
-                        <div style="font-size:11.5px; color:var(--text-3);">
-                            Created by <strong>Mian Junaid</strong>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
+      <!-- Sidebar -->
+      <aside class="sidebar">
+        <div class="sb-header">
+          <img
+            src="venesa-asset://logo.png"
+            alt=""
+            onerror="this.style.display = 'none'"
+          />
+          <span class="app-name">Venesa</span>
         </div>
+        <nav class="sb-nav">
+          <div class="sb-section">Preferences</div>
+          <button class="nav-btn active" data-tab="general">
+            <svg viewBox="0 0 24 24">
+              <circle cx="12" cy="12" r="3" />
+              <path
+                d="M12 1v2m0 18v2M4.22 4.22l1.42 1.42m12.72 12.72l1.42 1.42M1 12h2m18 0h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"
+              />
+            </svg>
+            General
+          </button>
+          <button class="nav-btn" data-tab="apikeys">
+            <svg viewBox="0 0 24 24">
+              <path
+                d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"
+              />
+            </svg>
+            API Keys
+          </button>
+          <button class="nav-btn" data-tab="voice">
+            <svg viewBox="0 0 24 24">
+              <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" />
+              <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
+              <line x1="12" y1="19" x2="12" y2="23" />
+              <line x1="8" y1="23" x2="16" y2="23" />
+            </svg>
+            Voice
+          </button>
+          <div class="sb-section">Data</div>
+          <button class="nav-btn" data-tab="memory">
+            <svg viewBox="0 0 24 24">
+              <ellipse cx="12" cy="5" rx="9" ry="3" />
+              <path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3" />
+              <path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5" />
+            </svg>
+            AI Memory
+          </button>
+          <div class="sb-section">System</div>
+          <button class="nav-btn" data-tab="skills">
+            <svg viewBox="0 0 24 24">
+              <path
+                d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"
+              />
+            </svg>
+            Skills & Plugins
+          </button>
+          <button class="nav-btn" data-tab="about">
+            <svg viewBox="0 0 24 24">
+              <circle cx="12" cy="12" r="10" />
+              <line x1="12" y1="16" x2="12" y2="12" />
+              <line x1="12" y1="8" x2="12.01" y2="8" />
+            </svg>
+            About
+          </button>
+        </nav>
+      </aside>
+
+      <!-- Content -->
+      <div class="content">
+        <!-- General -->
+        <div class="panel active" id="tab-general">
+          <div class="panel-header">
+            <h1>General</h1>
+            <p>Core preferences</p>
+          </div>
+          <div class="panel-body">
+            <div class="card">
+              <div class="row">
+                <div class="row-info">
+                  <div class="row-label">Your Name</div>
+                  <div class="row-sub">How Venesa addresses you</div>
+                </div>
+                <input
+                  type="text"
+                  id="s-name"
+                  placeholder="User"
+                  style="width: 150px"
+                />
+              </div>
+              <div class="row">
+                <div class="row-info">
+                  <div class="row-label">Launch on Startup</div>
+                  <div class="row-sub">Start Venesa silently on boot</div>
+                </div>
+                <label class="toggle" aria-label="Launch on Startup"
+                  ><input type="checkbox" id="s-autostart" /><span
+                    class="toggle-track"
+                  ></span
+                ></label>
+              </div>
+              <div class="row">
+                <div class="row-info">
+                  <div class="row-label">AI Model</div>
+                  <div class="row-sub">Which Gemini model to use</div>
+                </div>
+                <select id="s-model" style="width: 200px">
+                  <option value="gemini-2.5-flash-lite">
+                    Gemini 2.5 Flash Lite (Recommended - Low API cost )
+                  </option>
+                  <option value="gemini-3.1-pro-preview">
+                    Gemini 3.1 Pro (Latest Reasoning)
+                  </option>
+                  <option value="gemini-3-flash-preview">
+                    Gemini 3 Flash (Fast & Capable)
+                  </option>
+
+                  <!-- Stable Gemini 2.5 Series -->
+                  <option value="gemini-2.5-pro">Gemini 2.5 Pro</option>
+                  <option value="gemini-2.5-flash">Gemini 2.5 Flash</option>
+                </select>
+              </div>
+            </div>
+            <div class="section-label">Profile</div>
+            <div class="card">
+              <div
+                class="row"
+                style="flex-direction: column; align-items: stretch; gap: 8px"
+              >
+                <div class="row-info">
+                  <div class="row-label">Bio</div>
+                  <div class="row-sub">
+                    Tell Venesa about yourself for better context
+                  </div>
+                </div>
+                <textarea
+                  id="s-bio"
+                  placeholder="e.g. I'm a software developer who prefers concise answers..."
+                  rows="3"
+                ></textarea>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- API Keys -->
+        <div class="panel" id="tab-apikeys">
+          <div class="panel-header" style="padding-bottom: 12px">
+            <h1>API Keys</h1>
+            <p>Manage API credentials</p>
+          </div>
+          <div class="top-tabs">
+            <button
+              class="top-tab active"
+              data-group="api"
+              data-tab="gemini"
+              onclick="switchTopTab('api', 'gemini')"
+            >
+              Google Gemini
+            </button>
+            <button
+              class="top-tab"
+              data-group="api"
+              data-tab="elevenlabs"
+              onclick="switchTopTab('api', 'elevenlabs')"
+            >
+              ElevenLabs
+            </button>
+            <button
+              class="top-tab"
+              data-group="api"
+              data-tab="custom"
+              onclick="switchTopTab('api', 'custom')"
+            >
+              Custom Keys
+            </button>
+          </div>
+          <div class="panel-body">
+            <div class="sub-panel active" data-group="api" id="sub-api-gemini">
+              <div class="card">
+                <div class="svc-block" id="gemini-keys">
+                  <div class="svc-head">
+                    <div>
+                      <div class="svc-name">Google Gemini</div>
+                      <div class="svc-sub">Required for AI features</div>
+                    </div>
+                    <span class="badge badge-off" id="gemini-badge"
+                      ><span class="dot"></span>No keys</span
+                    >
+                  </div>
+                  <div class="svc-input-row">
+                    <input
+                      type="password"
+                      id="gemini-input"
+                      placeholder="Paste your Google Gemini API key here..."
+                    />
+                    <button
+                      class="btn btn-primary btn-sm"
+                      onclick="addKey('gemini')"
+                    >
+                      Add Key
+                    </button>
+                  </div>
+                  <div id="gemini-key-list" style="padding: 14px 14px 0"></div>
+                </div>
+              </div>
+            </div>
+            <div class="sub-panel" data-group="api" id="sub-api-elevenlabs">
+              <div class="card">
+                <div class="svc-block" id="elevenlabs-keys">
+                  <div class="svc-head">
+                    <div>
+                      <div class="svc-name">ElevenLabs</div>
+                      <div class="svc-sub">
+                        Optional — enables voice synthesis
+                      </div>
+                    </div>
+                    <span class="badge badge-off" id="elevenlabs-badge"
+                      ><span class="dot"></span>No keys</span
+                    >
+                  </div>
+                  <div class="svc-input-row">
+                    <input
+                      type="password"
+                      id="elevenlabs-input"
+                      placeholder="Paste your ElevenLabs API key here..."
+                    />
+                    <button
+                      class="btn btn-primary btn-sm"
+                      onclick="addKey('elevenlabs')"
+                    >
+                      Add Key
+                    </button>
+                  </div>
+                  <div
+                    id="elevenlabs-key-list"
+                    style="padding: 14px 14px 0"
+                  ></div>
+                </div>
+              </div>
+            </div>
+            <div class="sub-panel" data-group="api" id="sub-api-custom">
+              <div class="card">
+                <div class="svc-block" id="custom-keys">
+                  <div class="svc-head">
+                    <div>
+                      <div class="svc-name">Custom Service Keys</div>
+                      <div class="svc-sub">
+                        Provide keys required by community plugins
+                      </div>
+                    </div>
+                    <span class="badge badge-off" id="custom-badge"
+                      ><span class="dot"></span>No keys</span
+                    >
+                  </div>
+                  <div class="svc-input-row" style="gap: 8px">
+                    <input
+                      type="text"
+                      id="custom-svc-name"
+                      placeholder="Service name (e.g. OPENWEATHER)"
+                      style="width: 140px; flex-shrink: 0"
+                    />
+                    <input
+                      type="password"
+                      id="custom-input"
+                      placeholder="Paste API key here..."
+                    />
+                    <button
+                      class="btn btn-primary btn-sm"
+                      onclick="addCustomKey()"
+                    >
+                      Add Key
+                    </button>
+                  </div>
+                  <div id="custom-key-list" style="padding: 14px 14px 0"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Voice -->
+        <div class="panel" id="tab-voice">
+          <div class="panel-header">
+            <h1>Voice</h1>
+            <p>Voice interaction settings</p>
+          </div>
+          <div class="panel-body">
+            <div class="card">
+              <div class="row">
+                <div class="row-info">
+                  <div class="row-label">Wake Word</div>
+                  <div class="row-sub">
+                    Say "Hey Venesa" to activate voice mode
+                  </div>
+                </div>
+                <label class="toggle" aria-label="Wake Word"
+                  ><input type="checkbox" id="s-wakeword" /><span
+                    class="toggle-track"
+                  ></span
+                ></label>
+              </div>
+              <div class="row">
+                <div class="row-info">
+                  <div class="row-label">Voice ID</div>
+                  <div class="row-sub">ElevenLabs voice identifier</div>
+                </div>
+                <input
+                  type="text"
+                  id="s-voiceid"
+                  placeholder="pFZP5JQG7iQjIQuC4Bku"
+                  style="width: 200px"
+                />
+              </div>
+              <div class="row">
+                <div class="row-info">
+                  <div class="row-label">TTS Model</div>
+                  <div class="row-sub">ElevenLabs model variant</div>
+                </div>
+                <select id="s-ttsmodel" style="width: 200px">
+                  <option value="eleven_flash_v2_5">Flash v2.5</option>
+                  <option value="eleven_multilingual_v2">
+                    Multilingual v2
+                  </option>
+                  <option value="eleven_turbo_v2_5">Turbo v2.5</option>
+                </select>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Memory -->
+        <div class="panel" id="tab-memory">
+          <div class="panel-header" style="padding-bottom: 12px">
+            <h1>AI Memory</h1>
+            <p>What Venesa remembers about you</p>
+          </div>
+          <div class="top-tabs">
+            <button
+              class="top-tab active"
+              data-group="mem"
+              data-tab="preferences"
+              onclick="switchTopTab('mem', 'preferences')"
+            >
+              Preferences
+            </button>
+            <button
+              class="top-tab"
+              data-group="mem"
+              data-tab="context"
+              onclick="switchTopTab('mem', 'context')"
+            >
+              Context
+            </button>
+            <button
+              class="top-tab"
+              data-group="mem"
+              data-tab="aliases"
+              onclick="switchTopTab('mem', 'aliases')"
+            >
+              Aliases
+            </button>
+            <button
+              class="top-tab"
+              data-group="mem"
+              data-tab="history"
+              onclick="switchTopTab('mem', 'history')"
+            >
+              History
+            </button>
+          </div>
+          <div class="panel-body">
+            <div
+              class="sub-panel active"
+              data-group="mem"
+              id="sub-mem-preferences"
+            >
+              <div class="card">
+                <div id="mem-content-preferences"></div>
+              </div>
+            </div>
+            <div class="sub-panel" data-group="mem" id="sub-mem-context">
+              <div class="card">
+                <div id="mem-content-context"></div>
+              </div>
+            </div>
+            <div class="sub-panel" data-group="mem" id="sub-mem-aliases">
+              <div class="card">
+                <div id="mem-content-aliases"></div>
+              </div>
+            </div>
+            <div class="sub-panel" data-group="mem" id="sub-mem-history">
+              <div class="card">
+                <div id="mem-content-history"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Skills & Plugins -->
+        <div class="panel" id="tab-skills">
+          <div class="panel-header" style="padding-bottom: 12px">
+            <h1>Skills & Plugins</h1>
+            <p>Built-in capabilities and custom extensions</p>
+          </div>
+          <div class="top-tabs">
+            <button
+              class="top-tab active"
+              data-group="skills"
+              data-tab="core"
+              onclick="switchTopTab('skills', 'core')"
+            >
+              Core Skills
+            </button>
+            <button
+              class="top-tab"
+              data-group="skills"
+              data-tab="plugins"
+              onclick="switchTopTab('skills', 'plugins')"
+            >
+              Plugins
+            </button>
+          </div>
+          <div class="panel-body">
+            <div
+              class="sub-panel active"
+              data-group="skills"
+              id="sub-skills-core"
+            >
+              <div class="card" id="skills-list"></div>
+            </div>
+            <div class="sub-panel" data-group="skills" id="sub-skills-plugins">
+              <div class="card" id="plugins-list"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- About -->
+        <div class="panel" id="tab-about">
+          <div class="panel-header">
+            <h1>About</h1>
+            <p>Application info &amp; system status</p>
+          </div>
+          <div class="panel-body">
+            <div class="about-wrap">
+              <img
+                src="venesa-asset://logo.png"
+                class="about-logo"
+                onerror="this.style.display = 'none'"
+              />
+              <div class="about-name">Venesa</div>
+              <div class="about-ver" id="about-ver">v2.0.0</div>
+            </div>
+
+            <!-- Stats row -->
+            <div class="about-stats" id="about-stats">
+              <div class="about-stat">
+                <div class="about-stat-val" id="stat-skills">—</div>
+                <div class="about-stat-label">Skills</div>
+              </div>
+              <div class="about-stat">
+                <div class="about-stat-val" id="stat-plugins">—</div>
+                <div class="about-stat-label">Plugins</div>
+              </div>
+              <div class="about-stat">
+                <div class="about-stat-val" id="stat-cmds">—</div>
+                <div class="about-stat-label">Saved Cmds</div>
+              </div>
+            </div>
+
+            <!-- Runtime info -->
+            <div class="card" style="width: 100%; text-align: left">
+              <div class="row">
+                <div class="row-info">
+                  <div class="row-label">AI Model</div>
+                </div>
+                <code id="about-model">-</code>
+              </div>
+              <div class="row">
+                <div class="row-info">
+                  <div class="row-label">Platform</div>
+                </div>
+                <code id="about-platform">-</code>
+              </div>
+              <div class="row">
+                <div class="row-info">
+                  <div class="row-label">Electron</div>
+                </div>
+                <code id="about-electron">-</code>
+              </div>
+              <div class="row">
+                <div class="row-info"><div class="row-label">Node.js</div></div>
+                <code id="about-node">-</code>
+              </div>
+              <div class="row" style="border-bottom: none">
+                <div class="row-info">
+                  <div class="row-label">Architecture</div>
+                </div>
+                <code id="about-arch">-</code>
+              </div>
+            </div>
+
+            <!-- Links -->
+            <div style="text-align: center; margin-top: 4px">
+              <span
+                class="about-link"
+                onclick="
+                  settingsApi.openUrl(
+                    'https://github.com/mianjunaid1223/Venesa',
+                  )
+                "
+                >GitHub Repository</span
+              >
+            </div>
+            <div
+              style="font-size: 11px; color: var(--text-3); text-align: center"
+            >
+              Created by
+              <strong style="color: var(--text-2)">Mian Junaid</strong>
+            </div>
+
+            <!-- Danger Zone -->
+            <div class="section-label" style="margin-top: 16px">
+              Danger Zone
+            </div>
+            <div class="danger-zone">
+              <div class="danger-head">⚠ Irreversible Actions</div>
+              <div class="danger-body">
+                <div
+                  style="
+                    display: flex;
+                    align-items: center;
+                    justify-content: space-between;
+                    gap: 12px;
+                  "
+                >
+                  <div>
+                    <div
+                      class="row-label"
+                      style="
+                        font-size: 12.5px;
+                        font-weight: 600;
+                        color: var(--text-1);
+                      "
+                    >
+                      Factory Reset
+                    </div>
+                    <div
+                      class="row-sub"
+                      style="
+                        font-size: 11px;
+                        color: var(--text-3);
+                        margin-top: 2px;
+                      "
+                    >
+                      Permanently erases all settings, memory, and custom
+                      commands. API keys are preserved.
+                    </div>
+                  </div>
+                  <button
+                    class="btn btn-danger"
+                    style="white-space: nowrap; flex-shrink: 0"
+                    onclick="factoryReset()"
+                  >
+                    Reset Everything
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
 
     <!-- Footer -->
     <div class="footer">
-        <span class="footer-msg" id="footer-msg"></span>
-        <div class="footer-actions">
-            <button class="btn" onclick="settingsApi.close()">Cancel</button>
-            <button class="btn btn-primary" onclick="saveAll()">Save</button>
-        </div>
+      <span class="footer-msg" id="footer-msg"></span>
+      <div class="footer-actions">
+        <button class="btn" onclick="settingsApi.close()">Cancel</button>
+        <button class="btn btn-primary" onclick="saveAll()">Save</button>
+      </div>
     </div>
 
     <div id="toast"></div>
 
     <script>
-        const api = window.settingsApi;
-        let dirty = false;
+      const api = window.settingsApi;
+      let dirty = false;
 
-        // ── Helpers ────────────────────────────────────────────
+      // ── Helpers ────────────────────────────────────────────
 
-        function escapeHtml(str) {
-            const div = document.createElement('div');
-            div.textContent = str;
-            return div.innerHTML;
-        }
+      function escapeHtml(str) {
+        if (str == null) return "";
+        return String(str)
+          .replace(/&/g, "&amp;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;")
+          .replace(/"/g, "&quot;")
+          .replace(/'/g, "&#39;");
+      }
 
-        const toast = {
-            _timer: null,
-            show(msg, type = '') {
-                const el = document.getElementById('toast');
-                el.textContent = msg;
-                el.className = 'show' + (type ? ' ' + type : '');
-                clearTimeout(this._timer);
-                this._timer = setTimeout(() => { el.className = ''; }, 2500);
-            }
-        };
+      const toast = {
+        _timer: null,
+        show(msg, type = "") {
+          const el = document.getElementById("toast");
+          el.textContent = msg;
+          el.className = "show" + (type ? " " + type : "");
+          clearTimeout(this._timer);
+          this._timer = setTimeout(() => {
+            el.className = "";
+          }, 2500);
+        },
+      };
 
-        // ── Tab navigation ─────────────────────────────────────
+      // ── Tab navigation ─────────────────────────────────────
 
-        function switchTopTab(group, tabId) {
-            document.querySelectorAll(`.top-tab[data-group="${group}"]`).forEach(b => b.classList.remove('active'));
-            document.querySelectorAll(`.sub-panel[data-group="${group}"]`).forEach(p => p.classList.remove('active'));
+      function switchTopTab(group, tabId) {
+        document
+          .querySelectorAll(`.top-tab[data-group="${group}"]`)
+          .forEach((b) => b.classList.remove("active"));
+        document
+          .querySelectorAll(`.sub-panel[data-group="${group}"]`)
+          .forEach((p) => p.classList.remove("active"));
 
-            const btn = document.querySelector(`.top-tab[data-group="${group}"][data-tab="${tabId}"]`);
-            if (btn) btn.classList.add('active');
+        const btn = document.querySelector(
+          `.top-tab[data-group="${group}"][data-tab="${tabId}"]`,
+        );
+        if (btn) btn.classList.add("active");
 
-            const pnl = document.getElementById(`sub-${group}-${tabId}`);
-            if (pnl) pnl.classList.add('active');
-        }
+        const pnl = document.getElementById(`sub-${group}-${tabId}`);
+        if (pnl) pnl.classList.add("active");
+      }
 
-        document.querySelectorAll('.nav-btn').forEach(btn => {
-            btn.addEventListener('click', () => {
-                document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
-                document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
-                btn.classList.add('active');
-                const tab = document.getElementById('tab-' + btn.dataset.tab);
-                if (tab) tab.classList.add('active');
+      document.querySelectorAll(".nav-btn").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          document
+            .querySelectorAll(".nav-btn")
+            .forEach((b) => b.classList.remove("active"));
+          document
+            .querySelectorAll(".panel")
+            .forEach((p) => p.classList.remove("active"));
+          btn.classList.add("active");
+          const tab = document.getElementById("tab-" + btn.dataset.tab);
+          if (tab) tab.classList.add("active");
 
-                // Lazy-load tab data
-                if (btn.dataset.tab === 'memory') loadMemory();
-                if (btn.dataset.tab === 'skills') loadSkills();
-                if (btn.dataset.tab === 'apikeys') loadKeys();
-            });
+          // Lazy-load tab data
+          if (btn.dataset.tab === "memory") loadMemory();
+          if (btn.dataset.tab === "skills") loadSkills();
+          if (btn.dataset.tab === "apikeys") loadKeys();
         });
+      });
 
-        // ── Settings load/save ─────────────────────────────────
+      // ── Settings load/save ─────────────────────────────────
 
-        async function loadSettings() {
-            try {
-                const s = await api.getSettings();
-                document.getElementById('s-name').value = s.userName || '';
-                document.getElementById('s-autostart').checked = s.openAtLogin !== false;
-                document.getElementById('s-model').value = s.modelName || 'gemini-2.5-flash-lite';
-                document.getElementById('s-wakeword').checked = s.wakeWordEnabled !== false;
-                document.getElementById('s-voiceid').value = s.voiceId || '';
-                document.getElementById('s-ttsmodel').value = s.ttsModel || 'eleven_flash_v2_5';
+      async function loadSettings() {
+        try {
+          const s = await api.getSettings();
+          document.getElementById("s-name").value = s.userName || "";
+          document.getElementById("s-autostart").checked =
+            s.openAtLogin !== false;
+          document.getElementById("s-model").value =
+            s.modelName || "gemini-2.5-flash-lite";
+          document.getElementById("s-wakeword").checked =
+            s.wakeWordEnabled !== false;
+          document.getElementById("s-voiceid").value = s.voiceId || "";
+          document.getElementById("s-ttsmodel").value =
+            s.ttsModel || "eleven_flash_v2_5";
 
-                // Profile
-                const profile = await api.getProfile();
-                document.getElementById('s-bio').value = profile.bio || '';
+          // Profile
+          const profile = await api.getProfile();
+          document.getElementById("s-bio").value = profile.bio || "";
 
-                // About
-                document.getElementById('about-platform').textContent = navigator.platform || '-';
-                if (window.settingsApi && window.settingsApi.versions) {
-                    document.getElementById('about-electron').textContent = window.settingsApi.versions.electron || '-';
-                    document.getElementById('about-node').textContent = window.settingsApi.versions.node || '-';
-                }
-            } catch (e) {
-                toast.show('Failed to load settings', 'err');
+          // About — use richer getAboutInfo()
+          try {
+            const info = await api.getAboutInfo();
+            document.getElementById("about-platform").textContent =
+              info.platform || navigator.platform || "-";
+            document.getElementById("about-arch").textContent =
+              info.arch || "-";
+            document.getElementById("about-electron").textContent =
+              info.electronVersion || "-";
+            document.getElementById("about-node").textContent =
+              info.nodeVersion || "-";
+            document.getElementById("about-model").textContent =
+              info.aiModel || "-";
+            document.getElementById("stat-skills").textContent =
+              info.skillCount ?? "—";
+            document.getElementById("stat-plugins").textContent =
+              info.pluginCount ?? "—";
+            document.getElementById("stat-cmds").textContent =
+              info.customCommandCount ?? "—";
+          } catch (_) {
+            // Fallback to older approach
+            document.getElementById("about-platform").textContent =
+              navigator.platform || "-";
+            if (api.versions) {
+              document.getElementById("about-electron").textContent =
+                api.versions.electron || "-";
+              document.getElementById("about-node").textContent =
+                api.versions.node || "-";
             }
+          }
+        } catch (e) {
+          toast.show("Failed to load settings", "err");
         }
+      }
 
-        async function saveAll() {
-            try {
-                const patch = {
-                    userName: document.getElementById('s-name').value.trim() || 'User',
-                    openAtLogin: document.getElementById('s-autostart').checked,
-                    modelName: document.getElementById('s-model').value,
-                    wakeWordEnabled: document.getElementById('s-wakeword').checked,
-                    voiceId: document.getElementById('s-voiceid').value.trim(),
-                    ttsModel: document.getElementById('s-ttsmodel').value,
-                };
-                await api.saveSettings(patch);
+      async function saveAll() {
+        try {
+          const patch = {
+            userName: document.getElementById("s-name").value.trim() || "User",
+            openAtLogin: document.getElementById("s-autostart").checked,
+            modelName: document.getElementById("s-model").value,
+            wakeWordEnabled: document.getElementById("s-wakeword").checked,
+            voiceId: document.getElementById("s-voiceid").value.trim(),
+            ttsModel: document.getElementById("s-ttsmodel").value,
+          };
+          await api.saveSettings(patch);
 
-                const bio = document.getElementById('s-bio').value.trim();
-                await api.saveProfile({ bio });
+          const bio = document.getElementById("s-bio").value.trim();
+          await api.saveProfile({ bio });
 
-                toast.show('Settings saved', 'ok');
-                dirty = false;
-            } catch (e) {
-                toast.show('Failed to save', 'err');
-            }
+          toast.show("Settings saved", "ok");
+          dirty = false;
+          setTimeout(() => api.close(), 800);
+        } catch (e) {
+          toast.show("Failed to save", "err");
         }
+      }
 
-        // ── API Keys ───────────────────────────────────────────
+      // ── API Keys ───────────────────────────────────────────
 
-        async function loadKeys() {
-            try {
-                const status = await api.getKeyStatus();
-                renderService('gemini', status.gemini || []);
-                renderService('elevenlabs', status.elevenlabs || []);
-                renderCustomKeys(status.custom || []);
-            } catch (e) {
-                toast.show('Failed to load keys', 'err');
-            }
+      async function loadKeys() {
+        try {
+          const status = await api.getKeyStatus();
+          renderService("gemini", status.gemini || []);
+          renderService("elevenlabs", status.elevenlabs || []);
+          renderCustomKeys(status.custom || []);
+        } catch (e) {
+          toast.show("Failed to load keys", "err");
         }
+      }
 
-        function renderService(service, keys) {
-            const listEl = document.getElementById(service + '-key-list');
-            const badgeEl = document.getElementById(service + '-badge');
-            listEl.innerHTML = '';
+      function renderService(service, keys) {
+        const listEl = document.getElementById(service + "-key-list");
+        const badgeEl = document.getElementById(service + "-badge");
+        listEl.innerHTML = "";
 
-            if (keys.length > 0) {
-                badgeEl.className = 'badge badge-ok';
-                badgeEl.innerHTML = `<span class="dot"></span>${keys.length} key${keys.length > 1 ? 's' : ''}`;
-                keys.forEach(k => {
-                    const masked = k.masked || (k.key ? k.key.substring(0, 4) + '••••' + k.key.slice(-4) : '••••••••');
-                    const envVar = k.envVar || '';
-                    const row = document.createElement('div');
-                    row.className = 'key-existing';
-                    row.innerHTML = `
+        if (keys.length > 0) {
+          badgeEl.className = "badge badge-ok";
+          badgeEl.innerHTML = `<span class="dot"></span>${keys.length} key${keys.length > 1 ? "s" : ""}`;
+          keys.forEach((k) => {
+            const masked =
+              k.masked ||
+              (k.key
+                ? k.key.substring(0, 4) + "••••" + k.key.slice(-4)
+                : "••••••••");
+            const envVar = k.envVar || "";
+            const row = document.createElement("div");
+            row.className = "key-existing";
+            row.innerHTML = `
                         <div style="flex: 1; font-family: monospace; font-size: 11px; opacity: 0.8; user-select: text; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;"></div>
                         <span class="key-mask" tabindex="0" style="cursor: pointer; outline: none; margin-left: auto; text-align: right; overflow-x: auto; white-space: nowrap; max-width: 150px;" title="Double-click to toggle reveal"></span>
                         <div class="key-actions" style="margin-left: 8px; flex-shrink: 0;"></div>
                     `;
-                    row.querySelector('div').title = envVar;
-                    row.querySelector('div').textContent = envVar;
+            row.querySelector("div").title = envVar;
+            row.querySelector("div").textContent = envVar;
 
-                    const span = row.querySelector('.key-mask');
-                    span.dataset.env = envVar;
-                    span.dataset.svc = service;
-                    span.dataset.masked = masked;
-                    span.textContent = masked;
-                    span.addEventListener('focus', function () { toggleMask(this); });
-                    span.addEventListener('blur', function () { toggleMask(this); });
+            const span = row.querySelector(".key-mask");
+            span.dataset.env = envVar;
+            span.dataset.svc = service;
+            span.dataset.masked = masked;
+            span.textContent = masked;
+            span.addEventListener("focus", function () {
+              toggleMask(this);
+            });
+            span.addEventListener("blur", function () {
+              toggleMask(this);
+            });
 
-                    const btn = document.createElement('button');
-                    btn.className = 'btn btn-sm btn-danger';
-                    btn.textContent = '✕';
-                    btn.dataset.env = envVar;
-                    btn.dataset.svc = service;
-                    btn.addEventListener('click', function () {
-                        removeKey(this.dataset.env, this.dataset.svc);
-                    });
-                    row.querySelector('.key-actions').appendChild(btn);
+            const btn = document.createElement("button");
+            btn.className = "btn btn-sm btn-danger";
+            btn.textContent = "✕";
+            btn.dataset.env = envVar;
+            btn.dataset.svc = service;
+            btn.addEventListener("click", function () {
+              removeKey(this.dataset.env, this.dataset.svc);
+            });
+            row.querySelector(".key-actions").appendChild(btn);
 
-                    listEl.appendChild(row);
-                });
-            } else {
-                badgeEl.className = 'badge badge-off';
-                badgeEl.innerHTML = `<span class="dot"></span>No keys`;
-                listEl.innerHTML = '<div style="padding: 12px 14px; color: var(--text-3); font-size: 11px; text-align: center;">No keys saved</div>';
-            }
+            listEl.appendChild(row);
+          });
+        } else {
+          badgeEl.className = "badge badge-off";
+          badgeEl.innerHTML = `<span class="dot"></span>No keys`;
+          listEl.innerHTML =
+            '<div style="padding: 12px 14px; color: var(--text-3); font-size: 11px; text-align: center;">No keys saved</div>';
         }
+      }
 
-        function renderCustomKeys(keys) {
-            const listEl = document.getElementById('custom-key-list');
-            const badgeEl = document.getElementById('custom-badge');
-            listEl.innerHTML = '';
+      function renderCustomKeys(keys) {
+        const listEl = document.getElementById("custom-key-list");
+        const badgeEl = document.getElementById("custom-badge");
+        listEl.innerHTML = "";
 
-            if (keys.length > 0) {
-                badgeEl.className = 'badge badge-ok';
-                badgeEl.innerHTML = `<span class="dot"></span>${keys.length} key${keys.length > 1 ? 's' : ''}`;
-                keys.forEach(k => {
-                    const masked = k.masked || (k.key ? k.key.substring(0, 4) + '••••' + k.key.slice(-4) : '••••••••');
-                    const envVar = k.envVar || '';
-                    const row = document.createElement('div');
-                    row.className = 'key-existing';
-                    row.innerHTML = `
+        if (keys.length > 0) {
+          badgeEl.className = "badge badge-ok";
+          badgeEl.innerHTML = `<span class="dot"></span>${keys.length} key${keys.length > 1 ? "s" : ""}`;
+          keys.forEach((k) => {
+            const masked =
+              k.masked ||
+              (k.key
+                ? k.key.substring(0, 4) + "••••" + k.key.slice(-4)
+                : "••••••••");
+            const envVar = k.envVar || "";
+            const row = document.createElement("div");
+            row.className = "key-existing";
+            row.innerHTML = `
                         <div style="flex: 1; font-family: monospace; font-size: 11px; opacity: 0.8; user-select: text; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;"></div>
                         <span class="key-mask" tabindex="0" style="cursor: pointer; outline: none; margin-left: auto; text-align: right; overflow-x: auto; white-space: nowrap; max-width: 150px;" title="Double-click to toggle reveal"></span>
                         <div class="key-actions" style="margin-left: 8px; flex-shrink: 0;"></div>
                     `;
-                    row.querySelector('div').title = envVar;
-                    row.querySelector('div').textContent = envVar;
+            row.querySelector("div").title = envVar;
+            row.querySelector("div").textContent = envVar;
 
-                    const span = row.querySelector('.key-mask');
-                    span.dataset.env = envVar;
-                    span.dataset.svc = '';
-                    span.dataset.masked = masked;
-                    span.textContent = masked;
-                    span.addEventListener('focus', function () { toggleMask(this); });
-                    span.addEventListener('blur', function () { toggleMask(this); });
+            const span = row.querySelector(".key-mask");
+            span.dataset.env = envVar;
+            span.dataset.svc = "";
+            span.dataset.masked = masked;
+            span.textContent = masked;
+            span.addEventListener("focus", function () {
+              toggleMask(this);
+            });
+            span.addEventListener("blur", function () {
+              toggleMask(this);
+            });
 
-                    const btn = document.createElement('button');
-                    btn.className = 'btn btn-sm btn-danger';
-                    btn.textContent = '✕';
-                    btn.dataset.env = envVar;
-                    btn.addEventListener('click', function () {
-                        removeCustomKey(this.dataset.env);
-                    });
-                    row.querySelector('.key-actions').appendChild(btn);
+            const btn = document.createElement("button");
+            btn.className = "btn btn-sm btn-danger";
+            btn.textContent = "✕";
+            btn.dataset.env = envVar;
+            btn.addEventListener("click", function () {
+              removeCustomKey(this.dataset.env);
+            });
+            row.querySelector(".key-actions").appendChild(btn);
 
-                    listEl.appendChild(row);
-                });
+            listEl.appendChild(row);
+          });
+        } else {
+          badgeEl.className = "badge badge-off";
+          badgeEl.innerHTML = `<span class="dot"></span>No keys`;
+          listEl.innerHTML =
+            '<div style="padding: 12px 14px; color: var(--text-3); font-size: 11px; text-align: center;">No keys saved</div>';
+        }
+      }
+
+      async function toggleMask(el) {
+        if (el.dataset.revealed === "true") {
+          el.textContent = el.dataset.masked;
+          el.dataset.revealed = "false";
+        } else {
+          try {
+            const envVar = el.dataset.env || "";
+            const svc = el.dataset.svc || "";
+            const key = await api.getApiKey(envVar, svc);
+            if (key) {
+              el.textContent = key;
+              el.dataset.revealed = "true";
             } else {
-                badgeEl.className = 'badge badge-off';
-                badgeEl.innerHTML = `<span class="dot"></span>No keys`;
-                listEl.innerHTML = '<div style="padding: 12px 14px; color: var(--text-3); font-size: 11px; text-align: center;">No keys saved</div>';
+              toast.show("Failed to reveal key", "err");
             }
+          } catch (e) {
+            toast.show("Failed to reveal key", "err");
+          }
         }
+      }
 
-        async function toggleMask(el) {
-            if (el.dataset.revealed === 'true') {
-                el.textContent = el.dataset.masked;
-                el.dataset.revealed = 'false';
-            } else {
-                try {
-                    const envVar = el.dataset.env || '';
-                    const svc = el.dataset.svc || '';
-                    const key = await api.getApiKey(envVar, svc);
-                    if (key) {
-                        el.textContent = key;
-                        el.dataset.revealed = 'true';
-                    } else {
-                        toast.show('Failed to reveal key', 'err');
-                    }
-                } catch (e) {
-                    toast.show('Failed to reveal key', 'err');
-                }
+      async function addCustomKey() {
+        const nameInput = document.getElementById("custom-svc-name");
+        const valInput = document.getElementById("custom-input");
+        const envVar = nameInput.value
+          .trim()
+          .toUpperCase()
+          .replace(/[^A-Z0-9_]/g, "");
+        const key = valInput.value.trim();
+
+        if (!envVar || !key) {
+          toast.show("Service name and key required", "err");
+          return;
+        }
+        try {
+          await api.addCustomKey(envVar, key);
+          nameInput.value = "";
+          valInput.value = "";
+          toast.show("Custom key added", "ok");
+          loadKeys();
+        } catch (e) {
+          toast.show("Failed to add custom key", "err");
+        }
+      }
+
+      async function removeCustomKey(envVar) {
+        if (!confirm(`Remove key ${envVar}?`)) return;
+        try {
+          await api.removeApiKey(envVar);
+          toast.show("Key removed", "ok");
+          loadKeys();
+        } catch (e) {
+          toast.show("Failed to remove custom key", "err");
+        }
+      }
+
+      async function addKey(service) {
+        const input = document.getElementById(service + "-input");
+        const key = input.value.trim();
+        if (!key) return;
+        try {
+          await api.addApiKey(service, key);
+          input.value = "";
+          toast.show("Key added", "ok");
+          loadKeys();
+        } catch (e) {
+          toast.show("Failed to add key", "err");
+        }
+      }
+
+      async function removeKey(envVar, service) {
+        if (!confirm("Remove this API key?")) return;
+        try {
+          await api.removeApiKey(envVar);
+          toast.show("Key removed", "ok");
+          loadKeys();
+        } catch (e) {
+          toast.show("Failed to remove key", "err");
+        }
+      }
+
+      // Parses all [action:] or [step:] tags from a raw actions string into
+      // { skill, label } objects, skipping internal meta skills.
+      // Prefers the LLM-authored label: param; falls back to camelCase split.
+      const INTERNAL_CMD_SKILLS = new Set([
+        "setMemory",
+        "getMemory",
+        "listen",
+        "saveCommand",
+        "removeCommand",
+        "listCommands",
+        "getChatHistory",
+      ]);
+      function parseCommandSteps(actionsStr) {
+        const steps = [];
+        const re = /\[(?:action|step):\s*([^,\]]+)([^\]]*?)\]/gi;
+        let m;
+        while ((m = re.exec(actionsStr || "")) !== null) {
+          const skill = m[1].trim();
+          if (INTERNAL_CMD_SKILLS.has(skill)) continue;
+          const paramStr = m[2] || "";
+          // Prefer the LLM-authored label: field — it's the natural sentence
+          const labelMatch = paramStr.match(/,\s*label:\s*([^,\]]+)/);
+          const label = labelMatch
+            ? labelMatch[1].trim()
+            : skill.replace(/([A-Z])/g, " $1").trim();
+          steps.push({ skill, label });
+        }
+        return steps;
+      }
+
+      // ── Memory ─────────────────────────────────────────────
+
+      async function loadMemory() {
+        try {
+          const allData = await api.getAllMemory();
+          const memBuckets = ["preferences", "context", "aliases", "history"];
+
+          for (const bucket of memBuckets) {
+            const container = document.getElementById(`mem-content-${bucket}`);
+            if (!container) continue;
+            container.innerHTML = "";
+
+            const entries = allData[bucket] || {};
+            let keys = Object.keys(entries);
+
+            // Filter out internal keys for accurate counting
+            if (bucket === "aliases") {
+              keys = keys.filter(
+                (k) => k !== "pluginStates" && k !== "customCommands",
+              );
             }
-        }
 
-        async function addCustomKey() {
-            const nameInput = document.getElementById('custom-svc-name');
-            const valInput = document.getElementById('custom-input');
-            const envVar = nameInput.value.trim().toUpperCase().replace(/[^A-Z0-9_]/g, '');
-            const key = valInput.value.trim();
-
-            if (!envVar || !key) {
-                toast.show('Service name and key required', 'err');
-                return;
-            }
-            try {
-                await api.addCustomKey(envVar, key);
-                nameInput.value = '';
-                valInput.value = '';
-                toast.show('Custom key added', 'ok');
-                loadKeys();
-            } catch (e) { toast.show('Failed to add custom key', 'err'); }
-        }
-
-        async function removeCustomKey(envVar) {
-            if (!confirm(`Remove key ${envVar}?`)) return;
-            try {
-                await api.removeApiKey(envVar);
-                toast.show('Key removed', 'ok');
-                loadKeys();
-            } catch (e) { toast.show('Failed to remove custom key', 'err'); }
-        }
-
-        async function addKey(service) {
-            const input = document.getElementById(service + '-input');
-            const key = input.value.trim();
-            if (!key) return;
-            try {
-                await api.addApiKey(service, key);
-                input.value = '';
-                toast.show('Key added', 'ok');
-                loadKeys();
-            } catch (e) {
-                toast.show('Failed to add key', 'err');
-            }
-        }
-
-
-
-        async function removeKey(envVar, service) {
-            if (!confirm('Remove this API key?')) return;
-            try {
-                await api.removeApiKey(envVar);
-                toast.show('Key removed', 'ok');
-                loadKeys();
-            } catch (e) {
-                toast.show('Failed to remove key', 'err');
-            }
-        }
-
-        // ── Memory ─────────────────────────────────────────────
-
-        async function loadMemory() {
-            try {
-                const allData = await api.getAllMemory();
-                const memBuckets = ['preferences', 'context', 'aliases', 'history'];
-
-                for (const bucket of memBuckets) {
-                    const container = document.getElementById(`mem-content-${bucket}`);
-                    if (!container) continue;
-                    container.innerHTML = '';
-
-                    const entries = allData[bucket] || {};
-                    let keys = Object.keys(entries);
-
-                    // Filter out internal keys for accurate counting
-                    if (bucket === 'aliases') {
-                        keys = keys.filter(k => k !== 'pluginStates' && k !== 'customCommands');
-                    }
-
-                    const head = document.createElement('div');
-                    head.className = 'bucket-head';
-                    head.innerHTML = `
-            <span class="bucket-name" style="font-size: 13.5px; opacity: 0.9;">${keys.length} item${keys.length !== 1 ? 's' : ''}</span>
+            const head = document.createElement("div");
+            head.className = "bucket-head";
+            head.innerHTML = `
+            <span class="bucket-name" style="font-size: 13.5px; opacity: 0.9;"></span>
             <div>
-                ${keys.length > 0 ? `<button class="btn btn-sm btn-danger" onclick="clearBucket('${bucket}')">Clear All</button>` : ''}
+                ${keys.length > 0 ? `<button class="btn btn-sm btn-danger" onclick="clearBucket('${bucket}')">Clear All</button>` : ""}
             </div>
                     `;
-                    container.appendChild(head);
+            container.appendChild(head);
 
-                    if (keys.length > 0) {
-                        const body = document.createElement('div');
-                        body.className = 'bucket-body';
+            if (keys.length > 0) {
+              const body = document.createElement("div");
+              body.className = "bucket-body";
 
-                        if (bucket === 'history') {
-                            renderHistoryBucket(body, entries);
-                        } else {
-                            for (const key of keys) {
-                                // Hide internal Venesa keys from the UI
-                                if (bucket === 'aliases' && (key === 'pluginStates' || key === 'customCommands')) {
-                                    continue;
-                                }
+              if (bucket === "history") {
+                renderHistoryBucket(body, entries);
+              } else {
+                for (const key of keys) {
+                  // Hide internal Venesa keys from the UI
+                  if (
+                    bucket === "aliases" &&
+                    (key === "pluginStates" || key === "customCommands")
+                  ) {
+                    continue;
+                  }
 
-                                const val = entries[key];
-                                const row = document.createElement('div');
-                                row.className = 'mem-row';
-                                const displayVal = typeof val === 'object' ? JSON.stringify(val) : String(val);
-                                row.innerHTML = `
+                  const val = entries[key];
+                  const row = document.createElement("div");
+                  row.className = "mem-row";
+                  const displayVal =
+                    typeof val === "object" ? JSON.stringify(val) : String(val);
+                  row.innerHTML = `
                                     <span class="mem-key">${escapeHtml(key)}</span>
                                     <span class="mem-val">${escapeHtml(displayVal)}</span>
                                 `;
-                                const delBtn = document.createElement('button');
-                                delBtn.className = 'mem-del';
-                                delBtn.title = 'Delete';
-                                delBtn.textContent = '✕';
-                                delBtn.dataset.bucket = bucket;
-                                delBtn.dataset.key = key;
-                                delBtn.addEventListener('click', function () {
-                                    deleteEntry(this.dataset.bucket, this.dataset.key);
-                                });
-                                row.appendChild(delBtn);
-                                body.appendChild(row);
-                            }
-                        }
-                        container.appendChild(body);
-                    } else {
-                        const empty = document.createElement('div');
-                        empty.className = 'empty';
-                        empty.textContent = 'No entries in this category';
-                        container.appendChild(empty);
-                    }
+                  const delBtn = document.createElement("button");
+                  delBtn.className = "mem-del";
+                  delBtn.title = "Delete";
+                  delBtn.textContent = "✕";
+                  delBtn.dataset.bucket = bucket;
+                  delBtn.dataset.key = key;
+                  delBtn.addEventListener("click", function () {
+                    deleteEntry(this.dataset.bucket, this.dataset.key);
+                  });
+                  row.appendChild(delBtn);
+                  body.appendChild(row);
                 }
-            } catch (e) {
-                toast.show('Failed to load memory', 'err');
+              }
+              container.appendChild(body);
+            } else {
+              // For aliases, the section below handles the empty state
+              if (bucket !== "aliases") {
+                const empty = document.createElement("div");
+                empty.className = "empty";
+                empty.textContent = "No entries in this category";
+                container.appendChild(empty);
+              }
             }
-        }
 
-        function renderHistoryBucket(body, entries) {
-            const recent = entries.recent;
-            if (Array.isArray(recent) && recent.length > 0) {
-                recent.slice().reverse().forEach((h, i) => {
-                    if (!h) return;
-                    const row = document.createElement('div');
-                    row.className = 'hist-row';
-                    row.innerHTML = `
-                    <div class="hist-q">${escapeHtml(h.q || '?')}</div>
-                    <span class="hist-a">${escapeHtml(h.a || '')}</span>
-        `;
-                    body.appendChild(row);
+            // ── Aliases / Custom Commands inside Aliases tab ──
+            if (bucket === "aliases") {
+              const cmds = entries.customCommands;
+              const cmdSection = document.createElement("div");
+              cmdSection.style.cssText = "margin-top:4px;";
+
+              if (!cmds || cmds.length === 0) {
+                const emptyCmd = document.createElement("div");
+                emptyCmd.className = "empty";
+                emptyCmd.style.cssText = "padding:12px 14px;font-size:11px;";
+                emptyCmd.innerHTML =
+                  'No saved aliases yet.<br><span style="opacity:0.6;">Tell Venesa: <em>"From now on when I say X do Y"</em></span>';
+                cmdSection.appendChild(emptyCmd);
+              } else {
+                const cmdCard = document.createElement("div");
+                cmdCard.className = "card";
+                cmdCard.style.cssText = "padding:0;";
+
+                cmds.forEach((cmd) => {
+                  // Parse steps with natural language labels
+                  let steps = [];
+                  try {
+                    const actStr =
+                      typeof cmd.actions === "string"
+                        ? cmd.actions
+                        : JSON.stringify(cmd.actions || "");
+                    steps = parseCommandSteps(actStr);
+                  } catch (_) {}
+
+                  // Build step timeline (always visible — no toggle needed)
+                  let stepsHtml = "";
+                  if (steps.length > 0) {
+                    const dots = steps
+                      .map(
+                        (s) => `
+                      <div class="plan-step">
+                        <div class="plan-step-dot"></div>
+                        <div class="plan-step-body"><span class="plan-step-name">${escapeHtml(s.label)}</span></div>
+                      </div>`,
+                      )
+                      .join("");
+                    stepsHtml = `<div class="plan-timeline visible" style="margin-top:6px;">${dots}</div>`;
+                  }
+
+                  const cmdRow = document.createElement("div");
+                  cmdRow.className = "hist-row";
+                  cmdRow.style.cssText = "padding:10px 14px;";
+                  cmdRow.innerHTML = `
+                    <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px;">
+                      <div class="hist-q" style="font-family:'Cascadia Code','Consolas',monospace;font-size:12.5px;">&ldquo;${escapeHtml(cmd.trigger)}&rdquo;</div>
+                      <button class="hist-del" style="position:static;opacity:0;flex-shrink:0;padding:0 2px;" data-trigger="${escapeHtml(cmd.trigger)}" onclick="deleteCustomCommand(this.dataset.trigger)">&#10005;</button>
+                    </div>
+                    ${stepsHtml}
+                  `;
+                  cmdRow.addEventListener(
+                    "mouseenter",
+                    () =>
+                      (cmdRow.querySelector(".hist-del").style.opacity = "1"),
+                  );
+                  cmdRow.addEventListener(
+                    "mouseleave",
+                    () =>
+                      (cmdRow.querySelector(".hist-del").style.opacity = "0"),
+                  );
+                  cmdCard.appendChild(cmdRow);
                 });
+                cmdSection.appendChild(cmdCard);
+              }
+              container.appendChild(cmdSection);
             }
-            // Show interaction count
-            if (entries.interactionCount) {
-                const info = document.createElement('div');
-                info.style.cssText = 'padding:8px 0;font-size:11px;color:var(--text-3)';
-                info.textContent = `Total interactions: ${entries.interactionCount} `;
-                body.appendChild(info);
-            }
+          }
+        } catch (e) {
+          toast.show("Failed to load memory", "err");
         }
+      }
 
-        async function deleteEntry(bucket, key) {
-            if (!confirm(`Delete "${key}" from ${bucket}?`)) return;
-            try {
-                await api.removeMemoryEntry(bucket, key);
-                toast.show('Entry deleted', 'ok');
-                loadMemory();
-            } catch (e) {
-                toast.show('Failed to delete', 'err');
-            }
+      function renderHistoryBucket(body, entries) {
+        const recent = entries.recent;
+        if (Array.isArray(recent) && recent.length > 0) {
+          recent
+            .slice()
+            .reverse()
+            .forEach((h, i) => {
+              if (!h) return;
+
+              let queryText = h.q || "?";
+              const userSaidMatch = queryText.match(/User said:\s*"([^"]+)"/i);
+              if (userSaidMatch) {
+                queryText = userSaidMatch[1];
+              } else {
+                queryText = queryText
+                  .split("INSTRUCTION:")[0]
+                  .replace(/\[CONTEXT:.*?\]/gi, "")
+                  .trim();
+              }
+
+              // Use raw response (h.r) for tag parsing when available; fallback to display text (h.a)
+              let answerText = h.r || h.a || "";
+
+              // Filter out internal/invisible actions
+              const INTERNAL_ACTIONS = new Set([
+                "setMemory",
+                "getMemory",
+                "listen",
+                "saveCommand",
+                "removeCommand",
+                "listCommands",
+                "getChatHistory",
+              ]);
+
+              // Extract [plan] block steps for collapsible timeline
+              let planSteps = [];
+              const planMatch = answerText.match(
+                /\[plan\]([\s\S]*?)\[\/plan\]/i,
+              );
+              if (planMatch) {
+                const planBody = planMatch[1];
+                const stepRe = /\[step:\s*([^,\]]+)([^\]]*?)\]/gi;
+                let sm;
+                while ((sm = stepRe.exec(planBody)) !== null) {
+                  const skillName = sm[1].trim();
+                  if (!INTERNAL_ACTIONS.has(skillName)) {
+                    const paramStr = (sm[2] || "")
+                      .replace(/,?\s*marker:\s*\S+/gi, "")
+                      .trim();
+                    // Prefer LLM-authored label: field for natural sentences
+                    const labelMatch = paramStr.match(
+                      /,?\s*label:\s*([^,\]]+)/,
+                    );
+                    const display = labelMatch
+                      ? labelMatch[1].trim()
+                      : skillName.replace(/([A-Z])/g, " $1").trim();
+                    planSteps.push({ skill: skillName, display });
+                  }
+                }
+              }
+
+              // Standalone [action:] badges, deduplicated
+              const seenBadges = new Set();
+              const badges = [];
+              const tagRegex = /\[action:\s*([^,\]]+)[^\]]*\]/gi;
+              let match;
+              while ((match = tagRegex.exec(answerText)) !== null) {
+                const name = match[1].trim();
+                if (!INTERNAL_ACTIONS.has(name) && !seenBadges.has(name)) {
+                  seenBadges.add(name);
+                  badges.push(name);
+                }
+              }
+
+              const speakMatch = answerText.match(
+                /\[speak\]([\s\S]*?)\[\/speak\]/i,
+              );
+              let cleanText = "";
+              if (speakMatch) {
+                cleanText = speakMatch[1].trim();
+              } else {
+                cleanText = answerText
+                  .replace(/\[silent\]([\s\S]*?)\[\/silent\]/gi, "")
+                  .replace(/\[plan\]([\s\S]*?)\[\/plan\]/gi, "")
+                  .replace(/\[ui\]([\s\S]*?)\[\/ui\]/gi, "")
+                  .replace(/\[ui:[^\]]*\]/gi, "")
+                  .replace(/\[action:[^\]]*\]/gi, "")
+                  .replace(/\[step:[^\]]*\]/gi, "")
+                  .trim();
+              }
+
+              // Build plan timeline HTML
+              let planHtml = "";
+              if (planSteps.length > 0) {
+                const collapseId = `plan-${i}`;
+                const stepsHtml = planSteps
+                  .map(
+                    (s) => `
+                  <div class="plan-step">
+                    <div class="plan-step-dot"></div>
+                    <div class="plan-step-body">
+                      <span class="plan-step-name">${escapeHtml(s.display)}</span>
+                    </div>
+                  </div>`,
+                  )
+                  .join("");
+                planHtml = `
+                  <div class="plan-toggle" onclick="this.classList.toggle('open');document.getElementById('${collapseId}').classList.toggle('visible');">
+                    <span class="plan-toggle-icon">&#9654;</span>
+                    <span>${planSteps.length} step${planSteps.length !== 1 ? "s" : ""}</span>
+                  </div>
+                  <div class="plan-timeline" id="${collapseId}">${stepsHtml}</div>`;
+              }
+
+              let badgeHtml = "";
+              if (badges.length > 0 && planSteps.length === 0) {
+                badgeHtml =
+                  '<div style="margin-top:6px; display:flex; gap:6px; flex-wrap:wrap;">' +
+                  badges
+                    .map(
+                      (b) =>
+                        `<span class="badge" style="background:rgba(255,255,255,0.08);border:1px solid var(--border);color:var(--text-1);font-size:10px;padding:3px 8px;">&#9670; ${escapeHtml(b.replace(/([A-Z])/g, " $1").trim())}</span>`,
+                    )
+                    .join("") +
+                  "</div>";
+              }
+
+              const row = document.createElement("div");
+              row.className = "hist-row";
+              row.innerHTML = `
+                    <div class="hist-q">${escapeHtml(queryText || "?")}</div>
+                    <span class="hist-a" style="white-space:normal; overflow:visible; display:block; padding-top:2px; font-size:11.5px; color:var(--text-2);">${escapeHtml(cleanText || "")}</span>
+                    ${planHtml}
+                    ${badgeHtml}
+        `;
+              body.appendChild(row);
+            });
         }
-
-        async function clearBucket(bucket) {
-            if (!confirm(`Clear all entries in "${bucket}" ? `)) return;
-            try {
-                await api.clearMemoryBucket(bucket);
-                toast.show(`${bucket} cleared`, 'ok');
-                loadMemory();
-            } catch (e) {
-                toast.show('Failed to clear', 'err');
-            }
+        // Show interaction count
+        if (entries.interactionCount) {
+          const info = document.createElement("div");
+          info.style.cssText =
+            "padding:8px 0;font-size:11px;color:var(--text-3)";
+          info.textContent = `Total interactions: ${entries.interactionCount} `;
+          body.appendChild(info);
         }
+      }
 
-        // ── Skills & Plugins ───────────────────────────────────
+      async function deleteEntry(bucket, key) {
+        if (!confirm(`Delete "${key}" from ${bucket}?`)) return;
+        try {
+          await api.removeMemoryEntry(bucket, key);
+          toast.show("Entry deleted", "ok");
+          loadMemory();
+        } catch (e) {
+          toast.show("Failed to delete", "err");
+        }
+      }
 
-        async function loadSkills() {
+      async function clearBucket(bucket) {
+        if (!confirm(`Clear all entries in "${bucket}" ? `)) return;
+        try {
+          await api.clearMemoryBucket(bucket);
+          toast.show(`${bucket} cleared`, "ok");
+          loadMemory();
+        } catch (e) {
+          toast.show("Failed to clear", "err");
+        }
+      }
+
+      // ── Custom Commands ────────────────────────────────────
+
+      async function loadCustomCommands() {
+        const container = document.getElementById("custom-commands-list");
+        if (!container) return;
+        container.innerHTML = "";
+
+        try {
+          const cmds = await api.getCustomCommands();
+
+          if (!cmds || cmds.length === 0) {
+            container.innerHTML =
+              '<div class="empty" style="padding:20px;">No custom commands saved yet.<br><span style="font-size:10.5px;margin-top:4px;display:block;">Tell Venesa: <em>"From now on when I say X do Y"</em></span></div>';
+            return;
+          }
+
+          const header = document.createElement("div");
+          header.style.cssText =
+            "display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border-bottom:1px solid var(--border);";
+          header.innerHTML = `<span style="font-size:11px;color:var(--text-3);font-weight:600;text-transform:uppercase;letter-spacing:0.06em;">${cmds.length} command${cmds.length !== 1 ? "s" : ""}</span>`;
+          container.appendChild(header);
+
+          cmds.forEach((cmd) => {
+            let actionsPreview = "";
             try {
-                // Core skills (read-only)
-                const skills = await api.getBuiltinSkills();
-                const skillsList = document.getElementById('skills-list');
-                skillsList.innerHTML = '';
+              const actStr =
+                typeof cmd.actions === "string"
+                  ? cmd.actions
+                  : JSON.stringify(cmd.actions);
+              const stepMatches = [
+                ...actStr.matchAll(/\[(?:action|step):\s*([^,\]]+)/gi),
+              ];
+              if (stepMatches.length > 0) {
+                actionsPreview = stepMatches.map((m) => m[1].trim()).join(", ");
+              } else {
+                actionsPreview =
+                  actStr.substring(0, 60) + (actStr.length > 60 ? "…" : "");
+              }
+            } catch (_) {
+              actionsPreview = String(cmd.actions || "");
+            }
 
-                if (Array.isArray(skills) && skills.length > 0) {
-                    skills.forEach(s => {
-                        const row = document.createElement('div');
-                        row.className = 'skill-row';
-                        row.innerHTML = `
+            const row = document.createElement("div");
+            row.className = "row";
+            row.innerHTML = `
+              <div class="row-info" style="flex:1;min-width:0;">
+                <div class="row-label" style="font-family:'Cascadia Code','Consolas',monospace;font-size:12.5px;">"${escapeHtml(cmd.trigger)}"</div>
+                <div class="row-sub" style="margin-top:2px;font-size:10.5px;">${escapeHtml(actionsPreview)}</div>
+                ${cmd.description ? `<div class="row-sub" style="margin-top:1px;color:var(--text-2);font-size:10.5px;">${escapeHtml(cmd.description)}</div>` : ""}
+              </div>
+              <button class="btn btn-sm btn-danger" data-trigger="${escapeHtml(cmd.trigger)}" onclick="deleteCustomCommand(this.dataset.trigger)">Delete</button>
+            `;
+            container.appendChild(row);
+          });
+        } catch (e) {
+          container.innerHTML =
+            '<div class="empty">Failed to load commands</div>';
+        }
+      }
+
+      async function deleteCustomCommand(trigger) {
+        if (!confirm(`Delete command "${trigger}"?`)) return;
+        try {
+          const r = await api.deleteCustomCommand(trigger);
+          if (r && r.success) {
+            toast.show("Command deleted", "ok");
+          } else {
+            toast.show(r?.error || "Not found", "err");
+          }
+          loadMemory();
+        } catch (e) {
+          toast.show("Failed to delete command", "err");
+        }
+      }
+
+      // ── Skills & Plugins ───────────────────────────────────
+
+      async function loadSkills() {
+        try {
+          // Core skills (read-only)
+          const skills = await api.getBuiltinSkills();
+          const skillsList = document.getElementById("skills-list");
+          skillsList.innerHTML = "";
+
+          if (Array.isArray(skills) && skills.length > 0) {
+            skills.forEach((s) => {
+              const row = document.createElement("div");
+              row.className = "skill-row";
+              row.innerHTML = `
                             <div class="skill-icon"><svg viewBox="0 0 24 24"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" /></svg></div>
                 <div class="skill-info">
                     <div class="skill-name">${escapeHtml(s.name || s)}</div>
-                    ${s.description ? `<div class="skill-desc">${escapeHtml(s.description)}</div>` : ''}
+                    ${s.description ? `<div class="skill-desc">${escapeHtml(s.description)}</div>` : ""}
                 </div>
         `;
-                        skillsList.appendChild(row);
-                    });
-                } else {
-                    skillsList.innerHTML = '<div class="empty">No skills loaded</div>';
-                }
+              skillsList.appendChild(row);
+            });
+          } else {
+            skillsList.innerHTML = '<div class="empty">No skills loaded</div>';
+          }
 
-                // Plugins (with toggles)
-                const plugins = await api.getPlugins();
-                const pluginsList = document.getElementById('plugins-list');
-                pluginsList.innerHTML = '';
+          // Plugins (with toggles)
+          const plugins = await api.getPlugins();
+          const pluginsList = document.getElementById("plugins-list");
+          pluginsList.innerHTML = "";
 
-                if (Array.isArray(plugins) && plugins.length > 0) {
-                    plugins.forEach(p => {
-                        const row = document.createElement('div');
-                        row.className = 'skill-row';
-                        let isEnabled = true;
-                        if (p.enabled === false || p._enabled === false) {
-                            isEnabled = false;
-                        }
+          if (Array.isArray(plugins) && plugins.length > 0) {
+            plugins.forEach((p) => {
+              const row = document.createElement("div");
+              row.className = "skill-row";
+              const isEnabled = p.enabled !== false;
 
-                        row.innerHTML = `
-                            <div class="skill-icon" style="${!isEnabled ? 'opacity:0.4' : ''}"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" /><rect x="14" y="3" width="7" height="7" /><rect x="14" y="14" width="7" height="7" /><rect x="3" y="14" width="7" height="7" /></svg></div>
-                            <div class="skill-info" style="${!isEnabled ? 'opacity:0.5' : ''}">
+              row.innerHTML = `
+                            <div class="skill-icon" style="${!isEnabled ? "opacity:0.4" : ""}"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" /><rect x="14" y="3" width="7" height="7" /><rect x="14" y="14" width="7" height="7" /><rect x="3" y="14" width="7" height="7" /></svg></div>
+                            <div class="skill-info" style="${!isEnabled ? "opacity:0.5" : ""}">
                                 <div class="skill-name">${escapeHtml(p.name)}</div>
-                                ${p.description ? `<div class="skill-desc">${escapeHtml(p.description)}</div>` : ''}
+                                ${p.description ? `<div class="skill-desc">${escapeHtml(p.description)}</div>` : ""}
                             </div>
                             <label class="toggle" aria-label="Toggle ${escapeHtml(p.name)}">
-                                <input class="plugin-toggle" type="checkbox" ${isEnabled ? 'checked' : ''}>
+                                <input class="plugin-toggle" type="checkbox" ${isEnabled ? "checked" : ""}>
                                 <span class="toggle-track"></span>
                             </label>
         `;
-                        row.querySelector('.plugin-toggle').addEventListener('change', (event) => {
-                            togglePlugin(p.name, event.target.checked);
-                        });
-                        pluginsList.appendChild(row);
-                    });
-                } else {
-                    pluginsList.innerHTML = '<div class="empty">No plugins installed</div>';
-                }
-            } catch (e) {
-                document.getElementById('skills-list').innerHTML = '<div class="empty">Failed to load</div>';
-            }
+              row
+                .querySelector(".plugin-toggle")
+                .addEventListener("change", (event) => {
+                  togglePlugin(p.name, event.target.checked);
+                });
+              pluginsList.appendChild(row);
+            });
+          } else {
+            pluginsList.innerHTML =
+              '<div class="empty">No plugins installed</div>';
+          }
+        } catch (e) {
+          document.getElementById("skills-list").innerHTML =
+            '<div class="empty">Failed to load</div>';
         }
+      }
 
-        async function togglePlugin(name, enabled) {
-            try {
-                await api.togglePlugin(name, enabled);
-                toast.show(`${name} ${enabled ? 'enabled' : 'disabled'}`, 'ok');
-                loadSkills();
-            } catch (e) {
-                toast.show('Failed to toggle plugin', 'err');
-                loadSkills();
-            }
+      async function togglePlugin(name, enabled) {
+        try {
+          await api.togglePlugin(name, enabled);
+          toast.show(`${name} ${enabled ? "enabled" : "disabled"}`, "ok");
+          loadSkills();
+        } catch (e) {
+          toast.show("Failed to toggle plugin", "err");
+          loadSkills();
         }
+      }
 
-        // ── Factory Reset ──────────────────────────────────────
+      // ── Factory Reset ──────────────────────────────────────
 
-        async function factoryReset() {
-            if (!confirm('This will delete ALL data including API keys, memory, and settings. Are you sure?')) return;
-            if (!confirm('This action cannot be undone. Continue?')) return;
-            try {
-                await api.factoryReset();
-                toast.show('Factory reset complete', 'ok');
-                setTimeout(() => api.close(), 1500);
-            } catch (e) {
-                toast.show('Reset failed', 'err');
-            }
+      async function factoryReset() {
+        if (
+          !confirm(
+            "This will delete ALL data including memory and settings. API keys are retained. Are you sure?",
+          )
+        )
+          return;
+        if (!confirm("This action cannot be undone. Continue?")) return;
+        try {
+          await api.factoryReset();
+          toast.show("Factory reset complete", "ok");
+          setTimeout(() => api.close(), 1500);
+        } catch (e) {
+          toast.show("Reset failed", "err");
         }
+      }
 
-        // ── Init ───────────────────────────────────────────────
+      // ── Init ───────────────────────────────────────────────
 
-        loadSettings();
-        loadKeys();
+      loadSettings();
+      loadKeys();
     </script>
-</body>
-
+  </body>
 </html>

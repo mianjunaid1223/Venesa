@@ -20,6 +20,15 @@ module.exports = {
     marker: 'announce',
     ui: null,
 
+    examples: [
+
+        { user: 'take a screenshot', action: '[action: takeScreenshot]' },
+
+        { user: 'capture my screen', action: '[action: takeScreenshot]' },
+
+    ],
+
+
     async handler() {
         const picturesDir = path.join(HOME_DIR, 'Pictures', 'Screenshots');
 
@@ -29,6 +38,7 @@ module.exports = {
             }
         } catch (err) {
             logger.error(`[screenshot] Failed to create directory ${picturesDir}: ${err?.message ?? String(err)}`);
+            return JSON.stringify({ error: `Failed to create screenshot directory: ${err?.message ?? String(err)}` });
         }
 
         const screenshotPath = path.join(picturesDir, `screenshot_${Date.now()}.png`);
@@ -53,19 +63,31 @@ $graphics.CopyFromScreen($left, $top, 0, 0, (New-Object System.Drawing.Size($wid
 $bitmap.Save($SafePath, [System.Drawing.Imaging.ImageFormat]::Png)
 
 # Copy to clipboard via STA thread (Clipboard requires STA)
+# Clone the bitmap so the thread owns a separate copy and we can safely
+# dispose the original after saving without racing the clipboard write.
 $clipSuccess = $false
 try {
+    $bitmapClone = $bitmap.Clone()
     $thread = New-Object System.Threading.Thread([System.Threading.ThreadStart]{
-        [System.Windows.Forms.Clipboard]::SetImage($bitmap)
+        try {
+            [System.Windows.Forms.Clipboard]::SetImage($bitmapClone)
+            $script:clipSuccess = $true
+            $bitmapClone.Dispose()
+        } catch {
+            $script:clipSuccess = $false
+            try { $bitmapClone.Dispose() } catch { }
+        }
     })
     $thread.SetApartmentState([System.Threading.ApartmentState]::STA)
     $thread.Start()
-    $thread.Join(5000)
-    $clipSuccess = $true
+    $joined = $thread.Join(5000)
+    if (-not $joined) { $clipSuccess = $false }
 } catch {
     $clipSuccess = $false
 }
 
+# The original bitmap and graphics can be disposed immediately since
+# the thread works on a clone ($bitmapClone) that it disposes itself.
 $graphics.Dispose()
 $bitmap.Dispose()
 

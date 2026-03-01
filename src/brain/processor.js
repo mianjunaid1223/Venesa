@@ -69,7 +69,7 @@ function extractUiBlocks(text) {
  * @param {string} mode - 'text' or 'voice'
  * @returns {{ cleanResponse: string, results: Array, uiDirective: string|null, uiBlocks: string[] }}
  */
-async function processResponse(response, mode = 'text') {
+async function processResponse(response) {
     // 1. Extract [speak] block if present
     const { speakText, remainder, hasSpeak } = extractSpeakBlock(response);
 

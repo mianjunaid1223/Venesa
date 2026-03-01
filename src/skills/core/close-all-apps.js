@@ -18,9 +18,18 @@ module.exports = {
     marker: 'confirm',
     ui: null,
 
+    examples: [
+
+        { user: 'close all apps', action: '[action: closeAllApps]' },
+
+        { user: 'shut down everything', action: '[action: closeAllApps]' },
+
+    ],
+
+
     async handler() {
         const psScript = `
-$excluded = @('explorer', 'venesa', 'electron', 'powershell', 'pwsh', 'conhost', 'cmd', 'svchost', 'System', 'Idle', 'dwm', 'taskhostw', 'sihost', 'ctfmon', 'RuntimeBroker', 'ShellExperienceHost', 'StartMenuExperienceHost', 'SearchHost', 'TextInputHost', 'SecurityHealthTray', 'SystemSettings')
+$excluded = @('explorer', 'venesa', 'powershell', 'pwsh', 'conhost', 'cmd', 'svchost', 'System', 'Idle', 'dwm', 'taskhostw', 'sihost', 'ctfmon', 'RuntimeBroker', 'ShellExperienceHost', 'StartMenuExperienceHost', 'SearchHost', 'TextInputHost', 'SecurityHealthTray', 'SystemSettings')
 $procs = Get-Process | Where-Object { $_.MainWindowHandle -ne 0 -and $excluded -notcontains $_.ProcessName }
 $count = 0
 foreach ($p in $procs) {

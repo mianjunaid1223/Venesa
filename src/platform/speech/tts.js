@@ -67,6 +67,10 @@ async function synthesize(text) {
     const apiKey = keyPool.getNextKey('elevenlabs');
     if (!apiKey) throw new Error('No ElevenLabs API key available');
 
+    if (!servicesConfig || !servicesConfig.elevenlabs || !servicesConfig.elevenlabs.tts) {
+        throw new Error('ElevenLabs TTS configuration is missing or incomplete in services.config');
+    }
+
     const config = servicesConfig.elevenlabs.tts;
     const url = `${servicesConfig.elevenlabs.baseUrl}/text-to-speech/${config.voiceId}?output_format=${config.outputFormat}`;
 
@@ -111,7 +115,13 @@ async function synthesize(text) {
 async function synthesizeToDataURL(text) {
     const audioBuffer = await synthesize(text);
     const base64 = audioBuffer.toString('base64');
-    return `data:audio/mpeg;base64,${base64}`;
+    // Derive MIME type from the configured output format
+    const fmt = (servicesConfig?.elevenlabs?.tts?.outputFormat || '').toLowerCase();
+    let mimeType = 'audio/mpeg';
+    if (fmt.includes('wav') || fmt.includes('pcm')) mimeType = 'audio/wav';
+    else if (fmt.includes('ogg')) mimeType = 'audio/ogg';
+    else if (fmt.includes('flac')) mimeType = 'audio/flac';
+    return `data:${mimeType};base64,${base64}`;
 }
 
 async function transcribe(audioBuffer, options = {}) {

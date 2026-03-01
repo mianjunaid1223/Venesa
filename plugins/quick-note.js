@@ -47,6 +47,15 @@ module.exports = {
         index: z.number().optional().describe('Note index (for delete)'),
     }),
 
+    examples: [
+
+        { user: 'save a note buy groceries', action: '[action: quickNote, operation: add, text: buy groceries]' },
+
+        { user: 'show my notes', action: '[action: quickNote, operation: list]' },
+
+    ],
+
+
     handler(params) {
         const { operation, text, index } = params;
         const notes = getNotes();
@@ -59,7 +68,8 @@ module.exports = {
                     created: new Date().toISOString(),
                     id: Date.now(),
                 });
-                saveNotes(notes);
+                const saved = saveNotes(notes);
+                if (!saved) return JSON.stringify({ error: 'Failed to save note.' });
                 return JSON.stringify({ success: true, total: notes.length });
             }
 
@@ -78,10 +88,11 @@ module.exports = {
                 const lower = text.toLowerCase();
                 const results = [];
                 for (let i = 0; i < notes.length; i++) {
-                    if (notes[i].text.toLowerCase().includes(lower)) {
+                    const safeText = typeof notes[i].text === 'string' ? notes[i].text : String(notes[i].text || '');
+                    if (safeText.toLowerCase().includes(lower)) {
                         results.push({
                             index: i,
-                            text: notes[i].text,
+                            text: safeText,
                             date: new Date(notes[i].created).toLocaleDateString(),
                         });
                     }
@@ -90,17 +101,21 @@ module.exports = {
             }
 
             case 'delete': {
-                const idx = index ?? 0;
-                if (idx < 0 || idx >= notes.length) {
-                    return JSON.stringify({ error: `No note at index ${idx}.` });
+                if (index === undefined || index === null || typeof index !== 'number') {
+                    return JSON.stringify({ error: 'Explicit numeric index required for delete.' });
                 }
-                const removed = notes.splice(idx, 1)[0];
-                saveNotes(notes);
+                if (index < 0 || index >= notes.length) {
+                    return JSON.stringify({ error: `No note at index ${index}.` });
+                }
+                const removed = notes.splice(index, 1)[0];
+                const saved = saveNotes(notes);
+                if (!saved) return JSON.stringify({ error: 'Failed to save after delete.' });
                 return JSON.stringify({ success: true, deleted: removed.text });
             }
 
             case 'clear': {
-                saveNotes([]);
+                const saved = saveNotes([]);
+                if (!saved) return JSON.stringify({ success: false, message: 'Failed to clear notes.' });
                 return JSON.stringify({ success: true, message: 'All notes cleared.' });
             }
 

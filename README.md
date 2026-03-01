@@ -50,7 +50,6 @@ Example inputs:
 Every executed function features a visibility marker to control user interruption or feedback:
 - `silently`: Background execution with no output.
 - `announce`: Verbose execution announcing the result via TTS or text.
-- `ask`: Interrogative pause for user clarification.
 - `confirm`: Action lock requiring explicit permission before executing destructive system queries.
 
 ## Architecture Highlights

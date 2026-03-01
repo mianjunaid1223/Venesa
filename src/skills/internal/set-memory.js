@@ -22,6 +22,13 @@ module.exports = {
     marker: 'silently',
     ui: null,
 
+    examples: [
+
+        { user: '(internal) save user preference', action: '[action: setMemory, bucket: preferences, key: theme, value: dark]' },
+
+    ],
+
+
     handler(params) {
         const bucket = params.bucket;
         const key = params.key;
@@ -36,12 +43,16 @@ module.exports = {
             return JSON.stringify({ error: 'Missing key' });
         }
 
-        if (value === undefined || value === null || value === "") {
-            memory.remove(bucket, key);
-            return JSON.stringify({ success: true, action: 'removed', bucket, key });
-        }
+        try {
+            if (value === undefined || value === null || value === "") {
+                memory.remove(bucket, key);
+                return JSON.stringify({ success: true, action: 'removed', bucket, key });
+            }
 
-        memory.set(bucket, key, value);
-        return JSON.stringify({ success: true, action: 'saved', bucket, key });
+            memory.set(bucket, key, value);
+            return JSON.stringify({ success: true, action: 'saved', bucket, key });
+        } catch (err) {
+            return JSON.stringify({ success: false, error: err.message, bucket, key });
+        }
     },
 };

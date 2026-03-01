@@ -9,6 +9,7 @@ const { z } = require('zod');
 const { clipboard } = require('electron');
 
 const MAX_HISTORY = 25;
+const MAX_PINNED = 25;
 const history = [];
 const pinned = [];
 let lastContent = '';
@@ -37,9 +38,11 @@ function startPolling() {
 // Parse index — supports "P0" for pinned, numeric for history
 function parseIndex(idx) {
     if (typeof idx === 'string' && /^[Pp]\d+$/.test(idx)) {
-        return { source: 'pinned', num: parseInt(idx.substring(1), 10) };
+        const num = parseInt(idx.substring(1), 10);
+        return { source: 'pinned', num: Number.isFinite(num) ? num : 0 };
     }
-    return { source: 'history', num: typeof idx === 'number' ? idx : parseInt(idx || '0', 10) };
+    const num = typeof idx === 'number' ? idx : parseInt(idx || '0', 10);
+    return { source: 'history', num: Number.isFinite(num) ? num : 0 };
 }
 
 module.exports = {
@@ -65,6 +68,15 @@ module.exports = {
             }
         },
     },
+
+    examples: [
+
+        { user: 'show my clipboard history', action: '[action: clipboardHistory, operation: list]' },
+
+        { user: 'paste the second item from clipboard', action: '[action: clipboardHistory, operation: paste, index: 1]' },
+
+    ],
+
 
     handler(params) {
         const { operation, index, query } = params;
@@ -95,22 +107,32 @@ module.exports = {
                     return JSON.stringify({ error: `No ${source} item at index ${num}.` });
                 }
                 clipboard.writeText(arr[num].text);
+                lastContent = arr[num].text; // Prevent poller from re-adding as duplicate
                 return JSON.stringify({ success: true, pasted: arr[num].preview });
             }
 
             case 'pin': {
-                const idx = typeof index === 'number' ? index : parseInt(index || '0', 10);
-                if (idx < 0 || idx >= history.length) {
+                const { source, num: idx } = parseIndex(index ?? 0);
+                if (source !== 'history' || Number.isNaN(idx) || idx < 0 || idx >= history.length) {
                     return JSON.stringify({ error: `No history item at index ${idx}.` });
                 }
+                if (pinned.length >= MAX_PINNED) {
+                    return JSON.stringify({ error: `Pinned limit reached (${MAX_PINNED}). Unpin an item first.` });
+                }
                 const item = history.splice(idx, 1)[0];
+                if (!item) return JSON.stringify({ error: `No history item at index ${idx}.` });
                 pinned.push(item);
                 return JSON.stringify({ success: true, pinned: item.preview });
             }
 
             case 'unpin': {
-                const idx = typeof index === 'number' ? index : parseInt(index || '0', 10);
-                if (idx < 0 || idx >= pinned.length) {
+                // Strip leading P/p prefix if present before parsing
+                let rawIdx = index;
+                if (typeof rawIdx === 'string' && /^[Pp]/i.test(rawIdx)) {
+                    rawIdx = rawIdx.substring(1);
+                }
+                const idx = typeof rawIdx === 'number' ? rawIdx : parseInt(rawIdx || '0', 10);
+                if (!Number.isFinite(idx) || idx < 0 || idx >= pinned.length) {
                     return JSON.stringify({ error: `No pinned item at index ${idx}.` });
                 }
                 const unpinned = pinned.splice(idx, 1)[0];

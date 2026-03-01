@@ -23,41 +23,63 @@
         const log = (msg) => window.backgroundAudioApi.send('console-log', msg);
         const logError = (msg) => window.backgroundAudioApi.send('console-error', msg);
 
-        async function initializeVosk(modelUrl) {
+        // Wrap createModel with a hard timeout so it never hangs forever.
+        // vosk-browser's createModel rejects with `undefined` on failure which
+        // causes error.message to throw – we guard against that here.
+        function createModelWithTimeout(url, timeoutMs) {
+            return new Promise((resolve, reject) => {
+                let done = false;
+
+                const timer = setTimeout(() => {
+                    if (done) return;
+                    done = true;
+                    reject(new Error('Vosk model load timed out after ' + (timeoutMs / 1000) + 's'));
+                }, timeoutMs);
+
+                Vosk.createModel(url).then(
+                    (m) => { if (!done) { done = true; clearTimeout(timer); resolve(m); } },
+                    (err) => { if (!done) { done = true; clearTimeout(timer); reject(err instanceof Error ? err : new Error(String(err ?? 'Vosk createModel failed'))); } }
+                );
+            });
+        }
+
+        async function initializeVosk(modelUrl, attempt) {
+            attempt = attempt || 1;
+            const MAX_ATTEMPTS = 3;
             try {
-                // modelUrl is now an HTTP URL served by main process
-                log('Loading Vosk model from: ' + modelUrl);
+                log('Loading Vosk model (attempt ' + attempt + '/' + MAX_ATTEMPTS + '): ' + modelUrl);
 
                 if (!Vosk) {
-                    // In case it wasn't valid immediately, try to get it again or wait
                     Vosk = window.Vosk;
                     if (!Vosk && window.exports && window.exports.Vosk) Vosk = window.exports.Vosk;
                 }
 
-                if (!Vosk) {
-                    throw new Error('Vosk library not loaded properly');
-                }
+                if (!Vosk) throw new Error('Vosk library not loaded');
 
-                // Vosk.createModel expects a URL.
-                model = await Vosk.createModel(modelUrl);
+                log('WASM model init started — first run takes 20-40s, subsequent runs use disk cache...');
+                model = await createModelWithTimeout(modelUrl, 120000);
                 recognizer = new model.KaldiRecognizer(SAMPLE_RATE);
 
                 recognizer.on('result', (event) => {
-                    if (event.result && event.result.text) {
-                        checkWakeWord(event.result.text);
-                    }
+                    if (event.result && event.result.text) checkWakeWord(event.result.text);
                 });
-
                 recognizer.on('partialresult', (event) => {
-                    if (event.result && event.result.partial) {
-                        checkWakeWord(event.result.partial);
-                    }
+                    if (event.result && event.result.partial) checkWakeWord(event.result.partial);
                 });
 
-                log('Vosk model loaded');
+                log('Vosk model loaded and recognizer ready');
                 return true;
-            } catch (error) {
-                logError('Vosk init failed: ' + error.message);
+            } catch (err) {
+                // Safely extract message — err may be undefined (vosk-browser quirk)
+                const msg = (err && err.message) ? err.message : (err != null ? String(err) : 'unknown error');
+                logError('Vosk init failed (attempt ' + attempt + '): ' + msg);
+
+                if (attempt < MAX_ATTEMPTS) {
+                    const delay = attempt * 2000;
+                    log('Retrying Vosk init in ' + (delay / 1000) + 's...');
+                    await new Promise(r => setTimeout(r, delay));
+                    return initializeVosk(modelUrl, attempt + 1);
+                }
                 return false;
             }
         }
@@ -99,6 +121,13 @@
 
                 mediaStream = await navigator.mediaDevices.getUserMedia({
                     audio: { sampleRate: SAMPLE_RATE, channelCount: 1, echoCancellation: true, noiseSuppression: true }
+                }).catch(async (err) => {
+                    // If mic is still held by another context, wait and retry once
+                    logError('getUserMedia first attempt failed: ' + err.message + ' — retrying in 800ms');
+                    await new Promise(r => setTimeout(r, 800));
+                    return navigator.mediaDevices.getUserMedia({
+                        audio: { sampleRate: SAMPLE_RATE, channelCount: 1, echoCancellation: true, noiseSuppression: true }
+                    });
                 });
 
                 audioContext = new AudioContext({ sampleRate: SAMPLE_RATE });
@@ -157,15 +186,31 @@
         window.backgroundAudioApi.receive('resume-detection', async () => {
             isPaused = false;
             resumeCooldown = true; // Ignore detections for a short period after resume
-            if (recognizer) await startMic();
+            // Delay startMic to allow the voice window renderer to release the mic
+            // before we try to claim it. Without this delay, getUserMedia races with
+            // the voice window's stopListening() and fails silently, leaving the
+            // background window deaf until the next app restart.
+            await new Promise(r => setTimeout(r, 700));
+            // Guard: a pause-detection may have arrived during the delay
+            if (!isPaused && recognizer) {
+                await startMic();
+                log('Mic restarted after voice session');
+            }
             // Clear cooldown after 1 second to avoid false triggers from leftover audio
             setTimeout(() => { resumeCooldown = false; log('Detection cooldown ended'); }, 1000);
         });
 
         window.backgroundAudioApi.receive('model-path', async (modelPath) => {
-            if (await initializeVosk(modelPath)) {
-                await startMic();
-                window.backgroundAudioApi.send('background-audio-ready');
+            try {
+                const ok = await initializeVosk(modelPath);
+                if (ok) {
+                    await startMic();
+                    window.backgroundAudioApi.send('background-audio-ready');
+                } else {
+                    logError('Vosk failed all attempts — wake word detection unavailable. Restart the app to retry.');
+                }
+            } catch (fatalErr) {
+                logError('Fatal error during Vosk init: ' + String(fatalErr));
             }
         });
 

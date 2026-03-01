@@ -88,9 +88,9 @@ function loadSkillFile(filePath, source = 'core') {
         // Call lifecycle onLoad hook (supports async)
         if (skill.lifecycle?.onLoad) {
             try {
-                const result = skill.lifecycle.onLoad();
-                if (result && typeof result.catch === 'function') {
-                    result.catch(e => logger.warn(`Lifecycle onLoad (async) failed for '${skill.name}': ${e?.message ?? String(e)}`));
+                const hookResult = skill.lifecycle.onLoad();
+                if (hookResult && typeof hookResult.then === 'function') {
+                    hookResult.catch(e => logger.warn(`Lifecycle onLoad (async) failed for '${skill.name}': ${e?.message ?? String(e)}`));
                 }
             } catch (e) {
                 logger.warn(`Lifecycle onLoad failed for '${skill.name}': ${e?.message ?? String(e)}`);

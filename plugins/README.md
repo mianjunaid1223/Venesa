@@ -2,7 +2,7 @@
 
 ## The Unified Protocol Standard
 
-Venesa's internal reasoning logic treats both core features and community extensions uniformly via a strictly typed plugin standard. Every plugin must export a compliant dictionary interface. 
+Venesa's internal reasoning logic treats both core features and community extensions uniformly via a strictly typed plugin standard. Every plugin must export a compliant object (module.exports). 
 
 The architecture guarantees isolation; failed executions will be trapped and resolved cleanly by the orchestrator.
 
@@ -64,7 +64,7 @@ The `returnType` delineates to the LLM the behavioral path required post-executi
 | Type | Behavioral Model |
 | --- | --- |
 | `data` | The AI suspends process threads awaiting response structures before formulation. |
-| `action` | Dispatches instructions silently; confirms via predefined visibility markers. |
+| `action` | Dispatches instructions silently by default. When a visibility marker (`announce` or `confirm`) is set, confirmations or UI feedback are emitted; otherwise no user-facing output is produced. Returns confirmation metadata only when markers are present. |
 | `ui` | Forwards execution payload straight to the user-interface dispatcher. |
 | `memory` | Manipulates internal context variables without exposing events. |
 | `hybrid` | Execution response dictates adaptive behavior across the platform. |
@@ -83,4 +83,4 @@ All plugins live under the `/plugins/` structure.
 
 - A solitary file logic block: `/plugins/automation-feature.js`
 - Packaged multi-module structures: `/plugins/automation-feature/skill.js` (where `skill.js` serves as the target map).
-- Hidden logic elements (prefixed with `.` or `_`) run decoupled and will not index within the orchestrator loop.
+- Hidden logic elements (prefixed with `.` or `_`) are still loaded and executed by the system, but they are **not indexed** within the orchestrator loop. This means they will not appear in the AI's tool list and cannot be invoked by name through the orchestrator, though their side effects (e.g., lifecycle hooks) still run.

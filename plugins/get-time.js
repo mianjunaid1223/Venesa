@@ -16,6 +16,13 @@ module.exports = {
     marker: 'silently',
     ui: null,
 
+    examples: [
+
+        { user: 'what time is it', action: '[action: getTime]' },
+
+    ],
+
+
     handler() {
         const now = new Date();
         const timeStr = now.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });

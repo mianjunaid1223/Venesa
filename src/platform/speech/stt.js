@@ -58,11 +58,13 @@ function start(callback) {
 function stop() {
     isListening = false;
     isRecording = false;
+    isProcessingRecording = false;
     audioChunks = [];
     if (silenceTimer) {
         clearTimeout(silenceTimer);
         silenceTimer = null;
     }
+    onResultCallback = null;
     logger.info('STT listening stopped');
 }
 
@@ -133,7 +135,7 @@ async function processRecording() {
 
         if (cleanedText) {
             logger.info(`STT Transcript: "${rawTrimmed}"`);
-            if (onResultCallback) {
+            if (isListening && onResultCallback) {
                 onResultCallback('text', cleanedText); // Use cleaned text
             }
         } else if (rawTrimmed) {

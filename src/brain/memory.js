@@ -142,19 +142,6 @@ function getSummary() {
         sections.push(`### Aliases\n${items}`);
     }
 
-    // Recent history (trimmed)
-    const history = get('history') || {};
-    const recent = history.recent;
-    if (Array.isArray(recent) && recent.length > 0) {
-        const last5 = recent.slice(-5).map(h => {
-            if (!h) return '- <empty>';
-            const q = h.q || '?';
-            const a = h.a || '?';
-            return `- Q: ${q} | A: ${a}`;
-        }).join('\n');
-        sections.push(`### Recent Interactions\n${last5}`);
-    }
-
     // Personality summary (migrated from user-profile)
     if (ctx.personality) {
         sections.push(`### Personality Profile\n${ctx.personality}`);
@@ -167,11 +154,13 @@ function getSummary() {
 
 const MAX_INTERACTIONS = 30;
 
-function addInteraction(query, response) {
+function addInteraction(query, response, rawResponse) {
     get('history'); // ensure data.history is loaded
     if (!data.history) data.history = {};
     if (!Array.isArray(data.history.recent)) data.history.recent = [];
-    data.history.recent.push({ q: query, a: response, t: Date.now() });
+    const entry = { q: query, a: response, t: Date.now() };
+    if (rawResponse && rawResponse !== response) entry.r = rawResponse;
+    data.history.recent.push(entry);
     if (data.history.recent.length > MAX_INTERACTIONS) {
         data.history.recent = data.history.recent.slice(-MAX_INTERACTIONS);
     }

@@ -29,6 +29,59 @@ function resolveAndValidatePath(filePath) {
 }
 
 function register() {
+    // Spotlight search — execute a skill directly by name (same pipeline AI uses)
+    ipcMain.on('perform-action', async (event, payload) => {
+        try {
+            const { actionName, params } = payload || {};
+            if (!actionName) return;
+
+            // Ensure skills are loaded
+            try { require('../../skills/loader'); } catch (e) { /* already loaded */ }
+            const registry = require('../../skills/registry');
+
+            const skill = registry.get(actionName);
+            if (!skill || typeof skill.handler !== 'function') {
+                console.log(`[perform-action] Skill '${actionName}' not found. Available: ${registry.getAllNames().join(', ')}`);
+                if (!event.sender.isDestroyed()) {
+                    event.sender.send('action-result', JSON.stringify({ notFound: true }));
+                }
+                return;
+            }
+
+            if (skill._enabled === false) {
+                if (!event.sender.isDestroyed()) {
+                    event.sender.send('action-result', JSON.stringify({ error: `Plugin '${actionName}' is disabled.` }));
+                }
+                return;
+            }
+
+            // Validate params against schema if present
+            let validatedParams = params || {};
+            if (skill.schema && typeof skill.schema.parse === 'function') {
+                try {
+                    validatedParams = skill.schema.parse(params || {});
+                } catch (valErr) {
+                    console.log(`[perform-action] Schema validation failed for '${actionName}':`, valErr.message);
+                    if (!event.sender.isDestroyed()) {
+                        event.sender.send('action-result', JSON.stringify({ error: valErr.message }));
+                    }
+                    return;
+                }
+            }
+
+            const result = await skill.handler(validatedParams);
+            const resultStr = typeof result === 'string' ? result : JSON.stringify(result);
+            if (!event.sender.isDestroyed()) {
+                event.sender.send('action-result', resultStr);
+            }
+        } catch (err) {
+            console.error(`[perform-action] Error:`, err);
+            if (!event.sender.isDestroyed()) {
+                event.sender.send('action-result', JSON.stringify({ error: err.message }));
+            }
+        }
+    });
+
     ipcMain.on('launch-app', async (event, appInfo) => {
         try {
             if (appInfo.type === 'shortcut' && appInfo.path) {

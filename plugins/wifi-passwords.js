@@ -23,6 +23,13 @@ module.exports = {
         networkName: z.string().optional().describe('Specific WiFi network name, or empty for all'),
     }),
 
+    examples: [
+
+        { user: 'show saved wifi passwords', action: '[action: wifiPasswords]' },
+
+    ],
+
+
     async handler(params) {
         const { networkName } = params || {};
 
@@ -32,15 +39,14 @@ module.exports = {
             ? `
 param($NetName)
 $profile = netsh wlan show profile name="$NetName" key=clear 2>&1
-$keyLine = ($profile | Where-Object { $_ -match ':\\s' } | Where-Object { $_ -match 'Key Content|Contenu de la|Schlüsselinhalt|Contenido de la clave' }) -replace '.*:\\s*', ''
+$keyLine = ($profile | Where-Object { $_ -match ':\\s' } | Where-Object { $_ -match 'Key Content|Contenu de la|Schlüsselinhalt|Contenido de la clave|Clé de sécurité' }) -replace '.*:\\s*', ''
 if (-not $keyLine) {
-    $lines = $profile | Where-Object { $_ -match ':\\s' }
-    $keyLine = ($lines | Select-Object -Last 3 | Where-Object { ($_ -replace '.*:\\s*','').Trim().Length -gt 0 } | Select-Object -Last 1) -replace '.*:\\s*', ''
+    $keyLine = 'UNKNOWN'
 }
-if ($keyLine) {
-    @{ network = $NetName; password = $keyLine.Trim() } | ConvertTo-Json -Compress
+if ($keyLine -and $keyLine -ne 'UNKNOWN') {
+    @{ network = $NetName; hasPassword = $true; password = '***REDACTED***' } | ConvertTo-Json -Compress
 } else {
-    @{ network = $NetName; password = '(not found or open network)' } | ConvertTo-Json -Compress
+    @{ network = $NetName; hasPassword = $false; password = '(could not determine)' } | ConvertTo-Json -Compress
 }
 `
             : `
@@ -60,8 +66,9 @@ $profiles = $profiles | Where-Object { $_.Length -gt 1 -and $_ -notmatch 'Versio
 $results = @()
 foreach ($p in $profiles) {
     $detail = netsh wlan show profile name="$p" key=clear 2>&1
-    $key = ($detail | Where-Object { $_ -match 'Key Content|Contenu de la|Schlüsselinhalt|Contenido de la clave' }) -replace '.*:\\s*', ''
-    $results += @{ network = $p; password = if ($key) { $key.Trim() } else { '(open/enterprise)' } }
+    $key = ($detail | Where-Object { $_ -match 'Key Content|Contenu de la|Schlüsselinhalt|Contenido de la clave|Clé de sécurité' }) -replace '.*:\\s*', ''
+    if (-not $key) { $key = $null }
+    $results += @{ network = $p; hasPassword = [bool]$key; password = if ($key) { '***REDACTED***' } else { '(open/enterprise)' } }
 }
 if ($results.Count -eq 0) {
     '[]'

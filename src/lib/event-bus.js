@@ -62,7 +62,7 @@ class EventBus {
     }
 
     removeAllListeners(event) {
-        if (event) {
+        if (event !== undefined) {
             this._listeners.delete(event);
         } else {
             this._listeners.clear();

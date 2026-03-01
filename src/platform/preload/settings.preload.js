@@ -29,7 +29,12 @@ contextBridge.exposeInMainWorld('settingsApi', {
     getAllMemory: () => ipcRenderer.invoke('memory:get-all'),
     clearMemoryBucket: (bucket) => ipcRenderer.invoke('memory:clear-bucket', bucket),
     removeMemoryEntry: (bucket, key) => ipcRenderer.invoke('memory:delete-entry', bucket, key),
+    getCustomCommands: () => ipcRenderer.invoke('memory:get-custom-commands'),
+    deleteCustomCommand: (trigger) => ipcRenderer.invoke('memory:delete-custom-command', trigger),
     factoryReset: () => ipcRenderer.invoke('factory-reset'),
+
+    // About info
+    getAboutInfo: () => ipcRenderer.invoke('get-about-info'),
 
     // Profile
     getProfile: () => ipcRenderer.invoke('profile:get'),
@@ -53,11 +58,21 @@ contextBridge.exposeInMainWorld('settingsApi', {
     getBuiltinSkills: () => ipcRenderer.invoke('get-builtin-skills'),
     togglePlugin: (name, enabled) => ipcRenderer.invoke('toggle-plugin', name, enabled),
 
+    // Runtime versions (contextBridge safe)
+    versions: {
+        electron: process.versions.electron || '-',
+        node: process.versions.node || '-',
+        chrome: process.versions.chrome || '-',
+    },
+
     // Events
     receive: (channel, fn) => {
         const allowed = ['settings-saved', 'key-status-update'];
-        if (allowed.includes(channel)) {
-            ipcRenderer.on(channel, (_, data) => fn(data));
+        if (!allowed.includes(channel)) {
+            return () => {}; // no-op unsubscribe for disallowed channels
         }
+        const wrapper = (_, data) => fn(data);
+        ipcRenderer.on(channel, wrapper);
+        return () => ipcRenderer.removeListener(channel, wrapper);
     },
 });

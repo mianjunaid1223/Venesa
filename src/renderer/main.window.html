@@ -663,22 +663,66 @@
         .loader-wrapper {
             display: none;
             justify-content: center;
-            padding: 24px;
+            align-items: center;
+            gap: 14px;
+            padding: 22px 24px;
             opacity: 0;
-            animation: fadeIn 0.2s var(--ease-out) forwards;
+            animation: fadeIn 0.25s var(--ease-out) forwards;
         }
 
         .loader-wrapper.visible {
             display: flex;
         }
 
-        .loader {
-            width: 24px;
-            height: 24px;
-            border: 2px solid var(--border-subtle);
-            border-top-color: var(--accent);
+        /* Newton's Cradle loader */
+        .newtons-cradle {
+            --uib-size: 40px;
+            --uib-speed: 1.2s;
+            --uib-color: var(--primary);
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: var(--uib-size);
+            height: var(--uib-size);
+        }
+
+        .newtons-cradle__dot {
+            position: relative;
+            display: flex;
+            align-items: center;
+            height: calc(var(--uib-size) * 0.85);
+            width: calc(var(--uib-size) * 0.25);
+            transform-origin: center top;
+        }
+
+        .newtons-cradle__dot::after {
+            content: '';
+            display: block;
+            width: calc(var(--uib-size) * 0.2);
+            height: calc(var(--uib-size) * 0.2);
             border-radius: 50%;
-            animation: spin 0.7s linear infinite;
+            background-color: var(--uib-color);
+        }
+
+        .newtons-cradle__dot:first-child {
+            animation: nc-swing var(--uib-speed) linear infinite;
+        }
+
+        .newtons-cradle__dot:last-child {
+            animation: nc-swing2 var(--uib-speed) linear infinite;
+        }
+
+        @keyframes nc-swing {
+            0%   { transform: rotate(0deg);   animation-timing-function: ease-out; }
+            25%  { transform: rotate(70deg);  animation-timing-function: ease-in; }
+            50%  { transform: rotate(0deg);   animation-timing-function: linear; }
+        }
+
+        @keyframes nc-swing2 {
+            0%   { transform: rotate(0deg);   animation-timing-function: linear; }
+            50%  { transform: rotate(0deg);   animation-timing-function: ease-out; }
+            75%  { transform: rotate(-70deg); animation-timing-function: ease-in; }
         }
 
         @keyframes fadeIn {
@@ -1247,7 +1291,12 @@
 
         <div class="results-wrapper" id="resultsWrapper">
             <div class="loader-wrapper" id="loader">
-                <div class="loader"></div>
+                <div class="newtons-cradle">
+                    <div class="newtons-cradle__dot"></div>
+                    <div class="newtons-cradle__dot"></div>
+                    <div class="newtons-cradle__dot"></div>
+                    <div class="newtons-cradle__dot"></div>
+                </div>
             </div>
             <div id="results"></div>
             <div id="gemini-response"></div>
@@ -1517,7 +1566,7 @@
             recomputeBaseHeight();
         });
 
-        window.api.receive("focus-input", () => {
+        function resetWindowState() {
             clearTimeout(debounceTimer);
 
             selectedIndex = -1;
@@ -1548,7 +1597,17 @@
             searchStats.classList.remove("visible");
             resultsWrapper.classList.add("collapsed");
             closeGoogleSearch();
+        }
 
+        // Reset state when window is hidden so it's clean on next open (no blink)
+        document.addEventListener("visibilitychange", () => {
+            if (document.hidden) {
+                resetWindowState();
+            }
+        });
+
+        window.api.receive("focus-input", () => {
+            resetWindowState();
             searchInput.focus();
             recomputeBaseHeight();
             window.api.send("resize-window", getBaseHeight());
@@ -2173,7 +2232,6 @@
             loader.classList.remove('visible');
             loader.style.display = 'none';
             resultsDiv.innerHTML = '';
-            // Do not hide geminiResponse here so text + UI can be shown together
             noResults.style.display = 'none';
             resultsWrapper.classList.remove('collapsed');
             resultItems = [];
