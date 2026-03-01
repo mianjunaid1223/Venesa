@@ -43,6 +43,7 @@ const queryHandlers = require("./ipc/query-handlers");
 const voiceHandlers = require("./ipc/voice-handlers");
 const systemHandlers = require("./ipc/system-handlers");
 const actionHandlers = require("./ipc/action-handlers");
+const trayManager = require("./tray");
 
 function getAssetsPath() {
   if (app.isPackaged) {
@@ -154,6 +155,26 @@ app.whenReady().then(async () => {
   });
   actionHandlers.register();
 
+  // ── Tray icon ────────────────────────────────────────────────
+  const settingsWindow = require("./windows/settings-window");
+  trayManager.createTray({
+    showMain: () => {
+      const mw = mainWin.getWindow();
+      if (mw && !mw.isDestroyed()) {
+        mw.show();
+        mw.focus();
+      } else if (!llm.needsSetup()) {
+        llm.initializeAPI().then(() => createMainWindow()).catch(() => createMainWindow());
+      }
+    },
+    showVoice: async () => {
+      if (llm.needsSetup()) return;
+      await voiceHandlers.captureScreenForVoice();
+      showVoice();
+    },
+    showSettings: () => settingsWindow.toggle(),
+  });
+
   if (llm.needsSetup()) {
     setupWin.createSetupWindow();
   } else {
@@ -228,11 +249,11 @@ app.whenReady().then(async () => {
 });
 
 app.on("window-all-closed", () => {
-  if (process.platform !== "darwin") {
-    // Only quit if the main window is also gone (not just hidden)
-    const mw = mainWin.getWindow();
-    if (!mw || mw.isDestroyed()) {
-      app.quit();
-    }
-  }
+  // The tray icon keeps Venesa alive in the background even when all windows
+  // are closed. The user can quit explicitly via the tray context menu.
+  // On macOS the app conventionally stays open until Cmd+Q regardless.
+});
+
+app.on("before-quit", () => {
+  trayManager.destroyTray();
 });
