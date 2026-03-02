@@ -5,120 +5,210 @@
 </p>
 
 <p align="center">
-  <strong>Venesa: An autonomous, programmable AI platform for Windows that seamlessly transforms natural language into executable system workflows.</strong>
+  <strong>An autonomous, programmable AI platform for Windows that transforms natural language into executable system workflows.</strong>
 </p>
 
 <p align="center">
   <img src="https://img.shields.io/badge/Platform-Windows%2010%2B-0078D6?logo=windows" alt="Platform" />
   <img src="https://img.shields.io/badge/Electron-28.0-47848F?logo=electron" alt="Electron" />
   <img src="https://img.shields.io/badge/Model-Gemini%202.5-4285F4?logo=google" alt="Gemini" />
-  <img src="https://img.shields.io/badge/Speech-ElevenLabs-5436DA" alt="ElevenLabs" />
+  <img src="https://img.shields.io/badge/STT-ElevenLabs%20Scribe-5436DA" alt="ElevenLabs Scribe" />
+  <img src="https://img.shields.io/badge/TTS-ElevenLabs%20Flash%20v2.5-5436DA" alt="ElevenLabs TTS" />
+  <img src="https://img.shields.io/badge/Wake--Word-Vosk-orange" alt="Vosk" />
   <img src="https://img.shields.io/badge/License-MIT-green" alt="License" />
 </p>
 
-## Overview
+---
 
-Venesa is an advanced desktop intelligence engine for Windows that bridges the gap between natural language understanding and system-level execution. It operates through an autonomous pipeline that listens, formulates multi-step execution plans, and executes local system tasks without requiring strict procedural inputs. 
+## What is Venesa?
 
-Users can invoke the assistant system-wide via a customizable wake word or a global hotkey (`Alt+Space`).
+Venesa is a desktop AI assistant for Windows built on a fundamentally different premise than most voice assistants or chatbots. It does not treat the AI as a conversational interface — it treats the AI as an **execution engine**. When you ask Venesa to do something, the language model formulates a structured plan and the platform executes it as real system operations: launching apps, managing files, controlling settings, running scripts, and more.
 
-**Core Capabilities:**
-- **System Automation:** Execute local configurations, launch applications, and manage files dynamically.
-- **Task Orchestration:** Parse complex natural language requests into serialized, dependency-aware workflows.
-- **Dynamic Interface Generation:** Render real-time data formats (tables, key-value grids, cards) through UI directives.
-- **Modular Capability Ecosystem:** Extend the AI's internal capabilities without altering core orchestration logic.
-- **Speech Processing Pipelines:** Leverage ElevenLabs Scribe for transcription and Flash v2.5 for text-to-speech synthesis.
+The result is an assistant that can take a complex, loosely-worded request and carry it out end-to-end — autonomously, silently, or with confirmation steps where appropriate — without you needing to specify every instruction manually.
 
-## System Orchestration
+You interact with Venesa by voice (wake word or push-to-talk) or through the text interface. The assistant remembers your preferences and context across sessions, so it gets more useful the more you use it.
 
-Venesa transcends traditional single-command chatbots by evaluating requests as programmable workflows. 
+---
 
-### Direct Execution
-For atomic tasks, the system maps the query directly to an internal tool:
-- "Launch Google Chrome" -> Resolves to the application framework.
-- "Search for budget documents" -> Invokes the local file indexing module.
-- "Set system volume to 50%" -> Calls the system control interface.
+## What Venesa Can Do
 
-### Workflow Orchestration
-For compounded requests, the language model formulates a serialized `[plan]` containing sequential steps, resolving dependencies via variables.
-Example inputs:
-- "Pull my clipboard history and search Google for the contents."
-- "Close all active applications, lock my workspace, and set the volume to zero."
-- "Monitor my system resources and list the top ten processes utilizing RAM."
+### System Automation
 
-### Execution Markers
-Every executed function features a visibility marker to control user interruption or feedback:
-- `silently`: Background execution with no output.
-- `announce`: Verbose execution announcing the result via TTS or text.
-- `confirm`: Action lock requiring explicit permission before executing destructive system queries.
+Venesa ships with a full set of built-in capabilities covering common Windows operations:
 
-## Architecture Highlights
+- Launch and close applications
+- Control system volume, display brightness, and power state
+- Manage windows (minimize, snap, focus, close all)
+- Read and write the clipboard
+- Search, open, move, copy, and delete files
+- Run sandboxed PowerShell scripts
+- Take screenshots
+- Open URLs and perform Google searches
+- Set reminders
 
-The core architecture treats the language model as a reasoning engine rather than a text generator. The internal pipeline interprets LLM tags specifically:
+### Multi-Step Workflows
 
-- **State Management:** Stateless generation interactions, but heavily contextualized via persistent memory buckets (preferences, context, aliases).
-- **Security:** Strict validation bounds on external queries and script executions (e.g., PowerShell restriction policies).
-- **Extensibility:** The skill registry parses runtime capabilities and dynamically injects schema representations into the reasoning engine's prompt.
+Where Venesa stands apart is in orchestration. Rather than executing one command at a time, it can decompose a single request into a serialized sequence of steps — a plan — and execute them in order, passing results between steps automatically.
 
-Refer to [ARCHITECTURE.md](ARCHITECTURE.md) for a comprehensive deep-dive into the internal execution protocol.
+Examples of what this enables:
 
-## Prerequisites
+> "Copy everything in my clipboard and search Google for it."
 
-- Windows 10 or 11
-- Node.js environment (v18.0.0 or higher)
-- pnpm package manager
-- API Keys: Google Gemini, ElevenLabs
+> "Close all open apps, set the volume to zero, and lock the screen."
 
-## Setup & Building
+> "Take a screenshot of my desktop, save it to my Documents folder, and open it in Paint."
 
-1. **Clone the repository:**
-   ```bash
-   git clone https://github.com/mianjunaid1223/Venesa.git
-   cd Venesa
-   pnpm install
-   ```
+> "Find all PDF files modified in the last week and list them out."
 
-2. **Configure Environment:**
-   Create a `.env` file referencing your required keys. Venesa supports automatic key-rotation to gracefully recover from rate-limiting events.
-   ```env
-   GEMINI_API_KEY=your_gemini_key
-   ELEVENLABS_API_KEY=your_elevenlabs_key
-   ```
-   *(Appending _1, _2 to the key variables allows for automatic rotation).*
+Each step in a plan carries a visibility marker — it can run silently in the background, announce its result, or pause and ask for your confirmation before proceeding. This gives you fine-grained control over how automated the assistant behaves for any given action.
 
-3. **Launch the Engine:**
-   ```bash
-   pnpm start
-   ```
+### Voice Interaction
 
-   For diagnostic streams and logging:
-   ```bash
-   pnpm dev
-   ```
+Venesa runs a continuous, offline wake-word listener using the Vosk speech model. When the wake phrase is detected, it captures your speech, transcribes it via ElevenLabs Scribe, sends it through the reasoning engine, and responds through a floating voice overlay — speaking the response aloud with ElevenLabs Flash v2.5 synthesis. The voice overlay is always-on-top and unobtrusive.
 
-## Creating capabilities
+The wake word, voice style, and speech behavior are all configurable.
 
-Venesa employs a strictly typed capability architecture. Capabilities are defined as single JavaScript files with Zod schema validation to ensure robust data parsing before reaching the execution layer. For detailed definitions on the unified protocol and lifecycles, read [capabilities/README.md](capabilities/README.md).
+### Persistent Memory
 
-## Community Capabilities
+Every interaction can write to named memory buckets — preferences, aliases, reminders, and conversation history — that are injected into the AI's context on every subsequent query. Venesa remembers your name, your preferences, custom command aliases, and anything else you tell it to keep. There is no cloud sync; everything is stored locally in `~/.venesa/memory.json`.
 
-Capabilities are distributed as single JavaScript files hosted on GitHub. Developers contribute new abilities through the [venesa-capabilitys](https://github.com/mianjunaid1223/venesa-capabilitys) repository.
+### Dynamic Interfaces
 
-Users can discover and install capabilities directly from inside Venesa:
+When a query warrants structured output — a list of running processes, disk usage, network adapters, installed apps — the AI renders it as a formatted UI element directly in the interface: tables, key-value grids, card lists, or command lists. The layout is determined by the response content, not hardcoded.
 
-1. Open Settings → **Skills & Capabilities**
-2. Click the **Community** tab
-3. Browse available capabilities fetched live from the repository
-4. Click **Install** — the capability is downloaded, validated, and stored locally at `~/.venesa/capabilities/`
-5. Newly installed capabilities start **disabled** — enable them in the **Capabilities** tab
+---
 
-Installed capabilities are treated identically to built-in core skills at runtime. Capability origin does not affect execution behaviour.
+## Flexibility: The Capability System
+
+Venesa's built-in features are only the starting point. The platform is designed to be extended with **capabilities** — single JavaScript files that give the AI a new skill. Once a capability is installed, it becomes part of the AI's tool chain and can be invoked by name in any query or as a step in a plan.
+
+### How Capabilities Work
+
+A capability is a CommonJS module that exports an object describing a skill: its name, a description that gets injected into the AI's system prompt so the model knows when to use it, a Zod schema for parameter validation, and an async handler that performs the actual work.
+
+When the AI decides to use a capability, the platform validates the parameters against the schema and calls the handler. Errors are isolated — a broken capability cannot take down the rest of the system.
+
+Capabilities can return data for the AI to reason about further, trigger UI renders, write to memory, perform system actions, or do a combination of all of these.
+
+### Community Capabilities
+
+The [venesa-capabilities](https://github.com/mianjunaid1223/venesa-capabilities) repository is the official registry of community-built capabilities. It currently includes skills for:
+
+- Checking disk usage, network adapters, and system info
+- Listing running processes and installed applications
+- Fetching weather forecasts
+- Searching YouTube and Google
+- Managing persistent notes
+- Retrieving saved WiFi credentials
+- Cleaning up temporary files and junk
+
+...and more. The registry is growing.
+
+**Installing community capabilities** requires no downloads or file management. From inside Venesa:
+
+1. Open **Settings → Skills & Capabilities**
+2. Select the **Community** tab
+3. Browse the live registry, then click **Install** on any capability
+4. Enable it in the **Capabilities** tab
+
+Installed capabilities are indistinguishable from built-in core skills at runtime.
+
+---
+
+## Getting Started
+
+**Requirements:**
+- Windows 10 or 11 (x64)
+- Node.js v18.0.0 or higher
+- pnpm (`npm install -g pnpm`)
+- A [Google AI Studio](https://aistudio.google.com/) API key (Gemini)
+- An [ElevenLabs](https://elevenlabs.io/) API key (STT + TTS)
+
+**Install and run:**
+
+```bash
+git clone https://github.com/mianjunaid1223/Venesa.git
+cd Venesa
+pnpm install
+pnpm start
+```
+
+The first launch opens a setup wizard where you configure your API keys and preferences. No manual `.env` editing required, though you can also create one:
+
+```env
+GEMINI_API_KEY=your_key
+ELEVENLABS_API_KEY=your_key
+```
+
+Append `_1`, `_2`, etc. to any key to enable automatic round-robin rotation when rate limits are hit.
+
+For verbose logging:
+```bash
+pnpm dev
+```
+
+To build a distributable installer:
+```bash
+pnpm build
+```
+
+---
+
+## Contributing
+
+There are two ways to contribute to Venesa:
+
+### 1. Contribute to the Platform
+
+If you want to improve the core assistant — fix bugs, improve orchestration, extend the speech pipeline, add new built-in capabilities, or improve the UI — open a pull request on this repository.
+
+Before contributing, read [ARCHITECTURE.md](ARCHITECTURE.md) to understand the execution pipeline and module responsibilities, and [standards.md](standards.md) for code conventions, capability schema rules, and security requirements. All contributions must conform to the unified protocol standard described there.
+
+### 2. Publish a Community Capability
+
+If you want to give Venesa a new skill without modifying the core platform, build and submit a capability to the [venesa-capabilities](https://github.com/mianjunaid1223/venesa-capabilities) repository. One file. No dependencies on the main project required.
+
+A capability is a single `.js` file dropped into the `/capabilities/` folder of that repository. Once merged, it becomes available to all Venesa users via the in-app community browser.
+
+**Minimal example:**
+
+```js
+const { z } = require('zod');
+
+module.exports = {
+  name: 'myCapability',
+  description: 'Describe what this does — the AI reads this to decide when to use it.',
+  returnType: 'action',      // data | action | ui | memory | hybrid
+  marker: 'announce',        // silently | announce | confirm
+  schema: z.object({
+    input: z.string().describe('The input value'),
+  }),
+  handler: async ({ input }) => {
+    return { success: true, result: `Processed: ${input}` };
+  },
+};
+```
+
+Full specification — schema options, return types, lifecycle hooks, UI rendering hints — is documented in the [venesa-capabilities](https://github.com/mianjunaid1223/venesa-capabilities) repository. The same rules apply whether a capability is built-in or community-contributed.
+
+---
+
+## Documentation
+
+| Document | Contents |
+|---|---|
+| [ARCHITECTURE.md](ARCHITECTURE.md) | Full internal architecture: pipeline diagrams, module responsibilities, IPC design, memory system, speech stack, capability lifecycle |
+| [standards.md](standards.md) | Capability schema specification, code conventions, security requirements, governance rules |
+| [venesa-capabilities](https://github.com/mianjunaid1223/venesa-capabilities) | Community capability registry and development guide |
+
+---
 
 ## License
 
-This project is distributed under the MIT License. See [LICENSE](LICENSE) for details.
+MIT. See [LICENSE](LICENSE) for details.
 
 ---
+
 <p align="center">
-  Developed for the open-source community by <a href="https://github.com/mianjunaid1223">Mian Junaid</a>
+  Developed by <a href="https://github.com/mianjunaid1223">Mian Junaid</a>
 </p>

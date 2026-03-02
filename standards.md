@@ -2,49 +2,159 @@
 
 ## Universal Protocol
 
-One protocol governs all intelligence behavior:
-- **Response structure**: `[speak]`/`silently` for voice, plain text + `[action:]` for text
-- **Tool invocation**: `[action: name, param: value]` or `[plan]...[/plan]`
-- **UI rendering**: `[ui]...[/ui]` for GitHub-decoded markdown
-- **Return types**: Every capability declares `returnType` (data/action/ui/memory/hybrid)
-- **Execution markers**: `silently`, `announce`, `confirm`
+One protocol governs all intelligence behaviour. Every capability, IPC handler, and orchestration step conforms to the same set of tokens and return types.
 
-### Execution Marker Definitions
+### Response Tokens
 
-| Marker | Semantics | Behavior |
-|--------|-----------|----------|
-| `silently` | Background execution | No UI feedback, no notification. Used for memory writes, data fetches. Controls visibility only — idempotency is the responsibility of capability authors when retries are required. |
-| `announce` | User-visible operation | Result shown in UI or spoken. Used for app launches, file operations. Logs to interaction history. |
-| `confirm` | Requires user approval | Execution paused until user confirms. Used for destructive actions (delete, shutdown, wifi-passwords). |
+| Token | Usage |
+|---|---|
+| `[speak]...[/speak]` | Exact string routed to TTS. Omit for text-only responses. |
+| `[silent]...[/silent]` | Wraps background reasoning. Content hidden from UI; actions inside still execute. |
+| `[action: name, param: value]` | Invokes a single registered skill by its `name`. |
+| `[plan]...[/plan]` | Multi-step workflow. Each step is a `[step: name, param: value, marker: X]` line. |
+| `[ui]...[/ui]` | GitHub-flavoured markdown block rendered natively in the interface. |
 
-Implementations set markers via the `marker` metadata field on each skill/capability or per-step in a `[plan]`. The orchestrator reads the marker to decide notification behavior.
+### Execution Markers
+
+| Marker | Semantics | Behaviour |
+|---|---|---|
+| `silently` | Background execution | No UI feedback, no notification. Used for memory writes, data fetches. Idempotency is the capability author's responsibility when retries are required. |
+| `announce` | User-visible operation | Result shown in UI or spoken aloud. Used for app launches, file operations. Logs to interaction history. |
+| `confirm` | Requires user approval | Execution paused until user explicitly approves. Required for destructive actions (delete, shutdown, exposing sensitive data). |
+
+Markers are set via the `marker` field on each skill or per-step inside a `[plan]`. The orchestrator reads the marker to decide notification behaviour. Per-step markers override the skill default.
+
+### Return Types
+
+| Type | Meaning | Typical Usage |
+|---|---|---|
+| `data` | Returns structured data for the LLM to reason about | File search results, clipboard content, memory reads |
+| `action` | Performs a system mutation or side-effect | App launch, volume change, file write |
+| `ui` | Returns a renderable UI payload | Tables, card lists, key-value grids |
+| `memory` | Suggests context persistence | Writing preferences, storing aliases |
+| `hybrid` | Combination of two or more types | Data + UI (e.g. system resource monitor) |
+
+---
 
 ## Capability Standard
 
-Every capability MUST declare:
-- `name` — unique camelCase identifier
-- `description` — human-readable, injected into AI prompt
-- `returnType` — one of: `data`, `action`, `ui`, `memory`, `hybrid`
-- `schema` — Zod schema for parameter validation (essential, not optional)
-- `handler` — async function accepting validated params
+Every capability MUST export an object with these fields:
 
-Optional fields: `ui`, `marker`, `tags`, `config`, `lifecycle`, `enabled`
+| Field | Required | Type | Description |
+|---|---|---|---|
+| `name` | ✅ | `string` | Unique camelCase identifier. Used as the token name in `[action: name]`. |
+| `description` | ✅ | `string` | Human-readable description injected verbatim into the LLM system prompt. Be precise — the model uses this to decide when to call the capability. |
+| `returnType` | ✅ | `string` | One of `data`, `action`, `ui`, `memory`, `hybrid`. Declared in `protocol.js`. |
+| `schema` | ✅ | `ZodObject` | Zod schema for all parameters. Validation runs before the handler is called. Never skip. |
+| `handler` | ✅ | `async fn` | `async (validatedParams) => result`. Receives Zod-parsed params. Must not throw unhandled. |
+| `marker` | — | `string` | Default execution marker. Overridable per-step in a plan. |
+| `ui` | — | `string` | Structured UI component hint: `table`, `key-value`, `card-list`, `command-list`. |
+| `tags` | — | `string[]` | Discoverability tags for the community browser. |
+| `config` | — | `object` | Static configuration values (e.g., allowed paths, timeouts). |
+| `lifecycle` | — | `object` | Hooks: `onLoad`, `onUnload`, `onEnable`, `onDisable`. |
+| `enabled` | — | `boolean` | Default enabled state. Defaults to `true` if omitted. |
 
-See `capabilities/README.md` for full specification.
+### Capability Template
+
+```js
+const { z } = require('zod');
+
+module.exports = {
+  name: 'capabilityName',           // camelCase, unique
+  description: 'What it does.',     // injected into LLM prompt
+  returnType: 'action',             // data | action | ui | memory | hybrid
+  marker: 'announce',               // silently | announce | confirm
+  schema: z.object({
+    param: z.string().describe('Parameter description for the model.'),
+  }),
+  handler: async ({ param }) => {
+    try {
+      // perform work
+      return { success: true, result: param };
+    } catch (err) {
+      return { success: false, error: err.message };
+    }
+  },
+};
+```
+
+### Lifecycle Hooks
+
+```js
+lifecycle: {
+  onLoad:     () => { /* called once when the skill is registered */ },
+  onUnload:   () => { /* called when the skill is removed at runtime */ },
+  onEnable:   () => { /* called when the user enables the skill */ },
+  onDisable:  () => { /* called when the user disables the skill */ },
+},
+```
+
+---
 
 ## Code Standards
 
-- **Naming**: camelCase for files and functions, PascalCase forbidden in filenames
-- **Modules**: CommonJS (`require`/`module.exports`)
-- **Error handling**: Try-catch in all handlers, never crash the app
-- **Logging**: Use `lib/logger.js`, never raw `console.log` in production code
-- **Security**: Validate all user inputs, sandbox shell execution (e.g., restrict/virtualize any invoked shells), restrict file paths using a documented allowlist of permitted directories
-  - **Threat model and allowed paths**: File path restrictions exist to prevent capabilities from reading/writing outside the user's intended scope. Permitted paths include the user's home directory and its subdirectories. Any path access outside the allowlist must be explicitly justified and validated at runtime.
-- **No hard-coding**: Derive behavior from skill metadata and protocol constants
+### Language & Modules
+- **Module system:** CommonJS only (`require` / `module.exports`). No ES module syntax (`import`/`export`).
+- **Language:** JavaScript (Node.js compatible). No TypeScript in core or skill files.
+- **Async:** Always use `async/await`. Avoid raw Promise chains.
+
+### Naming
+- **Files:** `kebab-case` (e.g., `launch-app.js`, `key-pool.js`). No PascalCase filenames.
+- **Functions & variables:** `camelCase`.
+- **Constants:** `UPPER_SNAKE_CASE` for module-level immutable constants.
+- **Capability names:** `camelCase`, unique across the entire registry.
+
+### Error Handling
+- Every `handler` function must wrap its body in a `try/catch`.
+- On error, return `{ success: false, error: err.message }` rather than throwing.
+- Never let a single capability crash terminate the main process.
+- Use `lib/logger.js` for all error logging — `logger.error(...)`, `logger.warn(...)`.
+
+### Logging
+- Use `lib/logger.js` exclusively. Never use raw `console.log` in production code paths.
+- Log levels: `logger.info`, `logger.warn`, `logger.error`, `logger.debug`.
+- Include module context in messages: `[module-name] message`.
+
+### Security
+
+**Input validation:**
+- All capability inputs are Zod-validated before reaching the handler. Do not access `params` before validation.
+- Sanitize any string that will be interpolated into shell commands or file paths.
+
+**File system access:**
+- Access is restricted to an explicit allowlist of directories: the user's home directory and its subdirectories.
+- Any path access outside the allowlist must be explicitly justified and validated at runtime using `lib/paths.js` utilities.
+- Never construct file paths by raw string concatenation with user input.
+
+**Shell execution:**
+- PowerShell execution goes through `lib/powershell.js` which applies sandboxing and restriction policies.
+- Never call `child_process.exec` or `spawn` directly in capabilities. Use the provided wrapper.
+- Destructive shell commands (format, rm -rf equivalents) must use the `confirm` marker.
+
+**API keys:**
+- Never log or surface API keys. Read from environment or `lib/key-store.js` only.
+- Key rotation is handled automatically by `lib/key-pool.js`.
+
+### No Hard-Coding
+- Derive all runtime behaviour from skill metadata and protocol constants in `brain/protocol.js`.
+- No capability name strings hard-coded in the orchestration layer.
+- No model-specific logic outside `brain/llm.js`.
+
+---
+
+## IPC Standards
+
+- All renderer ↔ main communication uses named IPC channels defined in the preload scripts.
+- Renderers have zero Node.js access — the `contextBridge` API surface is the only allowed communication path.
+- IPC handlers must validate all incoming payloads before acting.
+- Sensitive operations (writing settings, installing capabilities) are handled exclusively in `system-handlers.js` on the main process.
+
+---
 
 ## Governance
 
-- User has absolute authority over configuration, extensions, and behavior
-- Settings stored in `.venesa-settings.json` per-user
-- capability enable/disable state is kept in memory at runtime and persisted to disk via the memory system (bucket: `aliases`, key: `capabilityStates`). Changes take effect immediately on toggle and survive restarts through the memory persistence layer.
-- All system behavior configurable, no hidden defaults
+- **User authority:** Users have absolute authority over configuration, capability state, and assistant behaviour.
+- **Settings persistence:** User settings stored in `.venesa-settings.json` via `brain/settings.js`.
+- **Memory persistence:** `~/.venesa/memory.json` — buckets: `preferences`, `history`, `aliases`, `reminders`.
+- **Capability state:** Enable/disable state persisted to the `aliases` memory bucket under the key `capabilityStates`. Changes take effect immediately and survive restarts.
+- **No hidden defaults:** All defaults are documented in `brain/settings.js`. Nothing is silently overridden at runtime.
