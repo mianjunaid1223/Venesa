@@ -109,7 +109,9 @@ The [venesa-capabilities](https://github.com/mianjunaid1223/venesa-capabilities)
 1. Open **Settings → Skills & Capabilities**
 2. Select the **Community** tab
 3. Browse the live registry, then click **Install** on any capability
-4. it's ready to use now
+4. it's ready to use now.
+
+
 Installed capabilities are indistinguishable from built-in core skills at runtime.
 
 ---
