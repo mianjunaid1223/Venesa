@@ -78,7 +78,7 @@ module.exports = {
     ],
 
 
-    handler(params) {
+    async handler(params) {
         const { operation, index, query } = params;
 
         switch (operation) {

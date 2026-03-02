@@ -76,4 +76,4 @@ src/
 - **Dynamic Capabilities Injection:** Internal execution prompts are built natively by interpolating the memory registry (`registry.getMetadataForPrompt()`).
 - **Render Directives:** The model declares rich markup natively via `[ui]` bounds without executing DOM injections.
 - **Silent Operations:** Automation happens securely and silently when the engine determines explicit confirmation is redundant.
-- **Sandboxed Extensibility:** Core logic paths are immune against localized plugin crashes or failures.
+- **Sandboxed Extensibility:** Core logic paths are immune against localized capability crashes or failures.

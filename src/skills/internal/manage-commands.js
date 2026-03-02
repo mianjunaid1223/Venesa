@@ -30,7 +30,7 @@ module.exports = {
     ],
 
 
-    handler(params) {
+    async handler(params) {
         if (!params.trigger || !params.trigger.trim()) {
             return JSON.stringify({ success: false, error: 'Missing trigger phrase' });
         }

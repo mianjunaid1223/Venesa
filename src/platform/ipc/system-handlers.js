@@ -282,10 +282,9 @@ function register(deps) {
 
   ipcMain.handle("factory-reset", async () => {
     const fs = require("fs");
-    const os = require("os");
     try {
       // 1. Delete settings
-      const settingsPath = path.join(os.homedir(), ".venesa-settings.json");
+      const settingsPath = require("../../brain/settings").SETTINGS_PATH;
       if (fs.existsSync(settingsPath)) fs.unlinkSync(settingsPath);
 
       // 2. Clear all memory
@@ -298,7 +297,13 @@ function register(deps) {
       ];
       for (const b of buckets) memory.clear(b);
 
-      // 3. Invalidate key pool
+      // 3. Wipe local capability registry
+      try {
+        const installer = require("../capability-installer");
+        installer.clearLocalRegistry();
+      } catch { /* non-critical */ }
+
+      // 4. Invalidate key pool
       require("../../lib/key-pool").invalidate();
 
       return { success: true };
@@ -308,11 +313,11 @@ function register(deps) {
     }
   });
 
-  // ── Plugin management ─────────────────────────────────────
+  // ── Capability management ──────────────────────────────────
 
-  ipcMain.handle("get-plugins", async () => {
+  ipcMain.handle("get-capabilities", async () => {
     const registry = require("../../skills/registry");
-    return registry.getAllPlugins ? registry.getAllPlugins() : [];
+    return registry.getAllCapabilities ? registry.getAllCapabilities() : [];
   });
 
   ipcMain.handle("get-builtin-skills", async () => {
@@ -322,11 +327,10 @@ function register(deps) {
       : registry.getSkillList();
   });
 
-  ipcMain.handle("toggle-plugin", async (event, pluginName, enabled) => {
+  ipcMain.handle("toggle-capability", async (event, capabilityName, enabled) => {
     try {
-      // Call lifecycle hooks before state change
       const registry = require("../../skills/registry");
-      const skill = registry.get(pluginName);
+      const skill = registry.get(capabilityName);
       if (skill?.lifecycle) {
         const hook = enabled
           ? skill.lifecycle.onEnable
@@ -336,26 +340,145 @@ function register(deps) {
             await hook();
           } catch (e) {
             logger.warn(
-              `Lifecycle ${enabled ? "onEnable" : "onDisable"} failed for '${pluginName}': ${e?.message ?? String(e)}`,
+              `Lifecycle ${enabled ? "onEnable" : "onDisable"} failed for '${capabilityName}': ${e?.message ?? String(e)}`,
             );
           }
         }
       }
 
-      const states = memory.get("aliases", "pluginStates") || {};
-      states[pluginName] = enabled;
-      memory.set("aliases", "pluginStates", states);
-      // Reload skill registry to apply change
+      // Migrate legacy pluginStates → capabilityStates on first write
+      const legacy = memory.get("aliases", "pluginStates") || {};
+      const states = Object.assign({}, legacy, memory.get("aliases", "capabilityStates") || {});
+      states[capabilityName] = enabled;
+      memory.set("aliases", "capabilityStates", states);
+      // Clear migrated legacy key if it existed
+      if (Object.keys(legacy).length > 0) memory.set("aliases", "pluginStates", {});
+
       const loader = require("../../skills/loader");
       loader.reload();
       if (llm.invalidatePromptCache) llm.invalidatePromptCache();
       return { success: true };
     } catch (e) {
-      logger.error(`toggle-plugin error: ${e.message}`);
+      logger.error(`toggle-capability error: ${e.message}`);
       return { success: false, error: e.message };
     }
   });
 
+  // ── Community capabilities: discovery ─────────────────────
+
+  ipcMain.handle("capabilities:fetch-community", async () => {
+    try {
+      const installer = require("../capability-installer");
+      const list = await installer.fetchCommunityList();
+      return { success: true, items: list };
+    } catch (e) {
+      logger.error(`capabilities:fetch-community error: ${e.message}`);
+      return { success: false, error: e.message, items: [] };
+    }
+  });
+
+  ipcMain.handle("capabilities:fetch-metadata", async (event, rawUrl) => {
+    try {
+      if (!rawUrl || typeof rawUrl !== "string") {
+        return { success: false, error: "Invalid URL" };
+      }
+      if (!/^https:\/\/(raw\.githubusercontent\.com|gist\.githubusercontent\.com)/i.test(rawUrl)) {
+        return {
+          success: false,
+          error: "Only raw GitHub URLs (raw.githubusercontent.com or gist.githubusercontent.com) are permitted",
+        };
+      }
+      const installer = require("../capability-installer");
+      const meta = await installer.fetchMetadata(rawUrl);
+      return { success: true, ...meta };
+    } catch (e) {
+      return { success: false, error: e.message };
+    }
+  });
+
+  // ── Community capabilities: install ───────────────────────
+
+  ipcMain.handle("capabilities:install", async (event, rawUrl, registryFileHash) => {
+    try {
+      if (!rawUrl || typeof rawUrl !== "string") {
+        return { success: false, error: "Invalid URL" };
+      }
+      // Only allow raw GitHub URLs or trusted CDN origins
+      if (!/^https:\/\/(raw\.githubusercontent\.com|gist\.githubusercontent\.com)/i.test(rawUrl)) {
+        return {
+          success: false,
+          error: "Only raw GitHub URLs (raw.githubusercontent.com or gist.githubusercontent.com) are permitted",
+        };
+      }
+      const installer = require("../capability-installer");
+      const result = await installer.install(rawUrl, registryFileHash || null);
+      if (result.success && llm.invalidatePromptCache) {
+        llm.invalidatePromptCache();
+      }
+      return result;
+    } catch (e) {
+      logger.error(`capabilities:install error: ${e.message}`);
+      return { success: false, error: e.message };
+    }
+  });
+
+  // ── Community capabilities: uninstall ─────────────────────
+
+  ipcMain.handle("capabilities:uninstall", async (event, capabilityName) => {
+    try {
+      if (!capabilityName || typeof capabilityName !== "string") {
+        return { success: false, error: "Invalid capability name" };
+      }
+      const installer = require("../capability-installer");
+      const result = await installer.uninstall(capabilityName);
+      if (result.success && llm.invalidatePromptCache) {
+        llm.invalidatePromptCache();
+      }
+      return result;
+    } catch (e) {
+      logger.error(`capabilities:uninstall error: ${e.message}`);
+      return { success: false, error: e.message };
+    }
+  });
+
+  // ── Community capabilities: update ────────────────────────
+
+  ipcMain.handle("capabilities:update", async (event, capabilityName, rawUrl, registryFileHash) => {
+    try {
+      if (!capabilityName || typeof capabilityName !== "string") {
+        return { success: false, error: "Invalid capability name" };
+      }
+      if (!rawUrl || typeof rawUrl !== "string") {
+        return { success: false, error: "Invalid URL" };
+      }
+      if (!/^https:\/\/(raw\.githubusercontent\.com|gist\.githubusercontent\.com)/i.test(rawUrl)) {
+        return {
+          success: false,
+          error: "Only raw GitHub URLs (raw.githubusercontent.com or gist.githubusercontent.com) are permitted",
+        };
+      }
+      const installer = require("../capability-installer");
+      const result = await installer.update(capabilityName, rawUrl, registryFileHash || null);
+      if (result.success && llm.invalidatePromptCache) {
+        llm.invalidatePromptCache();
+      }
+      return result;
+    } catch (e) {
+      logger.error(`capabilities:update error: ${e.message}`);
+      return { success: false, error: e.message };
+    }
+  });
+  // ── Community capabilities: local registry (installed versions) ────
+
+  ipcMain.handle("capabilities:get-local-registry", async () => {
+    try {
+      const installer = require("../capability-installer");
+      return { success: true, registry: installer.getLocalRegistry() };
+    } catch (e) {
+      logger.error(`capabilities:get-local-registry error: ${e.message}`);
+      return { success: false, registry: {} };
+    }
+  });
   // ── Memory IPC ────────────────────────────────────────────
 
   ipcMain.handle("memory:get-bucket", async (event, bucket) => {
@@ -419,7 +542,7 @@ function register(deps) {
   ipcMain.handle("get-about-info", async () => {
     const registry = require("../../skills/registry");
     const cmds = memory.getCustomCommands();
-    const plugins = registry.getAllPlugins ? registry.getAllPlugins() : [];
+    const capabilities = registry.getAllCapabilities ? registry.getAllCapabilities() : [];
     const skills = registry.getBuiltinSkills
       ? registry.getBuiltinSkills()
       : registry.getSkillList();
@@ -431,7 +554,7 @@ function register(deps) {
       platform: process.platform,
       arch: process.arch,
       skillCount: Array.isArray(skills) ? skills.length : 0,
-      pluginCount: Array.isArray(plugins) ? plugins.length : 0,
+      capabilityCount: Array.isArray(capabilities) ? capabilities.length : 0,
       customCommandCount: cmds.length,
       aiModel: sett.modelName || "gemini-2.5-flash-lite",
     };

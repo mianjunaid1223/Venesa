@@ -53,10 +53,18 @@ contextBridge.exposeInMainWorld('settingsApi', {
     addCustomKey: (envVar, key) => ipcRenderer.invoke('add-custom-key', envVar, key),
     getApiKey: (envVar, svc) => ipcRenderer.invoke('get-api-key', envVar, svc),
 
-    // Plugins
-    getPlugins: () => ipcRenderer.invoke('get-plugins'),
+    // Capabilities
+    getCapabilities: () => ipcRenderer.invoke('get-capabilities'),
     getBuiltinSkills: () => ipcRenderer.invoke('get-builtin-skills'),
-    togglePlugin: (name, enabled) => ipcRenderer.invoke('toggle-plugin', name, enabled),
+    toggleCapability: (name, enabled) => ipcRenderer.invoke('toggle-capability', name, enabled),
+
+    // Community capability discovery & install
+    fetchCommunityCapabilities: () => ipcRenderer.invoke('capabilities:fetch-community'),
+    fetchCapabilityMetadata: (rawUrl) => ipcRenderer.invoke('capabilities:fetch-metadata', rawUrl),
+    installCapability: (rawUrl, fileHash) => ipcRenderer.invoke('capabilities:install', rawUrl, fileHash),
+    updateCapability: (name, rawUrl, fileHash) => ipcRenderer.invoke('capabilities:update', name, rawUrl, fileHash),
+    uninstallCapability: (name) => ipcRenderer.invoke('capabilities:uninstall', name),
+    getLocalCapabilityRegistry: () => ipcRenderer.invoke('capabilities:get-local-registry'),
 
     // Runtime versions (contextBridge safe)
     versions: {

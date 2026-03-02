@@ -28,7 +28,7 @@ module.exports = {
     ],
 
 
-    handler(params) {
+    async handler(params) {
         const bucket = params.bucket;
         const key = params.key;
 

@@ -10,10 +10,9 @@
 
 const fs = require('fs');
 const path = require('path');
-const os = require('os');
 const logger = require('../lib/logger');
 
-const MEMORY_DIR = path.join(os.homedir(), '.venesa-memory');
+const MEMORY_DIR = require('../lib/paths').getMemoryPath();
 const BUCKETS = ['preferences', 'history', 'aliases', 'context'];
 
 // In-memory cache

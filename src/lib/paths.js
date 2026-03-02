@@ -71,6 +71,37 @@ if (app && !app.isReady()) {
     });
 }
 
+/**
+ * ~/.venesa/
+ * Root of all user-scoped persistent data.
+ */
+function getVenesaDir() {
+    const os = require('os');
+    return path.join(os.homedir(), '.venesa');
+}
+
+/**
+ * ~/.venesa/settings.json
+ */
+function getSettingsPath() {
+    return path.join(getVenesaDir(), 'settings.json');
+}
+
+/**
+ * ~/.venesa/memory/
+ */
+function getMemoryPath() {
+    return path.join(getVenesaDir(), 'memory');
+}
+
+/**
+ * ~/.venesa/capabilities/
+ * Stores user-installed community capabilities (one .js file per capability).
+ */
+function getCapabilitiesPath() {
+    return path.join(getVenesaDir(), 'capabilities');
+}
+
 module.exports = {
     isPackaged,
     getBasePath,
@@ -80,5 +111,9 @@ module.exports = {
     getVoskModelTarGzPath,
     getAssetsPath,
     getEnvPath,
-    getLogsPath
+    getLogsPath,
+    getVenesaDir,
+    getSettingsPath,
+    getMemoryPath,
+    getCapabilitiesPath,
 };

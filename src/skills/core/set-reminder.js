@@ -36,7 +36,7 @@ module.exports = {
     ],
 
 
-    handler(params) {
+    async handler(params) {
         const message = params.message || params.text || 'Reminder';
         let delaySec = 5;
         if (params.delay !== undefined) {

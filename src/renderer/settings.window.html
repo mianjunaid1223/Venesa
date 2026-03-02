@@ -24,17 +24,28 @@
 
         /* Borders */
         --border: rgba(255, 255, 255, 0.08);
-        --border-focus: rgba(255, 255, 255, 0.35);
+        --border-focus: rgba(116, 188, 214, 0.55);
 
         /* Text */
         --text-1: rgba(255, 255, 255, 0.9);
         --text-2: rgba(255, 255, 255, 0.5);
         --text-3: rgba(255, 255, 255, 0.28);
 
-        /* Accent */
-        --accent: rgba(255, 255, 255, 0.92);
-        --accent-bg: rgba(255, 255, 255, 0.1);
-        --accent-dim: rgba(255, 255, 255, 0.06);
+        --accent: #74bcd6;
+        --accent-bg: rgba(116, 188, 214, 0.12);
+        --accent-dim: rgba(116, 188, 214, 0.06);
+        --teal: #74bcd6;
+        --teal-bg: rgba(116, 188, 214, 0.09);
+        --teal-border: rgba(116, 188, 214, 0.28);
+
+        /* Warm amber */
+        --amber: #f59e0b;
+        --amber-bg: rgba(245, 158, 11, 0.1);
+        --amber-border: rgba(245, 158, 11, 0.22);
+
+        /* Warm orange */
+        --orange: #fb923c;
+        --orange-bg: rgba(251, 146, 60, 0.08);
 
         /* Status */
         --green: #4ade80;
@@ -160,7 +171,9 @@
 
       .nav-btn.active {
         background: var(--accent-bg);
-        color: var(--text-1);
+        color: var(--teal);
+        border-left: 2px solid var(--teal);
+        padding-left: 6px;
       }
 
       /* ─── Top Tabs ─── */
@@ -189,7 +202,7 @@
       }
 
       .top-tab.active {
-        color: var(--text-1);
+        color: var(--teal);
         font-weight: 600;
       }
 
@@ -200,7 +213,7 @@
         left: 0;
         width: 100%;
         height: 2px;
-        background: var(--accent);
+        background: var(--teal);
         border-radius: 2px 2px 0 0;
       }
 
@@ -421,12 +434,13 @@
       }
 
       .toggle input:checked + .toggle-track {
-        background: rgba(255, 255, 255, 0.82);
+        background: var(--teal);
+        box-shadow: 0 0 8px rgba(116, 188, 214, 0.35);
       }
 
       .toggle input:checked + .toggle-track::after {
         transform: translateX(16px);
-        background: #18181b;
+        background: #fff;
       }
 
       /* ─── Buttons ─── */
@@ -456,14 +470,14 @@
       }
 
       .btn-primary {
-        background: rgba(255, 255, 255, 0.9);
+        background: var(--teal);
         border-color: transparent;
-        color: #18181b;
+        color: #0d1a1d;
         font-weight: 600;
       }
 
       .btn-primary:hover {
-        background: white;
+        background: #38e8f9;
         border-color: transparent;
       }
 
@@ -588,7 +602,7 @@
         border-color: var(--accent);
       }
 
-      /* ─── Skills / Plugins ─── */
+      /* ─── Skills / Capabilities ─── */
       .skill-row {
         display: flex;
         align-items: center;
@@ -605,7 +619,8 @@
         width: 28px;
         height: 28px;
         border-radius: 6px;
-        background: rgba(255, 255, 255, 0.06);
+        background: rgba(116, 188, 214, 0.07);
+        border: 1px solid rgba(116, 188, 214, 0.14);
         display: flex;
         align-items: center;
         justify-content: center;
@@ -615,11 +630,25 @@
       .skill-icon svg {
         width: 13px;
         height: 13px;
-        stroke: var(--text-2);
+        stroke: var(--teal);
         fill: none;
         stroke-width: 2;
         stroke-linecap: round;
         stroke-linejoin: round;
+      }
+      .skill-icon.icon-amber {
+        background: rgba(245, 158, 11, 0.07);
+        border-color: rgba(245, 158, 11, 0.13);
+      }
+      .skill-icon.icon-amber svg {
+        stroke: var(--amber);
+      }
+      .skill-icon.icon-orange {
+        background: rgba(251, 146, 60, 0.07);
+        border-color: rgba(251, 146, 60, 0.13);
+      }
+      .skill-icon.icon-orange svg {
+        stroke: var(--orange);
       }
 
       .skill-name {
@@ -636,6 +665,265 @@
       .skill-info {
         flex: 1;
         min-width: 0;
+      }
+
+      /* ─── Capability 3-dot menu ─── */
+      .cap-menu {
+        position: relative;
+        flex-shrink: 0;
+      }
+      .cap-menu-btn {
+        background: transparent;
+        border: 1px solid transparent;
+        color: var(--text-2);
+        font-size: 18px;
+        line-height: 1;
+        cursor: pointer;
+        padding: 3px 8px;
+        border-radius: 6px;
+        transition:
+          all 0.15s,
+          border-color 0.15s;
+      }
+      .cap-menu-btn:hover {
+        background: rgba(255, 255, 255, 0.08);
+        border-color: var(--border);
+      }
+      .cap-dropdown {
+        display: none;
+        position: fixed;
+        background: #1c1c20;
+        border: 1px solid rgba(116, 188, 214, 0.18);
+        border-radius: 9px;
+        overflow: hidden;
+        min-width: 150px;
+        z-index: 9999;
+        box-shadow: 0 8px 28px rgba(0, 0, 0, 0.6);
+      }
+      .cap-dropdown.open {
+        display: block;
+      }
+      .cap-dd-item {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        width: 100%;
+        padding: 9px 14px;
+        background: transparent;
+        border: none;
+        color: var(--text-1);
+        font-size: 12px;
+        text-align: left;
+        cursor: pointer;
+        transition: all 0.12s;
+      }
+      .cap-dd-item:hover {
+        background: rgba(116, 188, 214, 0.08);
+        color: var(--teal);
+      }
+      .cap-dd-item.danger {
+        color: var(--red);
+      }
+      .cap-dd-item.danger:hover {
+        background: var(--red-bg);
+        color: var(--red);
+      }
+      /* ─── Read-more description toggle ─── */
+      .cap-desc-wrap {
+        position: relative;
+      }
+      .cap-desc-clamped {
+        font-size: 11px;
+        color: var(--text-3);
+        overflow: hidden;
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        line-clamp: 2;
+        -webkit-box-orient: vertical;
+        margin-top: 2px;
+        line-height: 1.45;
+      }
+      .cap-desc-full {
+        font-size: 11px;
+        color: var(--text-3);
+        margin-top: 2px;
+        line-height: 1.45;
+      }
+      .cap-read-more {
+        background: none;
+        border: none;
+        color: var(--teal);
+        font-size: 10px;
+        cursor: pointer;
+        padding: 1px 0 0;
+        opacity: 0.8;
+        display: block;
+      }
+      .cap-read-more:hover {
+        opacity: 1;
+        text-decoration: underline;
+      }
+      .cap-dd-sep {
+        height: 1px;
+        background: var(--border);
+        margin: 2px 0;
+      }
+      /* ─── Capability tags ─── */
+      .cap-tags {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 4px;
+        margin-top: 5px;
+      }
+      .cap-tag {
+        font-size: 9.5px;
+        padding: 2px 7px;
+        border-radius: 4px;
+        background: rgba(116, 188, 214, 0.08);
+        border: 1px solid rgba(116, 188, 214, 0.22);
+        color: var(--teal);
+        opacity: 0.85;
+        text-transform: lowercase;
+      }
+      /* ─── Community refresh bar ─── */
+      .community-bar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 9px 14px;
+        border-bottom: 1px solid var(--border);
+        font-size: 11px;
+        color: var(--text-3);
+      }
+      .community-bar button {
+        background: transparent;
+        border: 1px solid rgba(116, 188, 214, 0.28);
+        color: var(--teal);
+        font-size: 11px;
+        padding: 3px 10px;
+        border-radius: 6px;
+        cursor: pointer;
+        opacity: 0.85;
+      }
+      .community-bar button:hover {
+        background: rgba(116, 188, 214, 0.09);
+        opacity: 1;
+      }
+      .community-search-row {
+        display: flex;
+        align-items: center;
+        gap: 7px;
+        padding: 7px 14px 8px;
+        border-bottom: 1px solid var(--border);
+        background: rgba(0, 0, 0, 0.12);
+      }
+      .community-search-row svg {
+        width: 13px;
+        height: 13px;
+        stroke: var(--text-3);
+        fill: none;
+        stroke-width: 2;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+        flex-shrink: 0;
+        transition: stroke 0.15s;
+      }
+      .community-search-row:focus-within svg {
+        stroke: var(--teal);
+      }
+      #community-search {
+        flex: 1;
+        background: transparent;
+        border: none;
+        outline: none;
+        color: var(--text-1);
+        font-size: 12px;
+        font-family: var(--font);
+        padding: 0;
+      }
+      #community-search::placeholder {
+        color: var(--text-3);
+      }
+      .community-no-results {
+        padding: 28px 14px;
+        text-align: center;
+        font-size: 12px;
+        color: var(--text-3);
+        display: none;
+      }
+      /* ─── Community card description & tags ─── */
+      .cap-desc {
+        font-size: 11px;
+        color: var(--text-3);
+        overflow: hidden;
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        line-clamp: 2;
+        -webkit-box-orient: vertical;
+        margin-top: 2px;
+      }
+      .cap-tags-details {
+        margin-top: 4px;
+      }
+      .cap-tags-details > summary {
+        font-size: 10px;
+        color: var(--text-3);
+        opacity: 0.7;
+        cursor: pointer;
+        list-style: none;
+        display: inline-flex;
+        align-items: center;
+        gap: 3px;
+        user-select: none;
+      }
+      .cap-tags-details > summary::-webkit-details-marker {
+        display: none;
+      }
+      .cap-tags-details > summary::before {
+        content: "\25B8\00A0";
+        font-size: 9px;
+      }
+      .cap-tags-details[open] > summary::before {
+        content: "\25BE\00A0";
+      }
+      .cap-tags-details .cap-tags {
+        margin-top: 5px;
+      }
+      .community-card {
+        align-items: flex-start !important;
+      }
+      .community-card .skill-icon {
+        margin-top: 2px;
+      }
+      .community-card .cap-install-col {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-end;
+        gap: 4px;
+        flex-shrink: 0;
+        padding-top: 1px;
+      }
+
+      /* ─── Update-available badge (Capabilities tab) ─── */
+      .cap-update-badge {
+        display: inline-flex;
+        align-items: center;
+        font-size: 9.5px;
+        font-weight: 600;
+        color: var(--amber);
+        background: var(--amber-bg);
+        border: 1px solid var(--amber-border);
+        border-radius: 10px;
+        padding: 1px 6px;
+        margin-left: 6px;
+        vertical-align: middle;
+        letter-spacing: 0.03em;
+        cursor: pointer;
+        white-space: nowrap;
+        transition: all 0.12s;
+      }
+      .cap-update-badge:hover {
+        background: rgba(245, 158, 11, 0.2);
       }
 
       .section-label {
@@ -1082,7 +1370,7 @@
                 d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"
               />
             </svg>
-            Skills & Plugins
+            Skills &amp; Capabilities
           </button>
           <button class="nav-btn" data-tab="about">
             <svg viewBox="0 0 24 24">
@@ -1275,7 +1563,7 @@
                     <div>
                       <div class="svc-name">Custom Service Keys</div>
                       <div class="svc-sub">
-                        Provide keys required by community plugins
+                        Provide keys required by community capabilities
                       </div>
                     </div>
                     <span class="badge badge-off" id="custom-badge"
@@ -1426,11 +1714,13 @@
           </div>
         </div>
 
-        <!-- Skills & Plugins -->
+        <!-- Skills & Capabilities -->
         <div class="panel" id="tab-skills">
           <div class="panel-header" style="padding-bottom: 12px">
-            <h1>Skills & Plugins</h1>
-            <p>Built-in capabilities and custom extensions</p>
+            <h1>Skills &amp; Capabilities</h1>
+            <p>
+              Built-in skills, installed capabilities, and community modules
+            </p>
           </div>
           <div class="top-tabs">
             <button
@@ -1444,10 +1734,21 @@
             <button
               class="top-tab"
               data-group="skills"
-              data-tab="plugins"
-              onclick="switchTopTab('skills', 'plugins')"
+              data-tab="capabilities"
+              onclick="switchTopTab('skills', 'capabilities')"
             >
-              Plugins
+              Capabilities
+            </button>
+            <button
+              class="top-tab"
+              data-group="skills"
+              data-tab="community"
+              onclick="
+                switchTopTab('skills', 'community');
+                loadCommunity();
+              "
+            >
+              Community
             </button>
           </div>
           <div class="panel-body">
@@ -1458,8 +1759,23 @@
             >
               <div class="card" id="skills-list"></div>
             </div>
-            <div class="sub-panel" data-group="skills" id="sub-skills-plugins">
-              <div class="card" id="plugins-list"></div>
+            <div
+              class="sub-panel"
+              data-group="skills"
+              id="sub-skills-capabilities"
+            >
+              <div class="card" id="capabilities-list"></div>
+            </div>
+            <div
+              class="sub-panel"
+              data-group="skills"
+              id="sub-skills-community"
+            >
+              <div class="card" id="community-list">
+                <div class="empty" id="community-status">
+                  Click the Community tab to browse available capabilities.
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -1488,8 +1804,8 @@
                 <div class="about-stat-label">Skills</div>
               </div>
               <div class="about-stat">
-                <div class="about-stat-val" id="stat-plugins">—</div>
-                <div class="about-stat-label">Plugins</div>
+                <div class="about-stat-val" id="stat-capabilities">—</div>
+                <div class="about-stat-label">Capabilities</div>
               </div>
               <div class="about-stat">
                 <div class="about-stat-val" id="stat-cmds">—</div>
@@ -1714,8 +2030,8 @@
               info.aiModel || "-";
             document.getElementById("stat-skills").textContent =
               info.skillCount ?? "—";
-            document.getElementById("stat-plugins").textContent =
-              info.pluginCount ?? "—";
+            document.getElementById("stat-capabilities").textContent =
+              info.capabilityCount ?? "—";
             document.getElementById("stat-cmds").textContent =
               info.customCommandCount ?? "—";
           } catch (_) {
@@ -2012,7 +2328,10 @@
             // Filter out internal keys for accurate counting
             if (bucket === "aliases") {
               keys = keys.filter(
-                (k) => k !== "pluginStates" && k !== "customCommands",
+                (k) =>
+                  k !== "capabilityStates" &&
+                  k !== "pluginStates" &&
+                  k !== "customCommands",
               );
             }
 
@@ -2037,7 +2356,7 @@
                   // Hide internal Venesa keys from the UI
                   if (
                     bucket === "aliases" &&
-                    (key === "pluginStates" || key === "customCommands")
+                    (key === "capabilityStates" || key === "customCommands")
                   ) {
                     continue;
                   }
@@ -2396,7 +2715,7 @@
         }
       }
 
-      // ── Skills & Plugins ───────────────────────────────────
+      // ── Skills & Capabilities ──────────────────────────────
 
       async function loadSkills() {
         try {
@@ -2410,65 +2729,640 @@
               const row = document.createElement("div");
               row.className = "skill-row";
               row.innerHTML = `
-                            <div class="skill-icon"><svg viewBox="0 0 24 24"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" /></svg></div>
+                <div class="skill-icon"><svg viewBox="0 0 24 24"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" /></svg></div>
                 <div class="skill-info">
-                    <div class="skill-name">${escapeHtml(s.name || s)}</div>
-                    ${s.description ? `<div class="skill-desc">${escapeHtml(s.description)}</div>` : ""}
+                  <div class="skill-name">${escapeHtml(s.name || s)}</div>
+                  ${s.description ? `<div class="skill-desc">${escapeHtml(s.description)}</div>` : ""}
                 </div>
-        `;
+              `;
               skillsList.appendChild(row);
             });
           } else {
             skillsList.innerHTML = '<div class="empty">No skills loaded</div>';
           }
 
-          // Plugins (with toggles)
-          const plugins = await api.getPlugins();
-          const pluginsList = document.getElementById("plugins-list");
-          pluginsList.innerHTML = "";
+          // Community-installed capabilities (with toggles + 3-dot action menu)
+          const capabilities = api.getCapabilities
+            ? await api.getCapabilities()
+            : api.getPlugins
+              ? await api.getPlugins()
+              : [];
+          const capList = document.getElementById("capabilities-list");
+          capList.innerHTML = "";
 
-          if (Array.isArray(plugins) && plugins.length > 0) {
-            plugins.forEach((p) => {
+          if (Array.isArray(capabilities) && capabilities.length > 0) {
+            capabilities.forEach((p) => {
+              const isEnabled = p.enabled !== false;
               const row = document.createElement("div");
               row.className = "skill-row";
-              const isEnabled = p.enabled !== false;
-
+              row.dataset.capName = p.name;
+              if (p.fileHash) row.dataset.capHash = p.fileHash;
               row.innerHTML = `
-                            <div class="skill-icon" style="${!isEnabled ? "opacity:0.4" : ""}"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" /><rect x="14" y="3" width="7" height="7" /><rect x="14" y="14" width="7" height="7" /><rect x="3" y="14" width="7" height="7" /></svg></div>
-                            <div class="skill-info" style="${!isEnabled ? "opacity:0.5" : ""}">
-                                <div class="skill-name">${escapeHtml(p.name)}</div>
-                                ${p.description ? `<div class="skill-desc">${escapeHtml(p.description)}</div>` : ""}
-                            </div>
-                            <label class="toggle" aria-label="Toggle ${escapeHtml(p.name)}">
-                                <input class="plugin-toggle" type="checkbox" ${isEnabled ? "checked" : ""}>
-                                <span class="toggle-track"></span>
-                            </label>
-        `;
+                <div class="skill-icon" style="${!isEnabled ? "opacity:0.4" : ""}">
+                  <svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+                </div>
+                <div class="skill-info" style="${!isEnabled ? "opacity:0.5" : ""}">
+                  <div class="skill-name">${escapeHtml(formatCapabilityName(p.name))}</div>
+                  ${
+                    p.description && p.description.length > 80
+                      ? `<div class="cap-desc-wrap"><div class="cap-desc-clamped">${escapeHtml(p.description)}</div><button class="cap-read-more">more \u2193</button></div>`
+                      : p.description
+                        ? `<div class="cap-desc-full">${escapeHtml(p.description)}</div>`
+                        : ""
+                  }
+                </div>
+                <label class="toggle" aria-label="Toggle ${escapeHtml(p.name)}" style="margin-right:4px">
+                  <input class="cap-toggle" type="checkbox" ${isEnabled ? "checked" : ""}>
+                  <span class="toggle-track"></span>
+                </label>
+                <div class="cap-menu">
+                  <button class="cap-menu-btn" title="More options">&#8942;</button>
+                  <div class="cap-dropdown">
+                    <button class="cap-dd-item cap-dd-toggle">${isEnabled ? "Disable" : "Enable"}</button>
+                    <button class="cap-dd-item cap-dd-update">Update</button>
+                    <div class="cap-dd-sep"></div>
+                    <button class="cap-dd-item danger cap-dd-uninstall">Uninstall</button>
+                  </div>
+                </div>
+              `;
               row
-                .querySelector(".plugin-toggle")
-                .addEventListener("change", (event) => {
-                  togglePlugin(p.name, event.target.checked);
+                .querySelector(".cap-toggle")
+                .addEventListener("change", (ev) => {
+                  toggleCapability(p.name, ev.target.checked);
                 });
-              pluginsList.appendChild(row);
+
+              // Read-more toggle for description
+              const readMoreBtn = row.querySelector(".cap-read-more");
+              if (readMoreBtn) {
+                readMoreBtn.addEventListener("click", () => {
+                  const wrap = readMoreBtn.closest(".cap-desc-wrap");
+                  const descEl = wrap.querySelector(
+                    ".cap-desc-clamped, .cap-desc-full",
+                  );
+                  if (!descEl) return;
+                  if (descEl.classList.contains("cap-desc-clamped")) {
+                    descEl.classList.remove("cap-desc-clamped");
+                    descEl.classList.add("cap-desc-full");
+                    readMoreBtn.textContent = "less \u21A5";
+                  } else {
+                    descEl.classList.remove("cap-desc-full");
+                    descEl.classList.add("cap-desc-clamped");
+                    readMoreBtn.textContent = "more \u21A1";
+                  }
+                });
+              }
+
+              const menuBtn = row.querySelector(".cap-menu-btn");
+              const capMenu = row.querySelector(".cap-menu");
+              const dropdown = capMenu.querySelector(".cap-dropdown");
+
+              function openDd() {
+                // Close & return any other open dropdown to its owner first
+                document.querySelectorAll(".cap-dropdown.open").forEach((d) => {
+                  if (d !== dropdown) {
+                    d.classList.remove("open");
+                    if (d._ddOwner) d._ddOwner.appendChild(d);
+                  }
+                });
+                // Teleport to <body> so position:fixed isn't affected by
+                // ancestor transform/opacity stacking contexts
+                dropdown._ddOwner = capMenu;
+                document.body.appendChild(dropdown);
+                dropdown.style.top = "";
+                dropdown.style.left = "";
+                dropdown.classList.add("open");
+                const btnRect = menuBtn.getBoundingClientRect();
+                const ddRect = dropdown.getBoundingClientRect();
+                const spaceBelow = window.innerHeight - btnRect.bottom;
+                dropdown.style.top =
+                  spaceBelow >= ddRect.height + 8 || spaceBelow >= btnRect.top
+                    ? btnRect.bottom + 5 + "px"
+                    : btnRect.top - ddRect.height - 5 + "px";
+                dropdown.style.left =
+                  btnRect.right - ddRect.width >= 8
+                    ? btnRect.right - ddRect.width + "px"
+                    : Math.max(8, btnRect.left) + "px";
+              }
+
+              function closeDd() {
+                dropdown.classList.remove("open");
+                if (dropdown.parentElement === document.body) {
+                  capMenu.appendChild(dropdown);
+                }
+              }
+
+              menuBtn.addEventListener("click", (e) => {
+                e.stopPropagation();
+                dropdown.classList.contains("open") ? closeDd() : openDd();
+              });
+              row.querySelector(".cap-dd-toggle").addEventListener("click", (e) => {
+                e.stopPropagation();
+                closeDd();
+                const chk = row.querySelector(".cap-toggle");
+                const newState = !chk.checked;
+                chk.checked = newState;
+                toggleCapability(p.name, newState);
+              });
+              row.querySelector(".cap-dd-update").addEventListener("click", (e) => {
+                e.stopPropagation();
+                closeDd();
+                updateCapability(p.name);
+              });
+              row.querySelector(".cap-dd-uninstall").addEventListener("click", (e) => {
+                e.stopPropagation();
+                closeDd();
+                uninstallCapability(p.name);
+              });
+              capList.appendChild(row);
             });
           } else {
-            pluginsList.innerHTML =
-              '<div class="empty">No plugins installed</div>';
+            capList.innerHTML =
+              '<div class="empty">No capabilities installed — browse Community to find some.</div>';
           }
+          // Non-blocking: stamp update badges once registry is available
+          _scheduleUpdateBadges(capabilities);
         } catch (e) {
           document.getElementById("skills-list").innerHTML =
             '<div class="empty">Failed to load</div>';
         }
       }
 
-      async function togglePlugin(name, enabled) {
+      // Close all dropdowns when clicking elsewhere
+      document.addEventListener("click", () => {
+        document.querySelectorAll(".cap-dropdown.open").forEach((d) => {
+          d.classList.remove("open");
+          if (d._ddOwner) d._ddOwner.appendChild(d);
+        });
+      });
+
+      /** Convert camelCase name to spaced title-case: getDiskInfo → Get Disk Info */
+      function formatCapabilityName(name) {
+        if (!name) return name;
+        return name
+          .replace(/([A-Z])/g, " $1")
+          .replace(/^./, (c) => c.toUpperCase())
+          .trim();
+      }
+
+      async function toggleCapability(name, enabled) {
         try {
-          await api.togglePlugin(name, enabled);
-          toast.show(`${name} ${enabled ? "enabled" : "disabled"}`, "ok");
+          await api.toggleCapability(name, enabled);
+          toast.show(
+            `${formatCapabilityName(name)} ${enabled ? "enabled" : "disabled"}`,
+            "ok",
+          );
           loadSkills();
         } catch (e) {
-          toast.show("Failed to toggle plugin", "err");
+          toast.show("Failed to toggle capability", "err");
           loadSkills();
+        }
+      }
+
+      async function uninstallCapability(name) {
+        if (
+          !confirm(
+            `Uninstall "${formatCapabilityName(name)}"? This cannot be undone.`,
+          )
+        )
+          return;
+        try {
+          const r = api.uninstallCapability
+            ? await api.uninstallCapability(name)
+            : { success: false, error: "API not available" };
+          if (r && r.success) {
+            toast.show(`${formatCapabilityName(name)} uninstalled`, "ok");
+            loadSkills();
+          } else {
+            toast.show(r?.error || "Uninstall failed", "err");
+          }
+        } catch (e) {
+          toast.show("Uninstall failed", "err");
+        }
+      }
+
+      async function updateCapability(name, explicitFileHash) {
+        try {
+          // Use cached community registry if available, otherwise fetch.
+          // explicitFileHash (from badge/button click) takes priority over
+          // registry lookup so we always store the canonical remote hash.
+          let url = null;
+          let registryFileHash = explicitFileHash || null;
+          if (_communityRegistry.length > 0) {
+            const item = _communityRegistry.find((i) => i.name === name);
+            if (item) {
+              url = item.download_url;
+              if (!registryFileHash) registryFileHash = item.fileHash || null;
+            }
+          }
+          if (!url) {
+            toast.show("Looking up latest version\u2026", "ok");
+            const res = api.fetchCommunityCapabilities
+              ? await api.fetchCommunityCapabilities()
+              : { success: false };
+            if (res.success && Array.isArray(res.items)) {
+              _communityRegistry = res.items;
+              const item = _communityRegistry.find((i) => i.name === name);
+              if (item) {
+                url = item.download_url;
+                if (!registryFileHash) registryFileHash = item.fileHash || null;
+              }
+            }
+          }
+          if (!url) {
+            toast.show(
+              `No community source found for "${formatCapabilityName(name)}"`,
+              "err",
+            );
+            return;
+          }
+          toast.show(`Updating ${formatCapabilityName(name)}\u2026`, "ok");
+          const r = api.updateCapability
+            ? await api.updateCapability(name, url, registryFileHash)
+            : { success: false, error: "API not available" };
+          if (r && r.success) {
+            toast.show(`${formatCapabilityName(name)} updated`, "ok");
+            loadSkills();
+          } else {
+            toast.show(r?.error || "Update failed", "err");
+          }
+        } catch (e) {
+          toast.show("Update failed", "err");
+        }
+      }
+
+      // ── Community capabilities ─────────────────────────────
+
+      let _communityLoaded = false;
+      let _communityRegistry = [];
+
+      /** Returns true if semver string a is strictly greater than b. */
+      function semverGt(a, b) {
+        if (!a) return false;
+        const pa = String(a).split(".").map((n) => parseInt(n, 10) || 0);
+        const pb = String(b || "0").split(".").map((n) => parseInt(n, 10) || 0);
+        for (let i = 0; i < Math.max(pa.length, pb.length); i++) {
+          const diff = (pa[i] || 0) - (pb[i] || 0);
+          if (diff !== 0) return diff > 0;
+        }
+        return false;
+      }
+
+      /**
+       * Fetch (or reuse cached) community registry and inject
+       * .cap-update-badge elements into Capabilities-tab rows
+       * where a newer version is available.
+       */
+      async function _scheduleUpdateBadges(installedCaps) {
+        try {
+          // Fetch local registry (installed fileHashes) and remote registry in parallel.
+          const [localRegRes, remoteRes] = await Promise.all([
+            api.getLocalCapabilityRegistry
+              ? api.getLocalCapabilityRegistry()
+              : Promise.resolve({ success: false, registry: {} }),
+            (async () => {
+              if (_communityRegistry && _communityRegistry.length > 0)
+                return { success: true, items: _communityRegistry };
+              const res = api.fetchCommunityCapabilities
+                ? await api.fetchCommunityCapabilities()
+                : { success: false };
+              if (res.success && Array.isArray(res.items)) {
+                _communityRegistry = res.items;
+              }
+              return res;
+            })(),
+          ]);
+
+          const localReg = (localRegRes && localRegRes.registry) || {};
+          const registry =
+            remoteRes && remoteRes.success && Array.isArray(remoteRes.items)
+              ? remoteRes.items
+              : [];
+          if (registry.length === 0) return;
+
+          const capList = document.getElementById("capabilities-list");
+          if (!capList) return;
+
+          for (const reg of registry) {
+            if (!reg.fileHash && !reg.version) continue;
+            const row = capList.querySelector(
+              `[data-cap-name="${CSS.escape(reg.name)}"]`,
+            );
+            if (!row) continue;
+            // Remove any stale badge first so we can re-evaluate cleanly.
+            const existing = row.querySelector(".cap-update-badge");
+            if (existing) existing.remove();
+            // Priority: module's self-declared fileHash (data-cap-hash) is the most
+            // authoritative source — it is the exact value that went into registry.json.
+            // Fall back to local registry (which may contain a stale computed hash).
+            const localEntry = localReg[reg.name];
+            const installedHash =
+              row.dataset.capHash ||
+              (localEntry && localEntry.fileHash) ||
+              "";
+            let needsUpdate = false;
+            if (installedHash) {
+              // Hash-based: show badge only if hashes differ
+              needsUpdate = reg.fileHash ? reg.fileHash !== installedHash : false;
+            } else {
+              // Semver fallback: show badge if registry has a higher version
+              const instCap = Array.isArray(installedCaps)
+                ? installedCaps.find((c) => c.name === reg.name)
+                : null;
+              const installedVersion =
+                (instCap && instCap.version) ||
+                (localEntry && localEntry.version) ||
+                "0";
+              needsUpdate = !!reg.version && semverGt(reg.version, installedVersion);
+            }
+            if (!needsUpdate) continue;
+            const nameEl = row.querySelector(".skill-name");
+            if (!nameEl) continue;
+            const badge = document.createElement("span");
+            badge.className = "cap-update-badge";
+            badge.title = reg.version
+              ? `v${reg.version} available — click to update`
+              : "Update available — click to update";
+            badge.textContent = "\u2191 update";
+            badge.addEventListener("click", (e) => {
+              e.stopPropagation();
+              updateCapability(reg.name, reg.fileHash || null);
+            });
+            nameEl.appendChild(badge);
+          }
+        } catch {
+          // non-critical
+        }
+      }
+
+      async function loadCommunity() {
+        if (_communityLoaded) return;
+        _communityLoaded = true;
+
+        const list = document.getElementById("community-list");
+        list.innerHTML = "";
+
+        // Toolbar: count + refresh
+        const bar = document.createElement("div");
+        bar.className = "community-bar";
+        bar.innerHTML = `<span id="community-count">Loading capabilities\u2026</span><button onclick="refreshCommunity()">&#8635; Refresh</button>`;
+        list.appendChild(bar);
+
+        // Search bar
+        const searchRow = document.createElement("div");
+        searchRow.className = "community-search-row";
+        searchRow.innerHTML = `
+          <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          <input id="community-search" type="text" placeholder="Search capabilities, tags…" autocomplete="off" spellcheck="false">
+        `;
+        list.appendChild(searchRow);
+
+        const statusEl = document.createElement("div");
+        statusEl.className = "empty";
+        statusEl.id = "community-status";
+        statusEl.textContent = "Fetching from GitHub…";
+        list.appendChild(statusEl);
+
+        try {
+          const res = api.fetchCommunityCapabilities
+            ? await api.fetchCommunityCapabilities()
+            : { success: false, error: "API not available", items: [] };
+
+          if (!res.success) {
+            statusEl.textContent = `Could not load community list: ${res.error || "unknown error"}`;
+            _communityLoaded = false;
+            return;
+          }
+
+          const items = res.items || [];
+          _communityRegistry = items;
+
+          statusEl.remove();
+          document.getElementById("community-count").textContent =
+            `${items.length} capabilit${items.length === 1 ? "y" : "ies"} available`;
+
+          if (items.length === 0) {
+            list.innerHTML +=
+              '<div class="empty">No capabilities found in the repository yet.</div>';
+            return;
+          }
+
+          // Get already-installed capabilities and their local registry hashes.
+          let installed = [];
+          const installedHashes = new Map();
+          const installedVersions = new Map();
+          try {
+            const [caps, localRegRes] = await Promise.all([
+              api.getCapabilities(),
+              api.getLocalCapabilityRegistry
+                ? api.getLocalCapabilityRegistry()
+                : Promise.resolve({ success: false, registry: {} }),
+            ]);
+            if (Array.isArray(caps)) {
+              installed = caps.map((c) => c.name);
+            }
+            const localReg = (localRegRes && localRegRes.registry) || {};
+            if (Array.isArray(caps)) {
+              for (const c of caps) {
+                if (c.version) installedVersions.set(c.name, c.version);
+              }
+            }
+            for (const [name, entry] of Object.entries(localReg)) {
+              if (entry && entry.fileHash) installedHashes.set(name, entry.fileHash);
+              if (entry && entry.version && !installedVersions.has(name)) installedVersions.set(name, entry.version);
+            }
+          } catch (e) {
+            console.error(
+              "[community] Failed to fetch installed capabilities:",
+              e?.message ?? e,
+            );
+          }
+
+          // No-results placeholder
+          const noResults = document.createElement("div");
+          noResults.className = "community-no-results";
+          noResults.id = "community-no-results";
+          noResults.textContent = "No capabilities match your search.";
+          list.appendChild(noResults);
+
+          // Render all cards directly from registry data — no per-item metadata fetch needed
+          for (const item of items) {
+            const isInstalled = installed.includes(item.name);
+            // Use fileHash for update detection; fall back to semver if hash absent or not yet stored.
+            const isUpdatable =
+              isInstalled &&
+              (
+                item.fileHash && installedHashes.has(item.name)
+                  ? installedHashes.get(item.name) !== item.fileHash
+                  : (!!item.version && semverGt(item.version, installedVersions.get(item.name) || "0"))
+              );
+            const card = document.createElement("div");
+            card.className = "skill-row community-card";
+            card.dataset.capName = item.name;
+
+            const versionBit = item.version
+              ? ` <span style="opacity:0.5;font-size:10px;font-weight:400;">v${escapeHtml(String(item.version))}</span>`
+              : "";
+
+            // Collapsible tags using native <details>
+            let tagsHtml = "";
+            if (item.tags && item.tags.length > 0) {
+              tagsHtml = `<details class="cap-tags-details">
+                <summary>${item.tags.length} tag${item.tags.length !== 1 ? "s" : ""}</summary>
+                <div class="cap-tags">${item.tags.map((t) => `<span class="cap-tag">${escapeHtml(t)}</span>`).join("")}</div>
+              </details>`;
+            }
+
+            // Marker badge (only non-silent ones are worth showing)
+            const markerBit =
+              item.marker && item.marker !== "silently"
+                ? ` <span class="cap-tag" style="margin-left:2px;">${escapeHtml(item.marker)}</span>`
+                : "";
+
+            card.innerHTML = `
+              <div class="skill-icon">
+                <svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+              </div>
+              <div class="skill-info" style="flex:1;min-width:0">
+                <div class="skill-name">${escapeHtml(formatCapabilityName(item.name))}${versionBit}${markerBit}</div>
+                ${
+                  item.description && item.description.length > 80
+                    ? `<div class="cap-desc-wrap"><div class="cap-desc-clamped">${escapeHtml(item.description)}</div><button class="cap-read-more">more ↓</button></div>`
+                    : item.description
+                      ? `<div class="cap-desc-full">${escapeHtml(item.description)}</div>`
+                      : ""
+                }
+                ${tagsHtml}
+              </div>
+              <div class="cap-install-col">
+                <button class="btn btn-sm community-install-btn${isUpdatable ? " community-update-btn" : ""}"
+                  style="${
+                    isUpdatable
+                      ? "background:var(--amber-bg);color:var(--amber);border-color:var(--amber-border);"
+                      : isInstalled
+                        ? "background:var(--green-bg);color:var(--green);border-color:rgba(74,222,128,0.25);cursor:default"
+                        : "background:var(--teal-bg);color:var(--teal);border-color:var(--teal-border);"
+                  }"
+                  ${isInstalled && !isUpdatable ? "disabled" : ""}>
+                  ${isUpdatable ? "\u2191\u00A0Update" : isInstalled ? "Installed" : "Install"}
+                </button>
+              </div>
+            `;
+
+            // Read-more toggle for community descriptions
+            const commReadMore = card.querySelector(".cap-read-more");
+            if (commReadMore) {
+              commReadMore.addEventListener("click", function toggle() {
+                const wrap = commReadMore.closest(".cap-desc-wrap");
+                const el = wrap.querySelector(
+                  ".cap-desc-clamped, .cap-desc-full",
+                );
+                const expanded = el.classList.contains("cap-desc-full");
+                el.classList.toggle("cap-desc-clamped", expanded);
+                el.classList.toggle("cap-desc-full", !expanded);
+                commReadMore.textContent = expanded ? "more ↓" : "less ↑";
+              });
+            }
+
+            if (isUpdatable) {
+              const btn = card.querySelector(".community-update-btn");
+              btn.addEventListener("click", () => {
+                btn.disabled = true;
+                btn.textContent = "Updating\u2026";
+                updateCapability(item.name, item.fileHash || null)
+                  .then(() => {
+                    btn.textContent = "Updated";
+                    btn.className = "btn btn-sm community-install-btn";
+                    btn.style.cssText =
+                      "background:var(--green-bg);color:var(--green);border-color:rgba(74,222,128,0.25);cursor:default";
+                  })
+                  .catch(() => {
+                    btn.disabled = false;
+                    btn.textContent = "\u2191\u00A0Update";
+                  });
+              });
+            } else if (!isInstalled) {
+              const btn = card.querySelector(".community-install-btn");
+              btn.addEventListener("click", () =>
+                installCommunityCapability(item.download_url, item.name, btn, item.fileHash || null),
+              );
+            }
+            list.appendChild(card);
+          }
+
+          // Wire up live search/filter
+          const searchInput = document.getElementById("community-search");
+          if (searchInput) {
+            searchInput.addEventListener("input", () => {
+              const q = searchInput.value.trim().toLowerCase();
+              const cards = list.querySelectorAll(".community-card");
+              let visible = 0;
+              cards.forEach((card) => {
+                const name = (card.dataset.capName || "").toLowerCase();
+                const fmtName = formatCapabilityName(
+                  card.dataset.capName || "",
+                ).toLowerCase();
+                const desc = card.querySelector(
+                  ".cap-desc-clamped, .cap-desc-full",
+                );
+                const descText = desc ? desc.textContent.toLowerCase() : "";
+                const tags = Array.from(card.querySelectorAll(".cap-tag"))
+                  .map((t) => t.textContent.toLowerCase())
+                  .join(" ");
+                const match =
+                  !q ||
+                  name.includes(q) ||
+                  fmtName.includes(q) ||
+                  descText.includes(q) ||
+                  tags.includes(q);
+                card.style.display = match ? "" : "none";
+                if (match) visible++;
+              });
+              const noRes = document.getElementById("community-no-results");
+              if (noRes)
+                noRes.style.display = visible === 0 && q ? "block" : "none";
+            });
+          }
+        } catch (e) {
+          list.innerHTML = `<div class="community-bar"><span>Failed to load</span><button onclick="refreshCommunity()">&#8635; Retry</button></div><div class="empty">${escapeHtml(e.message)}</div>`;
+          _communityLoaded = false;
+        }
+      }
+
+      async function refreshCommunity() {
+        _communityLoaded = false;
+        _communityRegistry = [];
+        const s = document.getElementById("community-search");
+        if (s) s.value = "";
+        await loadCommunity();
+      }
+
+      async function installCommunityCapability(rawUrl, capName, btn, fileHash) {
+        if (!api.installCapability) {
+          toast.show("Install API not available", "err");
+          return;
+        }
+        btn.disabled = true;
+        btn.textContent = "Installing…";
+        try {
+          const r = await api.installCapability(rawUrl, fileHash || null);
+          if (r && r.success) {
+            btn.textContent = "Installed";
+            btn.style.cssText =
+              "background:var(--green-bg);color:var(--green);border-color:rgba(74,222,128,0.25);cursor:default";
+            toast.show(
+              `${formatCapabilityName(r.name || capName)} installed`,
+              "ok",
+            );
+            loadSkills();
+          } else {
+            btn.disabled = false;
+            btn.textContent = "Install";
+            toast.show(r?.error || "Install failed", "err");
+          }
+        } catch (e) {
+          btn.disabled = false;
+          btn.textContent = "Install";
+          toast.show("Install failed", "err");
         }
       }
 

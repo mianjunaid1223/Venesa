@@ -23,7 +23,7 @@ module.exports = {
     ],
 
 
-    handler() {
+    async handler() {
         return 'Listening';
     },
 };

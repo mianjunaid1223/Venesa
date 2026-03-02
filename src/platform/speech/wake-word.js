@@ -27,6 +27,7 @@ function getModelPath() {
 }
 
 function initialize() {
+  if (isInitialized) return true;
   voskModelPath = getModelPath();
   if (!voskModelPath) {
     logger.error("[WakeWord] Vosk model not found");

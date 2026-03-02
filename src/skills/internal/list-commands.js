@@ -23,7 +23,7 @@ module.exports = {
     { user: "show my Aliases", action: "[action: listCommands]" },
   ],
 
-  handler() {
+  async handler() {
     const cmds = memory.getCustomCommands();
     if (cmds.length === 0) {
       return JSON.stringify({

@@ -3,7 +3,7 @@
  * MODULE: System Prompt Builder
  * PURPOSE:
  *   Constructs the full LLM system instruction dynamically
- *   using memory, plugins, orchestration rules, and mode (text/voice).
+ *   using memory, capabilities, orchestration rules, and mode (text/voice).
  *
  * DESIGN PRINCIPLES:
  *   - Dynamic skill manifest from registry (no hard-coded lists)
@@ -30,10 +30,14 @@ function getCommandsSection() {
   }
 }
 
-function getDisabledPluginsSection() {
+function getDisabledCapabilitiesSection() {
   try {
-    const pluginStates = memory.get("aliases", "pluginStates") || {};
-    const disabled = Object.entries(pluginStates)
+    // Read from capabilityStates; fall back to legacy pluginStates key
+    const states =
+      memory.get("aliases", "capabilityStates") ||
+      memory.get("aliases", "pluginStates") ||
+      {};
+    const disabled = Object.entries(states)
       .filter(([, enabled]) => enabled === false)
       .map(([name]) => name);
     if (disabled.length === 0) return "";
@@ -144,6 +148,29 @@ ${manifest}
 }
 
 /* ────────────────────────────────────────────────────────────── */
+/* CAPABILITY BOUNDARY ENFORCEMENT                                */
+/* ────────────────────────────────────────────────────────────── */
+
+function getCapabilityBoundarySection() {
+  return `
+## CAPABILITY BOUNDARIES — SOURCE OF TRUTH
+
+Your AVAILABLE TOOLS list is the **complete and authoritative** set of actions
+you can perform. Treat it as your source of truth.
+
+### Rules
+1. If no tool exists for what the user asks, **refuse it**. Do not guess,
+   improvise, or simulate the action through another tool.
+2. Do NOT attempt computer-control actions (launching apps, reading files,
+   taking screenshots, etc.) unless there is an explicit tool for it above.
+3. Do NOT claim you completed an action you did not invoke via a tool.
+4. When refusing, be brief: "I can't do that — I don't have a capability for it."
+   You may suggest the user browse the Community tab if a plugin might help.
+5. Disabled tools are off-limits — treat them as if they do not exist.
+`;
+}
+
+/* ────────────────────────────────────────────────────────────── */
 /* PROTOCOL & INTERNAL TOOLS                                      */
 /* ────────────────────────────────────────────────────────────── */
 
@@ -188,7 +215,7 @@ Never say "let me check" or "fetching data."
 
 ### INTERNAL SYSTEM TOOLS
 
-These are always available regardless of installed plugins:
+These are always available regardless of installed capabilities:
 
 #### Memory (4 buckets: preferences | context | aliases | history)
 [action: setMemory, bucket: <bucket>, key: <k>, value: <v>]
@@ -303,7 +330,8 @@ ${getPersonality()}
 ${getMemorySection()}
 ${getUserBioSection()}
 ${getSkillManifest()}
-${getDisabledPluginsSection()}
+${getCapabilityBoundarySection()}
+${getDisabledCapabilitiesSection()}
 ${getProtocolSection()}
 ${getOrchestrationGuide()}
 
@@ -382,7 +410,8 @@ ${getPersonality()}
 ${getMemorySection()}
 ${getUserBioSection()}
 ${getSkillManifest()}
-${getDisabledPluginsSection()}
+${getCapabilityBoundarySection()}
+${getDisabledCapabilitiesSection()}
 ${getProtocolSection()}
 ${getOrchestrationGuide()}
 

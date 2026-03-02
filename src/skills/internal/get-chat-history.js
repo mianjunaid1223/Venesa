@@ -26,7 +26,7 @@ module.exports = {
         { user: 'what were we just talking about', action: '[action: getChatHistory, count: 5]' },
     ],
 
-    handler(params) {
+    async handler(params) {
         let count = params.count ?? 5;
         count = Math.min(Math.max(count, 0), 20);
         const history = memory.get('history') || {};

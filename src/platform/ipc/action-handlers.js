@@ -50,7 +50,7 @@ function register() {
 
             if (skill._enabled === false) {
                 if (!event.sender.isDestroyed()) {
-                    event.sender.send('action-result', JSON.stringify({ error: `Plugin '${actionName}' is disabled.` }));
+                    event.sender.send('action-result', JSON.stringify({ error: `Capability '${actionName}' is disabled.` }));
                 }
                 return;
             }

@@ -25,7 +25,7 @@ module.exports = {
     ],
 
 
-    handler(params) {
+    async handler(params) {
         if (!params?.trigger) {
             return JSON.stringify({ success: false, error: 'Missing trigger phrase' });
         }

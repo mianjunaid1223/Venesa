@@ -30,7 +30,7 @@ module.exports = {
     ],
 
 
-    handler(params) {
+    async handler(params) {
         try {
             if (params.operation === 'write') {
                 if (!params.text || !params.text.trim()) return 'No text to copy.';

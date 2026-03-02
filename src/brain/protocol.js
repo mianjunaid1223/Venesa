@@ -11,7 +11,7 @@
  */
 
 // ── Return Types ────────────────────────────────────────────
-// Every skill/plugin MUST declare exactly one returnType.
+// Every capability MUST declare exactly one returnType.
 // The AI analyzes return types to plan its workflow:
 //   data   → fetches information, AI waits for result to reason about
 //   action → performs a system mutation or side-effect
@@ -52,7 +52,7 @@ const UI_COMPONENTS = Object.freeze([
 ]);
 
 // ── Lifecycle Hooks ─────────────────────────────────────────
-// Optional hooks a plugin can implement for lifecycle events.
+// Optional hooks a capability can implement for lifecycle events.
 
 const LIFECYCLE_HOOKS = Object.freeze([
     'onLoad',

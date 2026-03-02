@@ -9,10 +9,9 @@
 
 const fs = require('fs');
 const path = require('path');
-const os = require('os');
 const logger = require('../lib/logger');
 
-const SETTINGS_PATH = path.join(os.homedir(), '.venesa-settings.json');
+const SETTINGS_PATH = require('../lib/paths').getSettingsPath();
 
 const DEFAULTS = {
     modelName: 'gemini-2.5-flash-lite',
@@ -37,6 +36,8 @@ function load() {
 
 function save(patch) {
     try {
+        const dir = path.dirname(SETTINGS_PATH);
+        if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
         const current = load();
         const merged = { ...current, ...patch };
         fs.writeFileSync(SETTINGS_PATH, JSON.stringify(merged, null, 2));

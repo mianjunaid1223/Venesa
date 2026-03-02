@@ -26,7 +26,7 @@ Users can invoke the assistant system-wide via a customizable wake word or a glo
 - **System Automation:** Execute local configurations, launch applications, and manage files dynamically.
 - **Task Orchestration:** Parse complex natural language requests into serialized, dependency-aware workflows.
 - **Dynamic Interface Generation:** Render real-time data formats (tables, key-value grids, cards) through UI directives.
-- **Modular Plugin Ecosystem:** Extend the AI's internal capabilities without altering core orchestration logic.
+- **Modular Capability Ecosystem:** Extend the AI's internal capabilities without altering core orchestration logic.
 - **Speech Processing Pipelines:** Leverage ElevenLabs Scribe for transcription and Flash v2.5 for text-to-speech synthesis.
 
 ## System Orchestration
@@ -58,7 +58,7 @@ The core architecture treats the language model as a reasoning engine rather tha
 
 - **State Management:** Stateless generation interactions, but heavily contextualized via persistent memory buckets (preferences, context, aliases).
 - **Security:** Strict validation bounds on external queries and script executions (e.g., PowerShell restriction policies).
-- **Extensibility:** The skill registry parses runtime plugins and dynamically injects schema representations into the reasoning engine's prompt.
+- **Extensibility:** The skill registry parses runtime capabilities and dynamically injects schema representations into the reasoning engine's prompt.
 
 Refer to [ARCHITECTURE.md](ARCHITECTURE.md) for a comprehensive deep-dive into the internal execution protocol.
 
@@ -96,9 +96,23 @@ Refer to [ARCHITECTURE.md](ARCHITECTURE.md) for a comprehensive deep-dive into t
    pnpm dev
    ```
 
-## Creating Plugins
+## Creating capabilities
 
-Venesa employs a strictly typed plugin architecture. Tools are defined globally with Zod schema validation to ensure robust data parsing before reaching the execution layer. For detailed definitions on the unified protocol and lifecycles, read [plugins/README.md](plugins/README.md).
+Venesa employs a strictly typed capability architecture. Capabilities are defined as single JavaScript files with Zod schema validation to ensure robust data parsing before reaching the execution layer. For detailed definitions on the unified protocol and lifecycles, read [capabilities/README.md](capabilities/README.md).
+
+## Community Capabilities
+
+Capabilities are distributed as single JavaScript files hosted on GitHub. Developers contribute new abilities through the [venesa-capabilitys](https://github.com/mianjunaid1223/venesa-capabilitys) repository.
+
+Users can discover and install capabilities directly from inside Venesa:
+
+1. Open Settings → **Skills & Capabilities**
+2. Click the **Community** tab
+3. Browse available capabilities fetched live from the repository
+4. Click **Install** — the capability is downloaded, validated, and stored locally at `~/.venesa/capabilities/`
+5. Newly installed capabilities start **disabled** — enable them in the **Capabilities** tab
+
+Installed capabilities are treated identically to built-in core skills at runtime. Capability origin does not affect execution behaviour.
 
 ## License
 
