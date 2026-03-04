@@ -161,7 +161,8 @@ function getMetadataForPrompt() {
                 if (params.length > 0) paramHint = ` | params: ${params.join(', ')}`;
             } catch {  }
         }
-        lines.push(`- ${name}: ${skill.description} [${skill.returnType}]${paramHint}`);
+        const markerHint = skill.marker ? ` | marker: ${skill.marker}` : '';
+        lines.push(`- ${name}: ${skill.description} [${skill.returnType}${markerHint}]${paramHint}`);
 
 
         if (Array.isArray(skill.examples)) {
@@ -180,7 +181,7 @@ function getMetadataForPrompt() {
         output += '\n\n### ACTION EXAMPLES (from skills)\n';
         output += 'ALWAYS use these exact patterns when intent matches:\n';
         output += examples.join('\n');
-        output += '\nCRITICAL: When user says "find/search/look for X", ALWAYS emit the matching action. Never answer conversationally.';
+        output += '\nCRITICAL: When user intent maps to ANY available tool, ALWAYS emit the matching action. This includes currency conversion, data lookups, app control, file search, and anything else listed above. NEVER answer tool-dependent queries conversationally — invoke the tool every time.';
     }
 
     return output;

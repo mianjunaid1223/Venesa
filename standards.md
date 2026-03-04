@@ -53,6 +53,15 @@ Every capability MUST export an object with these fields:
 | `config` | — | `object` | Static configuration values (e.g., allowed paths, timeouts). |
 | `lifecycle` | — | `object` | Hooks: `onLoad`, `onUnload`, `onEnable`, `onDisable`. |
 | `enabled` | — | `boolean` | Default enabled state. Defaults to `true` if omitted. |
+| `dependencies` | — | `string[]` | Optional npm package specifiers. **Exact versioned names only** (e.g., `"axios@1.7.9"`). Unversioned names like `"axios"` are disallowed — every entry must include an explicit version. No ranges (`^`, `~`, `>=`, etc.). Each capability gets its own isolated `node_modules` directory under `~/.venesa/capabilities/<capabilityName>/node_modules/`, fully separated from every other capability and from the host app. |
+
+#### Security — Dependency Management
+
+- **Exact versions required.** Every dependency entry must be an exact specifier (`name@x.y.z`). Floating ranges are rejected at validation time.
+- **Name and version allowlisting.** Capability loaders must validate that package names match the pattern `^(@[a-z0-9-~][a-z0-9-._~]*/)?[a-z0-9-~][a-z0-9-._~]*$` and that versions are semver-exact before passing them to the dep engine.
+- **CVE scanning.** Pinned versions must be scanned for known vulnerabilities (e.g., `npm audit` or equivalent) before publishing a capability. When a CVE is identified, the capability author must release a new version with the patched dependency; installations that fail `MAX_FAILURES` times are marked corrupted and halted.
+- **Transitive dependency risk.** `dep-manager` uses pacote to recursively resolve the full transitive graph. Authors are responsible for auditing their entire closure, not only direct dependencies.
+- **Installation failure behaviour.** Failed installs increment a per-dependency failure counter persisted in `dep-failures.json`. After `MAX_FAILURES` consecutive failures the capability is marked corrupted and no further install attempts are made until the capability is explicitly reinstalled. All failures are logged via `lib/logger.js` with full context (capability name, package spec, error message).
 
 ### Capability Template
 
@@ -64,6 +73,7 @@ module.exports = {
   description: 'What it does.',     // injected into LLM prompt
   returnType: 'action',             // data | action | ui | memory | hybrid
   marker: 'announce',               // silently | announce | confirm
+  // dependencies: ['axios@1.7.9'], // optional — exact versions only, no ranges
   schema: z.object({
     param: z.string().describe('Parameter description for the model.'),
   }),

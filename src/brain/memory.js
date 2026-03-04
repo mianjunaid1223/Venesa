@@ -222,6 +222,50 @@ function removeCustomCommand(trigger) {
     return { success: true };
 }
 
+// ── Corrupted capability helpers ───────────────────────────
+
+/**
+ * Mark a capability as corrupted with a human-readable reason.
+ * Stored in aliases bucket under the key 'corruptedCapabilities'.
+ */
+function markCorrupted(name, reason) {
+    try {
+        const map = get('aliases', 'corruptedCapabilities') || {};
+        map[name] = reason || 'Unknown error';
+        set('aliases', 'corruptedCapabilities', map);
+    } catch (e) {
+        logger.error(`[memory] markCorrupted failed for '${name}': ${e.message}`);
+    }
+}
+
+/**
+ * Clear the corrupted flag for a capability.
+ */
+function clearCorrupted(name) {
+    try {
+        const map = get('aliases', 'corruptedCapabilities') || {};
+        if (map[name]) {
+            delete map[name];
+            set('aliases', 'corruptedCapabilities', map);
+        }
+    } catch (e) {
+        logger.error(`[memory] clearCorrupted failed for '${name}': ${e.message}`);
+    }
+}
+
+/**
+ * Return the full corrupted capabilities map.
+ * @returns {{ [capabilityName: string]: string }}
+ */
+function getCorruptedMap() {
+    try {
+        return get('aliases', 'corruptedCapabilities') || {};
+    } catch (e) {
+        logger.error(`[memory] getCorruptedMap error: ${e.message}`);
+        return {};
+    }
+}
+
 function getCustomCommandsPromptSection() {
     const cmds = getCustomCommands();
     if (cmds.length === 0) return '';
@@ -249,5 +293,8 @@ module.exports = {
     addCustomCommand,
     removeCustomCommand,
     getCustomCommandsPromptSection,
+    markCorrupted,
+    clearCorrupted,
+    getCorruptedMap,
     BUCKETS,
 };

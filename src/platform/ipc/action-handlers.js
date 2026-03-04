@@ -59,7 +59,8 @@ function register() {
             let validatedParams = params || {};
             if (skill.schema && typeof skill.schema.parse === 'function') {
                 try {
-                    validatedParams = skill.schema.parse(params || {});
+                    const { coerceParams } = require('../../skills/validator');
+                    validatedParams = skill.schema.parse(coerceParams(params || {}, skill.schema));
                 } catch (valErr) {
                     console.log(`[perform-action] Schema validation failed for '${actionName}':`, valErr.message);
                     if (!event.sender.isDestroyed()) {

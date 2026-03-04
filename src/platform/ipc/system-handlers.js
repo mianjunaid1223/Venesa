@@ -317,7 +317,13 @@ function register(deps) {
 
   ipcMain.handle("get-capabilities", async () => {
     const registry = require("../../skills/registry");
-    return registry.getAllCapabilities ? registry.getAllCapabilities() : [];
+    const caps = registry.getAllCapabilities ? registry.getAllCapabilities() : [];
+    const corruptedMap = memory.getCorruptedMap ? memory.getCorruptedMap() : {};
+    return caps.map((c) => ({
+      ...c,
+      corrupted: !!corruptedMap[c.name],
+      corruptedReason: corruptedMap[c.name] || null,
+    }));
   });
 
   ipcMain.handle("get-builtin-skills", async () => {
@@ -369,8 +375,35 @@ function register(deps) {
   ipcMain.handle("capabilities:fetch-community", async () => {
     try {
       const installer = require("../capability-installer");
+      const registry = require("../../skills/registry");
+
       const list = await installer.fetchCommunityList();
-      return { success: true, items: list };
+
+      // Build an O(1) lookup of installed capability names
+      const installed = new Set(
+        (registry.getAllCapabilities ? registry.getAllCapabilities() : []).map(
+          (c) => c.name,
+        ),
+      );
+
+      // Merge corrupted state into each item
+      const corruptedMap = memory.getCorruptedMap ? memory.getCorruptedMap() : {};
+      const withCorrupted = list.map((cap) => ({
+        ...cap,
+        corrupted: !!corruptedMap[cap.name],
+        corruptedReason: corruptedMap[cap.name] || null,
+      }));
+
+      // Partition into installed / not-installed, each sorted case-insensitively
+      const notInstalled = withCorrupted
+        .filter((c) => !installed.has(c.name))
+        .sort((a, b) => a.name.toLowerCase().localeCompare(b.name.toLowerCase()));
+
+      const installedList = withCorrupted
+        .filter((c) => installed.has(c.name))
+        .sort((a, b) => a.name.toLowerCase().localeCompare(b.name.toLowerCase()));
+
+      return { success: true, items: [...notInstalled, ...installedList] };
     } catch (e) {
       logger.error(`capabilities:fetch-community error: ${e.message}`);
       return { success: false, error: e.message, items: [] };

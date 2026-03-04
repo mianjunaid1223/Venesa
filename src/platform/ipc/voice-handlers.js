@@ -8,6 +8,9 @@ const memory = require("../../brain/memory");
 const ttsService = require("../speech/tts");
 const sttService = require("../speech/stt");
 const uiPipeline = require("../ui-pipeline");
+const connectivity = require("../../lib/connectivity");
+
+const OFFLINE_SUBTITLE = 'No internet connection. Please check your connection and try again.';
 
 let cachedScreenCapture = null;
 
@@ -74,6 +77,15 @@ function register(getVoiceWindow, hideVoiceWindow) {
 
   ipcMain.on("voice-query", async (event, payload) => {
     try {
+      // Net guard — reject voice queries when offline
+      if (!connectivity.isOnline()) {
+        logger.warn('[voice] Blocked: offline');
+        if (!event.sender.isDestroyed()) {
+          event.sender.send('no-internet', { subtitle: OFFLINE_SUBTITLE });
+        }
+        return;
+      }
+
       sendStatus(event, "thinking");
 
       let imageToSend = null;
@@ -144,6 +156,40 @@ function register(getVoiceWindow, hideVoiceWindow) {
               logger.error(`[voice] Search parse error: ${e.message}`);
             }
             continue;
+          }
+        }
+
+        // For data-returning skills, do a second LLM pass to verbalize the result naturally.
+        // The first pass only emits the action — the result isn't known until after execution.
+        const dataResults = results.filter(
+          (r) => r.returnType === "data" && r.result && !r.error,
+        );
+        if (dataResults.length > 0) {
+          try {
+            const resultContext = dataResults
+              .map((r) => `[RESULT for ${r.actionName}: ${JSON.stringify(r.result)}]`)
+              .join("\n");
+            const verbalizeQuery = `${resultContext}
+The user asked (via voice): "${payload.query}"
+
+Present this data naturally. Rules:
+- Speak conversationally in 1-2 sentences maximum.
+- If the user asked for a table or comparison, place the formatted data inside a [ui] block and keep spoken text brief (e.g. "Here's the comparison.").
+- Use [speak]...[/speak] for the spoken part and [silent][ui]...[/ui][/silent] for any visual block.
+- Do NOT emit new [action:] tags.`;
+            const verbalRaw = await llm.sendQuery(verbalizeQuery, null, "voice");
+            const { cleanResponse: spokenResult, uiBlocks: verbalUiBlocks } =
+              await processor.processResponse(verbalRaw, "voice");
+            if (spokenResult && spokenResult.trim()) {
+              finalResponse = spokenResult.trim();
+            }
+            // Dispatch any [ui] blocks produced by the verbalization pass
+            if (verbalUiBlocks && verbalUiBlocks.length > 0 && !event.sender.isDestroyed()) {
+              uiPipeline.dispatchUiBlocks(event.sender, verbalUiBlocks);
+              event.sender.send("halt-microphone");
+            }
+          } catch (verbalErr) {
+            logger.warn(`[voice] Verbalization pass failed: ${verbalErr.message}`);
           }
         }
       }

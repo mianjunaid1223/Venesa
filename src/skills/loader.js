@@ -40,40 +40,98 @@ const registry = require('./registry');
 const validator = require('./validator');
 
 // ── Module resolution fix ─────────────────────────────────────
-// Community capabilities are stored in ~/.venesa/capabilities/ which is
-// outside the project tree. Node resolution walking up from there will
-// never reach the app's node_modules, so require('zod') etc. fail.
-// We patch Module._resolveFilename once to fall back to the app's own
-// node_modules directory whenever normal resolution fails.
+// Resolution order per capability:
+//   1. Capability-local node_modules  (~/.venesa/capabilities/<name>/node_modules/)
+//   2. App node_modules               (project root node_modules)
+//   3. Platform src modules           (remaps relative paths to app internals,
+//                                      e.g. require('../src/lib/powershell') →
+//                                           <appRoot>/src/lib/powershell.js)
+// Patch is guarded by __venesa_cap_patched so it only runs once.
 (function patchModuleResolution() {
     const Module = require('module');
+    if (Module._resolveFilename.__venesa_cap_patched) return;
+
     let APP_NODE_MODULES;
     try {
-        // Dynamic: derive from a known bundled package (works packed or dev)
         APP_NODE_MODULES = path.dirname(path.dirname(require.resolve('zod/package.json')));
     } catch {
         APP_NODE_MODULES = path.resolve(__dirname, '..', '..', 'node_modules');
     }
-    if (!Module._resolveFilename.__venesa_patched) {
-        const _orig = Module._resolveFilename.bind(Module);
-        Module._resolveFilename = function venesa_resolveFilename(request, parent, isMain, options) {
-            try {
-                return _orig(request, parent, isMain, options);
-            } catch (e) {
-                if (e.code === 'MODULE_NOT_FOUND') {
+
+    function getCapLocalNodeModules(parent) {
+        try {
+            if (!parent || !parent.filename) return null;
+            const capDir = getCapabilitiesDir();
+            const parentFile = parent.filename;
+            const parentDir = path.dirname(parentFile);
+
+            // The capability file itself lives directly in capabilitiesDir
+            if (path.normalize(parentDir) === path.normalize(capDir)) {
+                const capName = path.basename(parentFile, '.js');
+                return path.join(capDir, capName, 'node_modules');
+            }
+            // A transitive require from inside that capability's own node_modules
+            const capDirNorm = path.normalize(capDir) + path.sep;
+            if (path.normalize(parentFile).startsWith(capDirNorm)) {
+                const relParts = path.relative(capDir, parentFile).split(path.sep);
+                if (relParts.length > 1) {
+                    return path.join(capDir, relParts[0], 'node_modules');
+                }
+            }
+        } catch { /* ignore */ }
+        return null;
+    }
+
+    const APP_SRC = path.resolve(__dirname, '..');  // src/
+
+    const _orig = Module._resolveFilename.bind(Module);
+    Module._resolveFilename = function venesa_resolveFilename(request, parent, isMain, options) {
+        try {
+            return _orig(request, parent, isMain, options);
+        } catch (e) {
+            if (e.code === 'MODULE_NOT_FOUND') {
+                // 1. Capability-local node_modules
+                const capLocal = getCapLocalNodeModules(parent);
+                if (capLocal) {
                     try {
                         return _orig(request, {
-                            id: path.join(APP_NODE_MODULES, '_'),
-                            filename: path.join(APP_NODE_MODULES, '_'),
-                            paths: [APP_NODE_MODULES],
+                            id: path.join(capLocal, '_'),
+                            filename: path.join(capLocal, '_'),
+                            paths: [capLocal],
                         }, isMain, options);
-                    } catch { /* ignore, rethrow original */ }
+                    } catch { /* fall through */ }
                 }
-                throw e;
+                // 2. App node_modules
+                try {
+                    return _orig(request, {
+                        id: path.join(APP_NODE_MODULES, '_'),
+                        filename: path.join(APP_NODE_MODULES, '_'),
+                        paths: [APP_NODE_MODULES],
+                    }, isMain, options);
+                } catch { /* fall through */ }
+                // 3. Platform source modules — handles community capabilities that
+                //    use relative paths to platform internals, e.g.:
+                //      require('../src/lib/powershell')
+                //      require('../../lib/logger')
+                //    Detect the nearest known src segment and remap to actual APP_SRC.
+                try {
+                    let candidate = request;
+                    if (request.startsWith('.') && parent && parent.filename) {
+                        candidate = path.resolve(path.dirname(parent.filename), request);
+                    }
+                    // Match the first occurrence of /lib/, /brain/, /skills/, /platform/
+                    const re = new RegExp(`(?:^|[/\\\\])(lib|brain|skills|platform)[/\\\\](.+)$`, 'i');
+                    const m = candidate.replace(/\\/g, '/').match(re);
+                    if (m) {
+                        const tail = m[1] + path.sep + m[2].replace(/\//g, path.sep);
+                        return _orig(path.join(APP_SRC, tail), parent, isMain, options);
+                    }
+                } catch { /* rethrow original */ }
             }
-        };
-        Module._resolveFilename.__venesa_patched = true;
-    }
+            throw e;
+        }
+    };
+    Module._resolveFilename.__venesa_cap_patched = true;
 }());
 
 const CORE_DIR = path.join(__dirname, 'core');

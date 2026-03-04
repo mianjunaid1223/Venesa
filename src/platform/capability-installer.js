@@ -7,6 +7,7 @@ const http = require("http");
 
 const logger = require("../lib/logger");
 const { validate, checkSourceForSideEffects } = require("../skills/validator");
+const depManager = require("./dep-manager");
 
 const ALLOWED_HOSTNAMES = [
   "raw.githubusercontent.com",
@@ -258,6 +259,22 @@ async function install(rawUrl, registryFileHash) {
   logger.info(
     `[capability-installer] Installed capability '${capName}' → ${destPath}`,
   );
+
+  // ── Dep engine: install capability-declared dependencies ────
+  if (Array.isArray(exported.dependencies) && exported.dependencies.length > 0) {
+    const depResult = await depManager.installDepsForCapability(capName, exported.dependencies);
+    if (depResult.corrupted) {
+      const memory = require('../brain/memory');
+      memory.markCorrupted(capName, depResult.reason);
+      logger.error(`[capability-installer] Corrupted '${capName}': ${depResult.reason}`);
+      return { success: false, error: depResult.reason };
+    }
+  }
+  try {
+    const memory = require('../brain/memory');
+    memory.clearCorrupted(capName);
+  } catch { /* non-critical */ }
+
   // Persist file hash for update detection
   if (registryFileHash) {
     const reg = readLocalRegistry();
@@ -376,6 +393,22 @@ async function update(capabilityName, rawUrl, registryFileHash) {
   logger.info(
     `[capability-installer] Updated capability '${capName}' → ${destPath}`,
   );
+
+  // ── Dep engine: reinstall capability-declared dependencies ──
+  if (Array.isArray(exported.dependencies) && exported.dependencies.length > 0) {
+    const depResult = await depManager.installDepsForCapability(capName, exported.dependencies);
+    if (depResult.corrupted) {
+      const memory = require('../brain/memory');
+      memory.markCorrupted(capName, depResult.reason);
+      logger.error(`[capability-installer] Corrupted '${capName}' after update: ${depResult.reason}`);
+      return { success: false, error: depResult.reason };
+    }
+  }
+  try {
+    const memory = require('../brain/memory');
+    memory.clearCorrupted(capName);
+  } catch { /* non-critical */ }
+
   // Persist updated file hash
   if (registryFileHash) {
     const reg = readLocalRegistry();
@@ -450,6 +483,19 @@ async function uninstall(capabilityName) {
       `[capability-installer] Failed to update local registry while removing '${capabilityName}': ${err.message}`,
     );
   }
+
+  // ── Dep engine: remove isolated node_modules + manifests ────
+  try {
+    await depManager.removeDepsForCapability(capabilityName);
+  } catch (depErr) {
+    logger.error(
+      `[capability-installer] removeDepsForCapability failed for '${capabilityName}': ${depErr.message}`,
+    );
+  }
+  try {
+    const memory = require('../brain/memory');
+    memory.clearCorrupted(capabilityName);
+  } catch { /* non-critical */ }
 
   // Remove persisted enabled/disabled state so reinstalling starts fresh
   try {

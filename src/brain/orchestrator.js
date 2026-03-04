@@ -12,6 +12,7 @@ const logger = require('../lib/logger');
 const registry = require('../skills/registry');
 const { z } = require('zod');
 const { EXECUTION_MARKERS } = require('./protocol');
+const { coerceParams } = require('../skills/validator');
 
 // Formal lexer and parser for Venesa's output schema
 function parseActionsStrict(text) {
@@ -194,11 +195,11 @@ async function executeAction(actionName, params, ctx = {}) {
             throw new Error(`Skill ${actionName} has no handler or handler is not a function`);
         }
 
-        // Schema validation
+        // Schema validation — coerce LLM string values to declared types first
         let validatedParams = params;
         if (skill.schema) {
             try {
-                validatedParams = skill.schema.parse(params);
+                validatedParams = skill.schema.parse(coerceParams(params, skill.schema));
             } catch (err) {
                 if (err instanceof z.ZodError || (err && err.name === 'ZodError' && err.issues)) {
                     const issues = err.issues || err.errors || [];

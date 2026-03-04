@@ -14,6 +14,9 @@ const llm = require('../../brain/llm');
 const processor = require('../../brain/processor');
 const memory = require('../../brain/memory');
 const uiPipeline = require('../ui-pipeline');
+const connectivity = require('../../lib/connectivity');
+
+const OFFLINE_MESSAGE = 'No internet connection. Please check your connection and try again.';
 
 function register() {
     ipcMain.on('send-to-gemini', async (event, query) => {
@@ -25,12 +28,55 @@ function register() {
                 return;
             }
 
+            // Net guard — reject queries when offline
+            if (!connectivity.isOnline()) {
+                logger.warn('[query] Blocked: offline');
+                if (event.sender && !event.sender.isDestroyed()) {
+                    event.sender.send('gemini-response', OFFLINE_MESSAGE);
+                }
+                return;
+            }
+
             const rawResponse = await llm.sendQuery(query, null, 'text');
             const { cleanResponse, results, uiDirective, uiBlocks } = await processor.processResponse(rawResponse, 'text');
 
             // AI's response is sent directly — no formatter intermediary
+            // For data-returning skills, do a second LLM pass to verbalize the result naturally.
+            let textResponse = cleanResponse || 'Done.';
+
+            if (results && results.length > 0) {
+                const dataResults = results.filter(
+                    (r) => r.returnType === 'data' && r.result && !r.error,
+                );
+                if (dataResults.length > 0) {
+                    try {
+                        const resultContext = dataResults
+                            .map((r) => `[RESULT for ${r.actionName}: ${JSON.stringify(r.result)}]`)
+                            .join('\n');
+                        const verbalizeQuery = `${resultContext}
+The user asked: "${query}"
+
+Present this data naturally. Rules:
+- If the user asked for a table or comparison, render it inside a [ui] block with proper markdown.
+- Keep spoken/written text concise.
+- Do NOT emit new [action:] tags.`;
+                        const verbalRaw = await llm.sendQuery(verbalizeQuery, null, 'text');
+                        const { cleanResponse: spokenResult, uiBlocks: verbalUiBlocks } = await processor.processResponse(verbalRaw, 'text');
+                        if (spokenResult && spokenResult.trim()) {
+                            textResponse = spokenResult.trim();
+                        }
+                        // Dispatch any [ui] blocks produced by the verbalization pass
+                        if (verbalUiBlocks && verbalUiBlocks.length > 0 && event.sender && !event.sender.isDestroyed()) {
+                            uiPipeline.dispatchUiBlocks(event.sender, verbalUiBlocks);
+                        }
+                    } catch (verbalErr) {
+                        logger.warn(`[query] Verbalization pass failed: ${verbalErr.message}`);
+                    }
+                }
+            }
+
             if (event.sender && !event.sender.isDestroyed()) {
-                event.sender.send('gemini-response', cleanResponse || 'Done.');
+                event.sender.send('gemini-response', textResponse);
             }
 
             // Dispatch [ui] markdown blocks to renderer

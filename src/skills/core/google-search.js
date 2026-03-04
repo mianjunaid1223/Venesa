@@ -7,6 +7,7 @@
 
 const { z } = require('zod');
 const { shell } = require('electron');
+const connectivity = require('../../lib/connectivity');
 
 module.exports = {
     schema: z.object({ query: z.string().trim().min(1).describe('The search query') }),
@@ -28,16 +29,19 @@ module.exports = {
 
 
     async handler(params) {
+        if (!connectivity.isOnline()) {
+            return { success: false, error: 'No internet connection. Please check your connection and try again.' };
+        }
         const query = params.query;
         if (!query || typeof query !== 'string' || !query.trim()) {
-            return 'No search query provided.';
+            return { success: false, error: 'No search query provided.' };
         }
         const url = `https://www.google.com/search?q=${encodeURIComponent(query.trim())}`;
         try {
             await shell.openExternal(url);
-            return `Searching Google for: ${query.trim()}`;
+            return { success: true, result: `Searching Google for: ${query.trim()}` };
         } catch (e) {
-            return `Error opening browser: ${e.message}`;
+            return { success: false, error: `Error opening browser: ${e.message}` };
         }
     },
 };

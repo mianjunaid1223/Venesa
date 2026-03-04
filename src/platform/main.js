@@ -44,6 +44,7 @@ const voiceHandlers = require("./ipc/voice-handlers");
 const systemHandlers = require("./ipc/system-handlers");
 const actionHandlers = require("./ipc/action-handlers");
 const trayManager = require("./tray");
+const connectivity = require("../lib/connectivity");
 
 function getAssetsPath() {
   if (app.isPackaged) {
@@ -62,6 +63,9 @@ protocol.registerSchemesAsPrivileged([
 const startHidden = process.argv.includes("--hidden");
 
 app.whenReady().then(async () => {
+  // Net guard — must be first so all subsequent checks have current status
+  connectivity.startMonitoring();
+
   protocol.handle("venesa-asset", (request) => {
     let filePath = request.url.replace("venesa-asset://", "");
     try {
