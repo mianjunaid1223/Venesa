@@ -41,7 +41,8 @@ contextBridge.exposeInMainWorld('voiceApi', {
             'action-complete',
             'dynamic-ui',
             'ai-status',
-            'ai-error'
+            'ai-error',
+            'ui-blocks'
         ];
         if (validChannels.includes(channel)) {
 

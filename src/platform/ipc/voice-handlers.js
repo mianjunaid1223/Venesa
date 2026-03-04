@@ -12,6 +12,36 @@ const connectivity = require("../../lib/connectivity");
 
 const OFFLINE_SUBTITLE = 'No internet connection. Please check your connection and try again.';
 
+const RESULT_MAX_CHARS = 1500;
+
+/**
+ * Returns a compact string representation of a tool result, truncated to
+ * RESULT_MAX_CHARS if necessary so LLM prompts stay within safe size limits.
+ * @param {*} result  Raw tool result (any type).
+ * @param {number} [maxChars]  Override the default character limit.
+ * @returns {string}
+ */
+function summarizeOrTruncateResult(result, maxChars = RESULT_MAX_CHARS) {
+  let str;
+  if (typeof result === 'string') {
+    str = result;
+  } else if (Array.isArray(result)) {
+    // Summarise arrays: include item count and first few entries
+    const preview = JSON.stringify(result.slice(0, 10));
+    str = result.length > 10
+      ? `(${result.length} items) ${preview} … [TRUNCATED]`
+      : JSON.stringify(result);
+  } else if (result && typeof result === 'object') {
+    str = JSON.stringify(result);
+  } else {
+    str = String(result);
+  }
+  if (str.length > maxChars) {
+    return str.slice(0, maxChars) + ' … [TRUNCATED]';
+  }
+  return str;
+}
+
 let cachedScreenCapture = null;
 
 // Accumulates Venesa's questions across consecutive [action: listen] turns.
@@ -167,14 +197,14 @@ function register(getVoiceWindow, hideVoiceWindow) {
         if (dataResults.length > 0) {
           try {
             const resultContext = dataResults
-              .map((r) => `[RESULT for ${r.actionName}: ${JSON.stringify(r.result)}]`)
+              .map((r) => `[RESULT for ${r.actionName}: ${summarizeOrTruncateResult(r.result)}]`)
               .join("\n");
             const verbalizeQuery = `${resultContext}
 The user asked (via voice): "${payload.query}"
 
 Present this data naturally. Rules:
 - Speak conversationally in 1-2 sentences maximum.
-- If the user asked for a table or comparison, place the formatted data inside a [ui] block and keep spoken text brief (e.g. "Here's the comparison.").
+- If the data is clearer as a table or visual (e.g. comparisons, rankings, multi-column data), place the formatted data inside a [ui] block inside [silent] and keep spoken text brief (e.g. "Here's the comparison.").
 - Use [speak]...[/speak] for the spoken part and [silent][ui]...[/ui][/silent] for any visual block.
 - Do NOT emit new [action:] tags.`;
             const verbalRaw = await llm.sendQuery(verbalizeQuery, null, "voice");

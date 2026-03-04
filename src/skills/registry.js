@@ -181,7 +181,7 @@ function getMetadataForPrompt() {
         output += '\n\n### ACTION EXAMPLES (from skills)\n';
         output += 'ALWAYS use these exact patterns when intent matches:\n';
         output += examples.join('\n');
-        output += '\nCRITICAL: When user intent maps to ANY available tool, ALWAYS emit the matching action. This includes currency conversion, data lookups, app control, file search, and anything else listed above. NEVER answer tool-dependent queries conversationally — invoke the tool every time.';
+        output += '\nCRITICAL: When user intent maps to ANY available tool, ALWAYS emit the matching action. This includes any installed capability listed above — data lookups, actions, comparisons, controls, or anything else. NEVER answer tool-dependent queries conversationally — invoke the tool every time. If a request requires multiple calls to the same tool (e.g. batch comparisons), emit a [plan] block with one step per item. NEVER ask the user to clarify when the intent and parameters are already clear from context — act immediately.';
     }
 
     return output;

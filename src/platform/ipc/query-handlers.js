@@ -43,6 +43,7 @@ function register() {
             // AI's response is sent directly — no formatter intermediary
             // For data-returning skills, do a second LLM pass to verbalize the result naturally.
             let textResponse = cleanResponse || 'Done.';
+            let verbalUiBlocksDispatched = false;
 
             if (results && results.length > 0) {
                 const dataResults = results.filter(
@@ -57,8 +58,8 @@ function register() {
 The user asked: "${query}"
 
 Present this data naturally. Rules:
-- If the user asked for a table or comparison, render it inside a [ui] block with proper markdown.
-- Keep spoken/written text concise.
+- If the data is clearer as a table or visual (e.g. comparisons, rankings, multi-column data), render it inside a [ui]...[/ui] block with proper markdown.
+- Keep the spoken/written summary concise.
 - Do NOT emit new [action:] tags.`;
                         const verbalRaw = await llm.sendQuery(verbalizeQuery, null, 'text');
                         const { cleanResponse: spokenResult, uiBlocks: verbalUiBlocks } = await processor.processResponse(verbalRaw, 'text');
@@ -68,6 +69,7 @@ Present this data naturally. Rules:
                         // Dispatch any [ui] blocks produced by the verbalization pass
                         if (verbalUiBlocks && verbalUiBlocks.length > 0 && event.sender && !event.sender.isDestroyed()) {
                             uiPipeline.dispatchUiBlocks(event.sender, verbalUiBlocks);
+                            verbalUiBlocksDispatched = true;
                         }
                     } catch (verbalErr) {
                         logger.warn(`[query] Verbalization pass failed: ${verbalErr.message}`);
@@ -79,8 +81,8 @@ Present this data naturally. Rules:
                 event.sender.send('gemini-response', textResponse);
             }
 
-            // Dispatch [ui] markdown blocks to renderer
-            if (uiBlocks && uiBlocks.length > 0 && event.sender && !event.sender.isDestroyed()) {
+            // Dispatch [ui] markdown blocks to renderer — skip if verbalization already dispatched UI
+            if (!verbalUiBlocksDispatched && uiBlocks && uiBlocks.length > 0 && event.sender && !event.sender.isDestroyed()) {
                 uiPipeline.dispatchUiBlocks(event.sender, uiBlocks);
             }
 

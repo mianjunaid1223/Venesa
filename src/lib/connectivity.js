@@ -71,7 +71,8 @@ async function _poll() {
         if (result !== _online) {
             _online = result;
             logger.info(`[net-guard] Status changed → ${_online ? 'online' : 'offline'}`);
-            for (const fn of _listeners) {
+            const listeners = _listeners.slice();
+            for (const fn of listeners) {
                 try { fn(_online); } catch (e) {
                     logger.warn(`[net-guard] onChange listener error: ${e.message}`);
                 }

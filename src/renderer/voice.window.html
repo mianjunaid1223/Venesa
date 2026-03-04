@@ -2236,6 +2236,46 @@
         }
       });
 
+      function parseMarkdownTable(text) {
+        const lines = text.trim().split('\n').map(l => l.trim()).filter(l => l.includes('|'));
+        if (lines.length < 2) return null;
+        const headers = lines[0].split('|').slice(1, -1).map(h => h.trim()).filter(Boolean);
+        if (headers.length === 0) return null;
+        const rows = [];
+        for (let i = 1; i < lines.length; i++) {
+          if (/^[\s|:=-]+$/.test(lines[i])) continue;
+          const cols = lines[i].split('|').slice(1, -1).map(c => c.trim());
+          if (cols.length === 0) continue;
+          const row = {};
+          headers.forEach((h, idx) => { row[h] = cols[idx] ?? ''; });
+          rows.push(row);
+        }
+        return rows.length > 0 ? rows : null;
+      }
+
+      window.voiceApi.receive('ui-blocks', (blocks) => {
+        try {
+          if (!blocks || blocks.length === 0) return;
+          voiceResultsListEl.innerHTML = '';
+          document.getElementById('voice-results-header').textContent = 'Here is what I found:';
+          currentVoiceResults = [];
+          for (const block of blocks) {
+            const rows = parseMarkdownTable(block);
+            if (rows) {
+              renderTable(rows);
+            } else {
+              showAIResponse(block);
+            }
+          }
+          voiceResultsEl.classList.add('visible');
+          hasActiveUI = true;
+          shouldListenAgain = false;
+          setState(VoiceState.IDLE);
+        } catch (e) {
+          console.error('[VoiceWindow] ui-blocks render err:', e);
+        }
+      });
+
       window.voiceApi.receive("start-listening", async () => {
         resetListenCounter();
         // Activation sound played by background window already

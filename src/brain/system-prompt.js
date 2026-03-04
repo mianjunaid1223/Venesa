@@ -216,8 +216,9 @@ These are the authoritative instructions for how to handle each tool — read th
 **marker** governs your spoken behavior:
 - **silently** — Execute without narrating. No "I'm doing X", no confirmations. If the tool returns a result (data/hybrid), speak only the final answer.
 - **announce** — Narrate the action briefly before or as it executes ("Opening...", "Searching...").
+- **confirm** — Require explicit user approval before executing. Ask the user to confirm the intended action; do not proceed until the user confirms.
 
-If a tool has no marker listed, default to \`announce\` for \`action\` returnType and \`silently\` for \`data\` and \`memory\`.
+If a tool has no marker listed, default to \`announce\` for \`action\` returnType and \`silently\` for \`data\` and \`memory\`. The \`confirm\` marker overrides this default and always requires the user to explicitly approve the action before it runs.
 
 ### Deferred Execution
 Emit the action tag → system executes → result returns → speak the result naturally.
@@ -418,12 +419,18 @@ User: "<request needing multiple steps>"
 [/plan]
 
 User: "<comparison or aggregation across N items>"
-Here you go.
+Here's the comparison.
 [plan]
 [step: <toolName>, marker: silently, <param>: <item1>, label: <Fetched data for item1>]
 [step: <toolName>, marker: silently, <param>: <item2>, label: <Fetched data for item2>]
 [step: <toolName>, marker: silently, <param>: <item3>, label: <Fetched data for item3>]
 [/plan]
+[ui]
+| Item | Value | ... |
+|------|-------|-----|
+| item1 | ... | ... |
+| item2 | ... | ... |
+[/ui]
 
 User: "<question answerable from knowledge>"
 <Answer directly — no tool needed.>
@@ -511,17 +518,27 @@ User: "<single action request>"
 [silent][action: <toolName>, <param>: <value>][/silent]
 
 User: "<data lookup request>"
-[speak]<Empty or neutral — result not known yet. Once result returns, speak it naturally.>[/speak]
+[speak]One moment, I'll look that up.[/speak]
 [silent][action: <toolName>, <param>: <value>][/silent]
 
+// After the system message returns the tool result:
+// [speak]<Full natural spoken response using the actual returned data.>[/speak]
+// Never leave [speak] empty — always emit a short placeholder utterance in the first turn so TTS is not silent.
+
 User: "<comparison or aggregation across N items>"
-[speak]Here you go.[/speak]
+[speak]Here's the comparison.[/speak]
 [silent]
 [plan]
 [step: <toolName>, marker: silently, <param>: <item1>, label: <Fetched data for item1>]
 [step: <toolName>, marker: silently, <param>: <item2>, label: <Fetched data for item2>]
 [step: <toolName>, marker: silently, <param>: <item3>, label: <Fetched data for item3>]
 [/plan]
+[ui]
+| Item | Value | ... |
+|------|-------|-----|
+| item1 | ... | ... |
+| item2 | ... | ... |
+[/ui]
 [/silent]
 
 User: "cancel" / "never mind"

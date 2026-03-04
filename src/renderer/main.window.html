@@ -2496,6 +2496,38 @@
             renderDynamicUI(payload.component, payload.data);
         });
 
+        function parseMarkdownTable(text) {
+            const lines = text.trim().split('\n').map(l => l.trim()).filter(l => l.includes('|'));
+            if (lines.length < 2) return null;
+            const headers = lines[0].split('|').slice(1, -1).map(h => h.trim()).filter(Boolean);
+            if (headers.length === 0) return null;
+            const rows = [];
+            for (let i = 1; i < lines.length; i++) {
+                // skip separator rows (e.g. |---|---|)
+                if (/^[\s|:=-]+$/.test(lines[i])) continue;
+                const cols = lines[i].split('|').slice(1, -1).map(c => c.trim());
+                if (cols.length === 0) continue;
+                const row = {};
+                headers.forEach((h, idx) => { row[h] = cols[idx] ?? ''; });
+                rows.push(row);
+            }
+            return rows.length > 0 ? rows : null;
+        }
+
+        window.api.receive('ui-blocks', (blocks) => {
+            if (!blocks || blocks.length === 0) return;
+            loader.classList.remove('visible');
+            loader.style.display = 'none';
+            for (const block of blocks) {
+                const rows = parseMarkdownTable(block);
+                if (rows) {
+                    renderTable(rows);
+                } else {
+                    showAIResponse(block);
+                }
+            }
+        });
+
         settingsBtn.addEventListener("click", () => {
             window.api.send("open-settings");
         });

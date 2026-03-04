@@ -44,7 +44,8 @@ contextBridge.exposeInMainWorld('api', {
             'save-state',
             'restore-state',
             'screen-captured',
-            'set-input'
+            'set-input',
+            'ui-blocks'
         ];
         if (validChannels.includes(channel)) {
             const handler = (event, ...args) => func(...args);
