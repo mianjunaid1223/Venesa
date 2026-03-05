@@ -295,7 +295,7 @@ async function removeDepsForCapability(capabilityName) {
         const manifest = getManifest();
         if (manifest[capabilityName]) {
             delete manifest[capabilityName];
-            saveManifest(manifest);
+            await saveManifest(manifest);
             logger.info(`[dep-engine] Removed manifest entry for '${capabilityName}'`);
         }
     } catch (e) {
@@ -308,7 +308,7 @@ async function removeDepsForCapability(capabilityName) {
         const keys = Object.keys(failures).filter(k => k.startsWith(prefix));
         if (keys.length > 0) {
             keys.forEach(k => delete failures[k]);
-            saveFailures(failures);
+            await saveFailures(failures);
             logger.info(`[dep-engine] Cleared ${keys.length} failure record(s) for '${capabilityName}'`);
         }
     } catch (e) {
@@ -318,7 +318,13 @@ async function removeDepsForCapability(capabilityName) {
 
 /**
  * Get consecutive failure count for a package within a capability.
- * packageSpec should be the fully-qualified "name@version" string.
+ * @param {string} packageSpec  The package name as stored by the dep engine
+ *   (e.g., "axios" or "@scope/pkg"). This is the bare name, NOT the
+ *   fully-qualified "name@version" specifier — the dep engine records
+ *   failures keyed by name only. Both "name" and "name@version" are
+ *   accepted; if a version suffix is present it is stripped internally
+ *   so the lookup matches the stored key.
+ * @param {string} capabilityName  The capability that owns the package.
  */
 function getFailureCount(packageSpec, capabilityName) {
     try {

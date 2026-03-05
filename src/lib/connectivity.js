@@ -19,7 +19,7 @@ const POLL_INTERVAL_MS = 5000;
 const REQUEST_TIMEOUT_MS = 4000;
 const PROBE_URL = 'https://www.google.com';
 
-let _online = true;
+let _online = null; // null = unknown until first probe; false = offline; true = online
 let _monitorInterval = null;
 const _listeners = [];
 

@@ -2,6 +2,14 @@
  * ═══════════════════════════════════════════════════════════════
  *  MODULE: Orchestrator
  *  Multi-step plan parser + executor for [plan]...[/plan] blocks.
+ *  Governance Contract v2.0 compliant.
+ *
+ *  Exports:
+ *    parseOrchestrationPlan  — parses bracket syntax into plan object
+ *    parseActionsStrict      — lexer for [action:] tags
+ *    executePlan             — serial step execution
+ *    executeAction           — single action dispatch
+ *    createAgentHandle       — long-running task with observable state + interrupt
  * ═══════════════════════════════════════════════════════════════
  *  DEPENDS ON: lib/logger, skills/registry
  *  USED BY:    brain/processor
@@ -11,7 +19,7 @@
 const logger = require('../lib/logger');
 const registry = require('../skills/registry');
 const { z } = require('zod');
-const { EXECUTION_MARKERS } = require('./protocol');
+const { EXECUTION_MARKERS, AGENT_STATES } = require('./protocol');
 const { coerceParams } = require('../skills/validator');
 
 // Formal lexer and parser for Venesa's output schema
@@ -348,10 +356,166 @@ async function executePlan(plan) {
     return results;
 }
 
+// ── Agent Mode ────────────────────────────────────────────────
+// Long-running tasks must expose control handles.
+// State is observable. User can interrupt at any step boundary.
+// No hidden background loops without lifecycle control.
+
+/**
+ * Creates a lifecycle-controlled handle for a long-running plan.
+ *
+ * handle.state       — current AGENT_STATE (observable)
+ * handle.progress    — { currentStep, totalSteps, results }
+ * handle.abort()     — request abort; takes effect at next step boundary
+ * handle.run()       — starts execution; resolves when complete or aborted
+ * handle.onStep      — optional callback(stepIndex, result) fired after each step
+ *
+ * @param {object} plan
+ * @returns {object} agentHandle
+ */
+function createAgentHandle(plan) {
+    let abortRequested = false;
+    let state = AGENT_STATES.PENDING;
+    const progress = { currentStep: 0, totalSteps: plan.steps.length, results: [] };
+    let onStep = null;
+
+    const handle = {
+        get state() { return state; },
+        get progress() { return { ...progress, results: [...progress.results] }; },
+        set onStep(cb) { onStep = cb; },
+        abort() {
+            if (state === AGENT_STATES.RUNNING || state === AGENT_STATES.PENDING) {
+                abortRequested = true;
+                logger.info(`[agent] Abort requested for plan ${plan.planId}`);
+            }
+        },
+        async run() {
+            state = AGENT_STATES.RUNNING;
+            logger.info(`[agent] Starting plan ${plan.planId} (${plan.steps.length} steps)`);
+
+            const stepOutputs = {};
+
+            for (let i = 0; i < plan.steps.length; i++) {
+                if (abortRequested) {
+                    state = AGENT_STATES.ABORTED;
+                    logger.info(`[agent] Plan ${plan.planId} aborted at step ${i}`);
+                    for (let j = i; j < plan.steps.length; j++) {
+                        progress.results.push({
+                            actionName: plan.steps[j].actionName,
+                            result: null,
+                            error: 'Aborted by user',
+                            skipped: true,
+                            marker: 'silently',
+                            ui: null,
+                        });
+                    }
+                    break;
+                }
+
+                const step = plan.steps[i];
+                progress.currentStep = i;
+
+                try {
+                    const resolvedParams = { ...step.params };
+                    for (const [key, value] of Object.entries(resolvedParams)) {
+                        if (typeof value === 'string' && value.startsWith('$')) {
+                            const depName = value.substring(1);
+                            const foundKey = Object.keys(stepOutputs).reverse().find(k => k === depName);
+                            if (foundKey && stepOutputs[foundKey] !== undefined) {
+                                resolvedParams[key] = stepOutputs[foundKey];
+                            } else {
+                                const prefixMatch = Object.keys(stepOutputs).reverse().find(k => k.startsWith(depName + '_'));
+                                if (prefixMatch && stepOutputs[prefixMatch] !== undefined) {
+                                    resolvedParams[key] = stepOutputs[prefixMatch];
+                                } else {
+                                    throw new Error(`Dependency ${depName} not found for step ${step.actionName}`);
+                                }
+                            }
+                        }
+                    }
+
+                    const result = await executeAction(step.actionName, resolvedParams, {
+                        planId: plan.planId,
+                        stepIndex: i,
+                        marker: step.marker,
+                    });
+
+                    const stepKey = `${step.actionName}_${i}`;
+                    stepOutputs[stepKey] = result.success ? result.output : undefined;
+
+                    const stepResult = {
+                        actionName: step.actionName,
+                        result: result.output || null,
+                        error: result.error || null,
+                        skipped: false,
+                        marker: result.marker,
+                        ui: result.ui || null,
+                        returnType: result.returnType || 'action',
+                    };
+
+                    progress.results.push(stepResult);
+
+                    if (typeof onStep === 'function') {
+                        try { onStep(i, stepResult); } catch { /* ignore callback errors */ }
+                    }
+
+                    if (!result.success) {
+                        state = AGENT_STATES.FAILED;
+                        logger.warn(`[agent] Plan ${plan.planId} failed at step ${i} (${step.actionName})`);
+                        for (let j = i + 1; j < plan.steps.length; j++) {
+                            progress.results.push({
+                                actionName: plan.steps[j].actionName,
+                                result: null,
+                                error: 'Aborted due to preceding failure',
+                                skipped: true,
+                                marker: 'silently',
+                                ui: null,
+                            });
+                        }
+                        break;
+                    }
+                } catch (error) {
+                    logger.error(`[agent] Step ${step.actionName} failed: ${error.message}`);
+                    progress.results.push({
+                        actionName: step.actionName,
+                        result: null,
+                        error: error.message,
+                        skipped: false,
+                        marker: step.marker,
+                        ui: null,
+                    });
+                    state = AGENT_STATES.FAILED;
+                    for (let j = i + 1; j < plan.steps.length; j++) {
+                        progress.results.push({
+                            actionName: plan.steps[j].actionName,
+                            result: null,
+                            error: 'Aborted due to preceding failure',
+                            skipped: true,
+                            marker: 'silently',
+                            ui: null,
+                        });
+                    }
+                    break;
+                }
+            }
+
+            if (state === AGENT_STATES.RUNNING) {
+                state = AGENT_STATES.COMPLETED;
+                logger.info(`[agent] Plan ${plan.planId} completed`);
+            }
+
+            return progress.results;
+        },
+    };
+
+    return handle;
+}
+
 module.exports = {
     parseOrchestrationPlan,
     parseActionsStrict,
     executePlan,
     executeAction,
+    createAgentHandle,
     EXECUTION_MARKERS,
 };

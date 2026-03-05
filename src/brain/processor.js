@@ -4,6 +4,11 @@
  *  Parses LLM responses — extracts [action:] tags, [plan] blocks,
  *  [ui] blocks, [speak]/[silent] sections. Dispatches to skills,
  *  returns structured results.
+ *
+ *  Governance Contract v2.0:
+ *    - Classifies responses by execution mode (execute/data/ui/refuse)
+ *    - Tracks workflow pipeline stages engaged per response
+ *    - Structured refusal detection (no hidden conversational refusals)
  * ═══════════════════════════════════════════════════════════════
  *  DEPENDS ON: skills/registry, brain/orchestrator
  *  USED BY:    platform/ipc/query-handlers, platform/ipc/voice-handlers
@@ -12,6 +17,7 @@
 
 const registry = require('../skills/registry');
 const orchestrator = require('./orchestrator');
+const { EXECUTION_MODES, WORKFLOW_STAGES } = require('./protocol');
 
 // Boot skills on first require
 try {
@@ -63,11 +69,63 @@ function extractUiBlocks(text) {
 }
 
 /**
+ * Classify the response into an execution mode.
+ * Returns one of: execute | data | ui | refuse
+ */
+function classifyExecutionMode(results, uiBlocks, uiDirective, cleanResponse) {
+    if (results.length === 0 && uiBlocks.length === 0 && !uiDirective) {
+        if (isStructuredRefusal(cleanResponse)) return EXECUTION_MODES.refuse;
+        return EXECUTION_MODES.data;
+    }
+    if (results.length > 0 && results.every(r => r.returnType === 'data' || r.returnType === 'memory')) {
+        return EXECUTION_MODES.data;
+    }
+    if ((uiBlocks.length > 0 || uiDirective) && results.length === 0) {
+        return EXECUTION_MODES.ui;
+    }
+    return EXECUTION_MODES.execute;
+}
+
+/**
+ * Detect whether the response is a structured refusal.
+ * Matches: "Cannot <action>: <reason>." or broader refusal patterns.
+ */
+function isStructuredRefusal(text) {
+    if (!text) return false;
+    return /^cannot\s+\S.{0,120}[.:]/i.test(text.trim());
+}
+
+/**
+ * Build the list of pipeline stages that were engaged in this response.
+ */
+function getEngagedStages(results, uiBlocks, uiDirective, mode) {
+    const stages = [
+        WORKFLOW_STAGES[0], // INTENT_PARSING
+        WORKFLOW_STAGES[1], // FEASIBILITY_EVALUATION
+        WORKFLOW_STAGES[2], // PLAN_CONSTRUCTION
+    ];
+    if (mode === EXECUTION_MODES.refuse) return stages;
+    if (results.length > 0) stages.push(WORKFLOW_STAGES[3]); // STEP_EXECUTION
+    stages.push(WORKFLOW_STAGES[4]); // RESULT_STRUCTURING
+    if (uiBlocks.length > 0 || uiDirective) stages.push(WORKFLOW_STAGES[5]); // UI_RENDERING
+    const hasMemoryOp = results.some(r => r.returnType === 'memory');
+    if (hasMemoryOp) stages.push(WORKFLOW_STAGES[6]); // MEMORY_UPDATE
+    return stages;
+}
+
+/**
  * Process an LLM response: parse tags, execute skills, return structured output.
  *
  * @param {string} response - Raw LLM response text
- * @param {string} mode - 'text' or 'voice'
- * @returns {{ cleanResponse: string, results: Array, uiDirective: string|null, uiBlocks: string[] }}
+ * @returns {{
+ *   cleanResponse: string,
+ *   results: Array,
+ *   uiDirective: string|null,
+ *   uiBlocks: string[],
+ *   executionMode: string,
+ *   pipelineStages: string[],
+ *   isRefusal: boolean,
+ * }}
  */
 async function processResponse(response) {
     // 1. Extract [speak] block if present
@@ -120,7 +178,17 @@ async function processResponse(response) {
             ui: r.ui || null,
             returnType: r.returnType || 'action',
         }));
-        return { cleanResponse, results, uiDirective, uiBlocks };
+        const executionMode = classifyExecutionMode(results, uiBlocks, uiDirective, cleanResponse);
+        const pipelineStages = getEngagedStages(results, uiBlocks, uiDirective, executionMode);
+        return {
+            cleanResponse,
+            results,
+            uiDirective,
+            uiBlocks,
+            executionMode,
+            pipelineStages,
+            isRefusal: false,
+        };
     }
 
     // 6. Single action parsing using strict parser
@@ -140,7 +208,17 @@ async function processResponse(response) {
     }
 
     if (actions.length === 0) {
-        return { cleanResponse, results: [], uiDirective, uiBlocks };
+        const executionMode = classifyExecutionMode([], uiBlocks, uiDirective, cleanResponse);
+        const pipelineStages = getEngagedStages([], uiBlocks, uiDirective, executionMode);
+        return {
+            cleanResponse,
+            results: [],
+            uiDirective,
+            uiBlocks,
+            executionMode,
+            pipelineStages,
+            isRefusal: executionMode === EXECUTION_MODES.refuse,
+        };
     }
 
     const results = [];
@@ -174,7 +252,17 @@ async function processResponse(response) {
         }
     }
 
-    return { cleanResponse, results, uiDirective, uiBlocks };
+    const executionMode = classifyExecutionMode(results, uiBlocks, uiDirective, cleanResponse);
+    const pipelineStages = getEngagedStages(results, uiBlocks, uiDirective, executionMode);
+    return {
+        cleanResponse,
+        results,
+        uiDirective,
+        uiBlocks,
+        executionMode,
+        pipelineStages,
+        isRefusal: false,
+    };
 }
 
 // Convenience wrapper used by action-handlers

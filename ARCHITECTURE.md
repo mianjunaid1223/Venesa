@@ -2,21 +2,55 @@
 
 ## Overview
 
-Venesa is a **programmable intelligence platform** for Windows built on Electron. It diverges from chatbot designs by treating the language model as a decision-making engine: the model produces structured protocol output that the runtime parses and executes as system-level operations. All components communicate through a unified protocol, and no component formats or re-interprets the model's output independently.
+Venesa is a **generic execution platform** for Windows built on Electron. The language model is the strategic reasoning layer — it plans. The platform is the execution layer — it validates and runs. No component formats or re-interprets the model's output independently.
 
-**Version:** 2.0.0  
-**Target Platform:** Windows 10 / 11 (x64)  
-**Runtime:** Electron 28, Node.js ≥ 18  
-**Primary Model:** Google Gemini 2.5  
-**Speech Stack:** Vosk (offline wake-word / local STT) + ElevenLabs Scribe (cloud STT) + ElevenLabs Flash v2.5 (TTS)
+**Version:** 2.0.0
+**Governance:** Venesa Governance & Execution Contract v2.0
+**Target Platform:** Windows 10 / 11 (x64)
+**Runtime:** Electron 28, Node.js ≥ 18
+**Primary Model:** Google Gemini 2.5
+**Speech Stack:** Vosk (offline wake-word) + ElevenLabs Scribe (cloud STT) + ElevenLabs Flash v2.5 (TTS)
 
-## Processing Pipeline
+## Foundational Principles
+
+**Generic Over Specific** — No capability names hardcoded into prompts. No workflow assumptions baked in. All behaviors follow a universal pattern.
+
+**Strict Yet Flexible** — Strict contracts. Strict schema validation. Strict execution pipeline. Flexible interpretation of user intent within those constraints.
+
+**Divide and Conquer** — Every complex task is decomposed into small deterministic steps. Each step is independently executable. The LLM plans. The runtime executes.
+
+**UI as Intent, Not Decoration** — UI is optional. UI is only rendered when the output is structurally complex, requires user interaction, or visual layout meaningfully improves comprehension.
+
+## Universal Workflow Pipeline
+
+Every operation in Venesa traverses all 7 stages in order. No stage may mutate another's responsibility. Some stages are **mandatory** (always execute); others are **conditional** (execute as a no-op when not applicable).
+
+- **Mandatory stages:** `INTENT_PARSING`, `FEASIBILITY_EVALUATION`, `PLAN_CONSTRUCTION`, `RESULT_STRUCTURING`.
+- **Conditional stages (may be no-ops):** `STEP_EXECUTION` (no-op for `RETURN_DATA`/`REFUSE` decisions), `UI_RENDERING` (no-op when no UI output is warranted), `MEMORY_UPDATE` (no-op when no context warrants persistence).
+- **Edge-case examples:**
+  - *Failed FEASIBILITY* — `PLAN_CONSTRUCTION`, `STEP_EXECUTION`, and `UI_RENDERING` become no-ops; pipeline emits a structured refusal.
+  - *Informational query (RETURN_DATA)* — `STEP_EXECUTION` is a no-op; data is returned directly.
+  - *Refused request (REFUSE)* — `STEP_EXECUTION`, `UI_RENDERING`, and `MEMORY_UPDATE` are no-ops; pipeline emits a refusal and terminates.
+
+> **Invariant:** Conditional stages that run as no-ops still pass through the pipeline; they simply perform no work and produce no output.
 
 ```text
-┌──────────────┐    ┌─────────────────┐    ┌──────────────┐    ┌──────────────────┐    ┌───────────────┐
-│  User Input  │───▶│ Context / Memory│───▶│  LLM Engine  │───▶│ Protocol Parser  │───▶│ Skill Executor│
-│ (text/voice) │    │   Resolution    │    │  (Gemini 2.5)│    │  (processor.js)  │    │ (orchestrator)│
-└──────────────┘    └─────────────────┘    └──────────────┘    └──────────────────┘    └───────────────┘
+1. INTENT PARSING      — Determine what the user actually needs.
+2. FEASIBILITY         — Evaluate whether the request is safe, defined, and executable.
+3. PLAN CONSTRUCTION   — Decompose into atomic steps.
+4. STEP EXECUTION      — Runtime validates and executes structured instructions.
+5. RESULT STRUCTURING  — Organize outputs for response.
+6. UI RENDERING        — Render UI only if structurally justified.
+7. MEMORY UPDATE       — Persist context if warranted (explicit mutation only).
+```
+
+## Execution Flow
+
+```text
+┌──────────────┐    ┌──────────────────┐    ┌──────────────┐    ┌─────────────────┐    ┌───────────────┐
+│  User Input  │───▶│ Context / Memory │───▶│  LLM Engine  │───▶│ Protocol Parser │───▶│ Skill Executor│
+│ (text/voice) │    │   Resolution     │    │ (Selected model) │    │ (processor.js)  │    │(orchestrator) │
+└──────────────┘    └──────────────────┘    └──────────────┘    └─────────────────┘    └───────────────┘
                                                                                                 │
                                                                          ┌──────────────────────┤
                                                                          ▼                      ▼
@@ -26,134 +60,167 @@ Venesa is a **programmable intelligence platform** for Windows built on Electron
                                                                   └────────────┘       └──────────────┘
 ```
 
-### Stage Breakdown
+## AI Authority Contract
 
-1. **Input Ingestion** — Audio captured by the Vosk wake-word detector triggers the speech pipeline. The audio is then routed to ElevenLabs Scribe (cloud STT) for high-accuracy transcription, or handled locally by the Vosk engine as a fallback. Text queries arrive directly through the main window IPC channel.
+The LLM is the strategic reasoning layer. It must:
 
-2. **Context Resolution** — Before the model is invoked, `system-prompt.js` assembles a full context object: user preferences, memory buckets (aliases, reminders, preferences), the active skill registry's metadata (`registry.getMetadataForPrompt()`), and conversation history from `memory.js`.
+- Break large tasks into atomic operations.
+- Evaluate risk before execution.
+- Decide one of: `EXECUTE` | `REQUEST_CONFIRMATION` | `REFUSE` | `RETURN_DATA` | `RETURN_UI`
 
-3. **Reasoning Engine** — `llm.js` sends the context + user query to Gemini 2.5. The model is constrained by the system-prompt to respond using Venesa's protocol tokens. Supports streaming responses. Handles multi-key rotation via `lib/key-pool.js` to recover gracefully from rate-limit events.
+The AI may independently refuse:
 
-4. **Protocol Parser** — `processor.js` acts as an AST-style parser: it extracts `[speak]`, `[silent]`, `[ui]`, `[action:]`, and `[plan]` blocks from the raw response before any content reaches the UI or skill layer.
+- Unsafe tasks
+- Ill-defined tasks
+- Technically infeasible tasks
+- Tasks requiring unavailable resources
 
-5. **Skill Executor** — Individual `[action:]` tags are dispatched directly to the matching registered skill. `[plan]` blocks are handed to `orchestrator.js`, which executes steps serially, resolving inter-step variable references.
+**Refusal is structured, not conversational.** Format: `"Cannot [action]: [single-sentence reason]."`
 
-6. **Output** — `[speak]` text is piped to TTS. `[ui]` markdown blocks are forwarded through `ui-pipeline.js` to the renderer for GitHub-style rendering. Plain text is streamed to the chat interface.
+The AI must never directly manipulate system state. It only emits structured instructions.
 
-### Protocol Tokens vs Execution Markers
+## Execution Contract
 
-The architecture explicitly differentiates between **Reasoning Tokens** (how the AI shapes data) and **Execution Markers** (how the orchestrator surfaces progress).
+All LLM output conforms to bracket-syntax execution instructions:
 
-| Token | Purpose | Execution Handling |
-|---|---|---|
-| `[speak]...[/speak]` | Exact string sent to TTS | Not tracked as an execution step |
-| `[silent]...[/silent]` | Hides internal reasoning | Actions inside still parse and run |
-| `[action: tool, param: value]` | Invokes a single atomic skill | Inherits the skill's default marker |
-| `[plan]...[/plan]` | Serialized multi-step workflow | Parsed by `orchestrator.js` |
-| `[step: tool, marker: silently]` | Plan step — background | No UI feedback or notification |
-| `[step: tool, marker: announce]` | Plan step — verbose | Result shown in UI / spoken aloud |
-| `[step: tool, marker: confirm]` | Plan step — gated | Execution paused until user confirms |
-| `[ui]...[/ui]` | Rich markdown payload | Forwarded as a UI directive to renderer |
+```text
+SINGLE ACTION:
+[action: toolName, param: value]
 
----
+MULTI-STEP PLAN:
+[plan]
+[step: toolName, marker: silently|announce|confirm, param: value, label: Natural description]
+[step: toolName2, marker: announce, param: $toolName, label: Natural description]
+[/plan]
+```
+
+**Execution modes** (classified by `processor.js`):
+
+- `execute` — action steps with system side-effects
+- `data` — information retrieval, no side-effects
+- `ui` — visual output without execution
+- `refuse` — structured refusal
+
+**Execution markers:**
+
+- `silently` — background execution, no narration
+- `announce` — narrate the action as it executes
+- `confirm` — pause execution until user explicitly approves
+
+### AI Decision → Execution Mode Mapping
+
+The LLM emits one of five AI decisions. `processor.js` maps each to an execution mode and a default marker:
+
+| AI Decision | Execution Mode | Default Marker | Notes |
+|---|---|---|---|
+| `EXECUTE` | `execute` | `silently` or `announce` | Standard action with system side-effects. |
+| `REQUEST_CONFIRMATION` | `execute` | `confirm` | Execution is paused until the user explicitly approves. The `confirm` marker is the runtime implementation of `REQUEST_CONFIRMATION`. |
+| `REFUSE` | `refuse` | — | No execution. Structured refusal emitted. |
+| `RETURN_DATA` | `data` | — | Information retrieval; no side-effects. |
+| `RETURN_UI` | `ui` | — | Visual output rendered via UI pipeline; no execution. |
+
+> **Key interaction:** `REQUEST_CONFIRMATION` maps to `execute` mode with the `confirm` marker. The `confirm` marker in `processor.js` is what pauses pipeline execution and surfaces an approval prompt. Locate `confirm` handling in `processor.js` to understand how `REQUEST_CONFIRMATION` is enforced at runtime.
+
+## UI Contract
+
+UI is optional and only rendered when:
+a) The output is structurally complex
+b) The user requires interaction with the result
+c) Visual layout meaningfully improves comprehension
+
+```text
+[ui]
+## Title
+| Column A | Column B |
+|----------|----------|
+| value    | value    |
+[/ui]
+
+[ui: table | key-value | card-list | command-list]
+```
+
+UI must be declarative. No hardcoded capability logic. No Node access from UI. Communication strictly through validated IPC.
+
+## Memory Contract
+
+All memory mutations are explicit. No implicit writes.
+
+Mutation contract: `{ bucket, operation: 'set'|'append'|'remove', key, value }`
+
+API: `memory.mutate({ bucket, operation, key, value })`
+
+Buckets: `preferences` | `context` | `aliases` | `history`
+
+## Agent Mode
+
+Long-running tasks use `createAgentHandle(plan)` from `orchestrator.js`.
+
+Every agent handle exposes:
+
+- `handle.state` — observable `AGENT_STATE` (PENDING | RUNNING | PAUSED | COMPLETED | FAILED | ABORTED)
+- `handle.progress` — `{ currentStep, totalSteps, results }`
+- `handle.abort()` — requests abort at the next step boundary
+- `handle.run()` — starts execution, resolves when complete or aborted
+- `handle.onStep` — optional callback fired after each completed step
+
+No hidden background loops. State is observable. User can interrupt.
 
 ## Core Module Structure
 
 ```text
 src/
 ├── brain/                       # Intelligence core
-│   ├── protocol.js              # Single source of truth: RETURN_TYPES, EXECUTION_MARKERS, UI_COMPONENTS, LIFECYCLE_HOOKS
-│   ├── llm.js                   # Gemini API client; handles streaming, key rotation, session management
-│   ├── processor.js             # Protocol parser: extracts [speak], [silent], [ui], [action:], [plan] blocks
-│   ├── orchestrator.js          # Plan executor: lexes [step:] tags, resolves $variables, runs serial steps
-│   ├── system-prompt.js         # Builds the full LLM context from memory + skill registry
-│   ├── memory.js                # Persists/retrieves named buckets (preferences, history, aliases) to disk
-│   ├── services.config.js       # Third-party service configuration (ElevenLabs, Vosk endpoints)
-│   └── settings.js              # User preference schema definitions and default values
+│   ├── protocol.js              # Single source of truth: all protocol constants v2.0
+│   │                            #   RETURN_TYPES, EXECUTION_MARKERS, EXECUTION_MODES,
+│   │                            #   AI_DECISIONS, UI_SCHEMA_TYPES, MEMORY_OPERATIONS,
+│   │                            #   WORKFLOW_STAGES, AGENT_STATES, LIFECYCLE_HOOKS
+│   ├── llm.js                   # Gemini API client; streaming, key rotation, session management
+│   ├── processor.js             # Protocol parser: extracts [speak], [silent], [ui], [action:], [plan]
+│   │                            #   Classifies execution mode and engaged pipeline stages
+│   ├── orchestrator.js          # Plan executor: lexes steps, resolves $variables, serial execution
+│   │                            #   createAgentHandle: long-running task with observable state + interrupt
+│   ├── system-prompt.js         # Builds LLM context from memory + skill registry
+│   │                            #   Governance v2.0: role, execution contract, refusal contract,
+│   │                            #   UI contract, memory contract, decomposition rules
+│   ├── memory.js                # Named-bucket key-value store persisted to disk
+│   │                            #   mutate(): explicit mutation contract API
+│   ├── services.config.js       # Third-party service configuration (ElevenLabs, Gemini)
+│   └── settings.js              # User preference schema and defaults
 │
 ├── skills/                      # Capability execution environment
-│   ├── registry.js              # In-memory skill map; builds prompt metadata; manages enable/disable state
-│   ├── loader.js                # Auto-discovers core/ and ~/.venesa/capabilities/; fires lifecycle hooks
-│   ├── validator.js             # Validates capability shape against protocol; enforces Zod schemas at boundary
-│   ├── core/                    # Built-in capabilities (always loaded, cannot be removed)
-│   │   ├── _shared.js           # Shared utilities for core capabilities
-│   │   ├── launch-app.js        # Launches applications via Windows Shell
-│   │   ├── close-app.js         # Closes running applications by name/PID
-│   │   ├── close-all-apps.js    # Terminates all non-critical running applications
-│   │   ├── system-control.js    # Volume, brightness, power, network controls
-│   │   ├── window-manager.js    # Minimize, maximize, snap, focus windows
-│   │   ├── clipboard.js         # Read/write system clipboard
-│   │   ├── clipboard-history.js # Retrieve recent clipboard entries
-│   │   ├── file-ops.js          # File create, move, copy, delete (sandboxed paths)
-│   │   ├── search-files.js      # Local file system search
-│   │   ├── open-file.js         # Open files with their default application
-│   │   ├── open-url.js          # Open URLs in the default browser
-│   │   ├── google-search.js     # Perform Google searches from the assistant
-│   │   ├── run-powershell.js    # Execute sandboxed PowerShell scripts
-│   │   ├── take-screenshot.js   # Capture screen regions or full desktop
-│   │   └── set-reminder.js      # Schedule in-app reminders
+│   ├── registry.js              # In-memory skill map; builds prompt metadata; enable/disable state
+│   ├── loader.js                # Auto-discovers core/ + ~/.venesa/capabilities/; fires lifecycle hooks
+│   ├── validator.js             # Validates capability shape against protocol; enforces Zod schemas
+│   ├── core/                    # Built-in capabilities (always loaded)
 │   └── internal/                # Internal meta-skills (not injected into system prompt)
-│       ├── get-chat-history.js  # Retrieves conversation history
-│       ├── get-memory.js        # Reads memory buckets
-│       ├── set-memory.js        # Writes to memory buckets
-│       ├── list-commands.js     # Lists available capabilities
-│       ├── listen.js            # Triggers active listening mode
-│       ├── manage-commands.js   # Enable/disable capability state
-│       └── remove-command.js    # Removes a community capability
 │
 ├── platform/                    # Electron main-process bindings
-│   ├── main.js                  # App bootstrap: creates windows, registers global shortcuts, tray
-│   ├── ui-pipeline.js           # Routes structured payloads from skills to the correct renderer window
-│   ├── model-server.js          # Manages the Vosk model server lifecycle (WASM audio processor)
-│   ├── capability-installer.js  # Downloads, validates, and installs community capabilities from GitHub
+│   ├── main.js                  # App bootstrap: windows, global shortcuts, tray
+│   ├── ui-pipeline.js           # Routes structured payloads from skills to the correct renderer
+│   ├── model-server.js          # Vosk model server lifecycle
+│   ├── capability-installer.js  # Downloads, validates, installs community capabilities
 │   ├── tray.js                  # System tray icon and context menu
 │   ├── ipc/                     # IPC channel handlers (main-process side)
-│   │   ├── query-handlers.js    # Handles text queries from main window → LLM → response
-│   │   ├── voice-handlers.js    # Handles voice queries from voice window → LLM → TTS response
-│   │   ├── action-handlers.js   # Handles direct skill invocations and plan execution
-│   │   └── system-handlers.js   # Handles settings read/write, app controls, capability management
+│   │   ├── query-handlers.js    # Text query lifecycle
+│   │   ├── voice-handlers.js    # Voice query lifecycle + TTS coordination
+│   │   ├── action-handlers.js   # Direct skill invocations and plan execution
+│   │   └── system-handlers.js   # Settings CRUD, capability management, app controls
 │   ├── preload/                 # Context-bridged preload scripts per window
-│   │   ├── main.preload.js      # APIs exposed to main.window.html
-│   │   ├── voice.preload.js     # APIs exposed to voice.window.html
-│   │   ├── settings.preload.js  # APIs exposed to settings.window.html
-│   │   └── background.preload.js# APIs exposed to background.window.html
-│   ├── speech/                  # Audio I/O
-│   │   ├── stt.js               # Speech-to-text: ElevenLabs Scribe (cloud) + Vosk (local fallback)
-│   │   ├── tts.js               # Text-to-speech: ElevenLabs Flash v2.5 streaming synthesis
-│   │   └── wake-word.js         # Offline wake-word detection using Vosk model (vosk-model-small-en-us)
+│   ├── speech/                  # Audio I/O (stt.js, tts.js, wake-word.js)
 │   └── windows/                 # BrowserWindow factory functions
-│       ├── main-window.js       # Primary chat / query interface
-│       ├── voice-window.js      # Floating voice overlay (always-on-top)
-│       ├── settings-window.js   # Settings and capability management panel
-│       ├── setup-window.js      # First-run onboarding / API key configuration
-│       └── background-window.js # Hidden renderer for Vosk audio processing (WASM)
 │
 ├── lib/                         # Stateless utility libraries
-│   ├── logger.js                # Structured stream logger with log levels and file output
-│   ├── paths.js                 # OS-aware path resolution (userData, capabilities dir, logs)
-│   ├── event-bus.js             # Internal pub/sub event bus for cross-module communication
-│   ├── key-pool.js              # API key rotation pool; cycles keys on rate-limit (429) errors
-│   ├── key-store.js             # Secure on-disk storage for API keys
+│   ├── logger.js                # Structured logger with levels and file output
+│   ├── paths.js                 # OS-aware path resolution
+│   ├── event-bus.js             # Internal pub/sub event bus
+│   ├── key-pool.js              # API key rotation pool
+│   ├── key-store.js             # Secure on-disk key storage (electron safeStorage)
 │   └── powershell.js            # Sandboxed PowerShell execution wrapper
 │
 └── renderer/                    # Renderer process files (HTML/JS — no Node access)
-    ├── main.window.html         # Primary chat interface
-    ├── voice.window.html        # Voice overlay UI
-    ├── settings.window.html     # Settings / capability browser panel
-    ├── setup.window.html        # First-run setup wizard
-    ├── background.window.html   # Hidden Vosk audio processing host
-    ├── vosk-audio-processor.js  # AudioWorkletProcessor feeding audio to Vosk WASM
-    ├── lib/
-    │   └── vosk.js              # Vosk WASM JavaScript wrapper
-    └── workers/
-        └── audio.processor.js   # Web Worker for off-thread audio decoding
 ```
 
----
-
 ## Speech Architecture
-
-Venesa operates a three-stage audio pipeline:
 
 ```text
 Microphone → AudioWorklet (vosk-audio-processor) → Vosk WASM (background renderer)
@@ -169,47 +236,16 @@ Microphone → AudioWorklet (vosk-audio-processor) → Vosk WASM (background ren
                                     LLM Pipeline → tts.js (ElevenLabs Flash v2.5)
 ```
 
-- **Wake-Word Detection:** Runs continuously in the hidden background window using a small Vosk model (`vosk-model-small-en-us-0.15`). CPU usage is negligible. Wake phrase is user-configurable.
-- **STT:** After wake-word trigger, audio is captured and sent to ElevenLabs Scribe for cloud transcription. Local Vosk transcription is used as a fallback or for privacy mode.
-- **TTS:** ElevenLabs Flash v2.5 synthesizes the `[speak]` text. Audio is streamed directly to the OS audio device. Voice, stability, and similarity settings are user-configurable.
-
----
-
-## Key Management & API Rotation
-
-`lib/key-pool.js` implements round-robin key rotation across all configured API keys. Keys are declared via environment variables with numeric suffixes (`GEMINI_API_KEY`, `GEMINI_API_KEY_1`, `GEMINI_API_KEY_2`, ...). On receipt of a 429 (rate-limit) response, the pool automatically advances to the next available key without surfacing an error to the user.
-
-`lib/key-store.js` persists keys entered through the setup wizard to disk using the Electron `safeStorage` API for encryption at rest.
-
----
-
 ## IPC Architecture
 
-All communication between renderer processes and the main Node.js process goes through typed IPC channels. Renderers have **no Node.js access** — the preload scripts expose a minimal, explicitly-allowed API surface via `contextBridge`.
+All communication between renderer processes and the main Node.js process goes through typed IPC channels. Renderers have **no Node.js access** — preload scripts expose a minimal, explicitly-allowed API surface via `contextBridge`.
 
-| Handler File | Channel Direction | Responsibility |
-|---|---|---|
-| `query-handlers.js` | renderer → main → renderer | Text query lifecycle, streaming chunks back to UI |
-| `voice-handlers.js` | renderer → main → renderer | Voice query lifecycle, TTS audio playback coordination |
-| `action-handlers.js` | renderer → main | Direct skill invocations, plan status events |
-| `system-handlers.js` | renderer ↔ main | Settings CRUD, capability install/remove/toggle, app controls |
-
----
-
-## Memory System
-
-`brain/memory.js` provides a named-bucket key-value store, persisted to `~/.venesa/memory.json`.
-
-| Bucket | Content |
-|---|---|
-| `preferences` | User preferences (name, language, behavior flags) |
-| `history` | Rolling conversation log (last N exchanges) |
-| `aliases` | Custom command aliases and capability enable/disable state |
-| `reminders` | Scheduled reminder entries |
-
-The memory system is injected into every LLM context payload, giving the model persistent awareness across sessions without stateful server infrastructure.
-
----
+| Handler File         | Responsibility                                                |
+| -------------------- | ------------------------------------------------------------- |
+| `query-handlers.js`  | Text query lifecycle, streaming chunks to UI                  |
+| `voice-handlers.js`  | Voice query lifecycle, TTS audio playback coordination        |
+| `action-handlers.js` | Direct skill invocations, plan status events                  |
+| `system-handlers.js` | Settings CRUD, capability install/remove/toggle, app controls |
 
 ## Capability Lifecycle
 
@@ -229,34 +265,18 @@ system-prompt.js pulls registry.getMetadataForPrompt() → injected into LLM con
 LLM invokes [action: capabilityName, ...params]
         │
         ▼
-processor.js dispatches → registry.execute(name, params)
-        │
-        ▼
-validator.js runs Zod parse on params → handler(validatedParams)
+processor.js dispatches → registry → validator.js runs Zod parse → handler(validatedParams)
 ```
 
-Community capabilities installed via `capability-installer.js` go through identical validation. Origin (core vs community) has no effect on runtime behaviour.
-
----
-
-## Window Architecture
-
-| Window | Role | Always-on-Top | Node Integration |
-|---|---|---|---|
-| `main-window` | Primary chat interface | No | No (preload only) |
-| `voice-window` | Floating voice overlay | Yes | No (preload only) |
-| `settings-window` | Settings and capability browser | No | No (preload only) |
-| `setup-window` | First-run onboarding | No | No (preload only) |
-| `background-window` | Vosk audio processing host (hidden) | — | No (preload only) |
-
----
+Community capabilities go through identical validation. Origin (core vs community) has no effect on runtime behaviour. A broken capability cannot crash the system — each handler runs in an isolated try-catch boundary.
 
 ## System Contracts
 
-- **AI is the Decision-Maker:** Skill handlers are strictly passive implementations. The model controls validation routing, parameter assignment, and step ordering.
-- **Unified Formatting:** Human-readable string formatting is never done by individual components. The AI owns all output copy.
-- **Dynamic Capability Injection:** System prompts are assembled at query time by interpolating `registry.getMetadataForPrompt()` so the model always has an accurate capability list.
-- **Render Directives:** Rich content is declared by the model via `[ui]` blocks — the renderer receives markdown payloads, not DOM instructions.
-- **Silent Operations:** Background automation runs without user interruption when the model determines confirmation is redundant.
-- **Sandboxed Extensibility:** A crashing or malformed community capability cannot take down core orchestration. The registry isolates each handler in a try-catch boundary.
-- **No Hidden Defaults:** All behaviour is driven by settings and skill metadata. Nothing is hard-coded in the orchestration layer.
+- **AI is the Planner:** The runtime executes. Skill handlers are strictly passive implementations. The model controls parameter assignment, step ordering, and execution decisions.
+- **No Hardcoded Capability Logic:** Core must not depend on any specific capability. All behaviors derive from skill metadata and protocol constants.
+- **Capability-Agnostic Core:** Capabilities are plugins adhering to a strict schema. Broken capabilities cannot break the system.
+- **Deterministic Interfaces:** Stable contracts. Versioned protocol. Strict validation before execution.
+- **Explicit Memory Writes:** All memory mutations go through `memory.mutate()`. No implicit writes.
+- **Observable Agent State:** Long-running tasks expose lifecycle handles. No hidden background loops.
+- **Sandboxed Extensibility:** Community capabilities run in isolated dependency space. UI sandboxed. Execution guarded.
+- **No Hidden Defaults:** All behaviour is driven by settings and skill metadata. Nothing hardcoded in the orchestration layer.

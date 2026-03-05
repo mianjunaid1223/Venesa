@@ -2169,13 +2169,15 @@
             }
         });
 
-        function showAIResponse(text) {
+        function showAIResponse(text, skipClear = false) {
             loader.classList.remove("visible");
             loader.style.display = "none";
 
-            resultsDiv.innerHTML = "";
-            noResults.style.display = "none";
-            resultsWrapper.classList.remove("collapsed");
+            if (!skipClear) {
+                resultsDiv.innerHTML = "";
+                noResults.style.display = "none";
+                resultsWrapper.classList.remove("collapsed");
+            }
 
             if (searchStartTime > 0) {
                 const searchDuration = (
@@ -2357,8 +2359,8 @@
             updateWindowHeight();
         }
 
-        function renderTable(data) {
-            clearForUI();
+        function renderTable(data, skipClear = false) {
+            if (!skipClear) clearForUI();
             const container = document.createElement('div');
             container.className = 'dui-container';
 
@@ -2518,12 +2520,13 @@
             if (!blocks || blocks.length === 0) return;
             loader.classList.remove('visible');
             loader.style.display = 'none';
+            clearForUI();
             for (const block of blocks) {
                 const rows = parseMarkdownTable(block);
                 if (rows) {
-                    renderTable(rows);
+                    renderTable(rows, true);
                 } else {
-                    showAIResponse(block);
+                    showAIResponse(block, true);
                 }
             }
         });

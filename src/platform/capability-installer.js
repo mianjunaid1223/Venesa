@@ -262,7 +262,15 @@ async function install(rawUrl, registryFileHash) {
 
   // ── Dep engine: install capability-declared dependencies ────
   if (Array.isArray(exported.dependencies) && exported.dependencies.length > 0) {
-    const depResult = await depManager.installDepsForCapability(capName, exported.dependencies);
+    let depResult;
+    try {
+      depResult = await depManager.installDepsForCapability(capName, exported.dependencies);
+    } catch (err) {
+      const memory = require('../brain/memory');
+      memory.markCorrupted(capName, err.message || String(err));
+      logger.error(`[capability-installer] Dep install threw for '${capName}': ${err.message || err}`);
+      return { success: false, error: err.message || String(err) };
+    }
     if (depResult.corrupted) {
       const memory = require('../brain/memory');
       memory.markCorrupted(capName, depResult.reason);
@@ -396,7 +404,15 @@ async function update(capabilityName, rawUrl, registryFileHash) {
 
   // ── Dep engine: reinstall capability-declared dependencies ──
   if (Array.isArray(exported.dependencies) && exported.dependencies.length > 0) {
-    const depResult = await depManager.installDepsForCapability(capName, exported.dependencies);
+    let depResult;
+    try {
+      depResult = await depManager.installDepsForCapability(capName, exported.dependencies);
+    } catch (err) {
+      const memory = require('../brain/memory');
+      memory.markCorrupted(capName, err.message || String(err));
+      logger.error(`[capability-installer] Dep install threw for '${capName}' after update: ${err.message || err}`);
+      return { success: false, error: err.message || String(err) };
+    }
     if (depResult.corrupted) {
       const memory = require('../brain/memory');
       memory.markCorrupted(capName, depResult.reason);

@@ -109,7 +109,7 @@ The [venesa-capabilities](https://github.com/mianjunaid1223/venesa-capabilities)
 1. Open **Settings → Skills & Capabilities**
 2. Select the **Community** tab
 3. Browse the live registry, then click **Install** on any capability
-4. Enable it in the **Capabilities** tab
+4. it's ready to use now.
 
 Installed capabilities are indistinguishable from built-in core skills at runtime.
 
@@ -118,6 +118,7 @@ Installed capabilities are indistinguishable from built-in core skills at runtim
 ## Getting Started
 
 **Requirements:**
+
 - Windows 10 or 11 (x64)
 - Node.js v18.0.0 or higher
 - pnpm (`npm install -g pnpm`)
@@ -143,11 +144,13 @@ ELEVENLABS_API_KEY=your_key
 Append `_1`, `_2`, etc. to any key to enable automatic round-robin rotation when rate limits are hit.
 
 For verbose logging:
+
 ```bash
 pnpm dev
 ```
 
 To build a distributable installer:
+
 ```bash
 pnpm build
 ```
@@ -166,22 +169,23 @@ Before contributing, read [ARCHITECTURE.md](ARCHITECTURE.md) to understand the e
 
 ### 2. Publish a Community Capability
 
-If you want to give Venesa a new skill without modifying the core platform, build and submit a capability to the [venesa-capabilities](https://github.com/mianjunaid1223/venesa-capabilities) repository. One file. No dependencies on the main project required.
+If you want to give Venesa a new skill without modifying the core platform, build and submit a capability to the [venesa-capabilities](https://github.com/mianjunaid1223/venesa-capabilities) repository. One file. No dependencies on the main project required. Venesa handles dependencies (which you just provide in its manifest) and versions automatically.
 
 A capability is a single `.js` file dropped into the `/capabilities/` folder of that repository. Once merged, it becomes available to all Venesa users via the in-app community browser.
 
 **Minimal example:**
 
 ```js
-const { z } = require('zod');
+const { z } = require("zod");
 
 module.exports = {
-  name: 'myCapability',
-  description: 'Describe what this does — the AI reads this to decide when to use it.',
-  returnType: 'action',      // data | action | ui | memory | hybrid
-  marker: 'announce',        // silently | announce | confirm
+  name: "myCapability",
+  description:
+    "Describe what this does — the AI reads this to decide when to use it.",
+  returnType: "action", // data | action | ui | memory | hybrid
+  marker: "announce", // silently | announce | confirm
   schema: z.object({
-    input: z.string().describe('The input value'),
+    input: z.string().describe("The input value"),
   }),
   handler: async ({ input }) => {
     return { success: true, result: `Processed: ${input}` };
@@ -195,11 +199,11 @@ Full specification — schema options, return types, lifecycle hooks, UI renderi
 
 ## Documentation
 
-| Document | Contents |
-|---|---|
-| [ARCHITECTURE.md](ARCHITECTURE.md) | Full internal architecture: pipeline diagrams, module responsibilities, IPC design, memory system, speech stack, capability lifecycle |
-| [standards.md](standards.md) | Capability schema specification, code conventions, security requirements, governance rules |
-| [venesa-capabilities](https://github.com/mianjunaid1223/venesa-capabilities) | Community capability registry and development guide |
+| Document                                                                     | Contents                                                                                                                              |
+| ---------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| [ARCHITECTURE.md](ARCHITECTURE.md)                                           | Full internal architecture: pipeline diagrams, module responsibilities, IPC design, memory system, speech stack, capability lifecycle |
+| [standards.md](standards.md)                                                 | Capability schema specification, code conventions, security requirements, governance rules                                            |
+| [venesa-capabilities](https://github.com/mianjunaid1223/venesa-capabilities) | Community capability registry and development guide                                                                                   |
 
 ---
 

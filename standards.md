@@ -1,38 +1,128 @@
 # Venesa Standards
 
+**Governance:** Venesa Governance & Execution Contract v2.0
+**Protocol Version:** 2.0
+
+## Foundational Rules
+
+1. **Generic Over Specific** — No capability names hardcoded into prompts. No workflow assumptions baked into the system.
+2. **Strict Yet Flexible** — Strict contracts. Strict schema validation. Strict execution pipeline. Flexible interpretation of user intent within those constraints.
+3. **Divide and Conquer** — Every complex task is decomposed into small deterministic steps. The LLM plans. The runtime executes.
+4. **UI as Intent, Not Decoration** — UI is optional. Only render when the output is structurally complex, requires user interaction, or visual layout meaningfully improves comprehension.
+
 ## Universal Protocol
 
 One protocol governs all intelligence behaviour. Every capability, IPC handler, and orchestration step conforms to the same set of tokens and return types.
 
-### Response Tokens
+### Execution Syntax
 
 | Token | Usage |
 |---|---|
-| `[speak]...[/speak]` | Exact string routed to TTS. Omit for text-only responses. |
-| `[silent]...[/silent]` | Wraps background reasoning. Content hidden from UI; actions inside still execute. |
+| `[speak]...[/speak]` | Exact string routed to TTS. Voice mode only. |
+| `[silent]...[/silent]` | Wraps background instructions. Content hidden from UI; actions inside still execute. |
 | `[action: name, param: value]` | Invokes a single registered skill by its `name`. |
-| `[plan]...[/plan]` | Multi-step workflow. Each step is a `[step: name, param: value, marker: X]` line. |
+| `[plan]...[/plan]` | Multi-step workflow. Each step is a `[step: name, param: value, marker: X, label: Y]` line. `label` is an **optional** human-readable string identifier for the step (e.g., `"login-flow"`, `"verify-email"`). Allowed characters: alphanumerics, hyphens, and spaces. `label` is descriptive metadata used for logs, analytics, and debugging — it is **not** rendered in the UI. Use `label` for descriptive step names, aggregation, and external references. Use `marker` (a single-character or keyword machine-oriented token such as `silently`, `announce`, or `confirm`) for compact visual/execution markers. `label` is optional and has no uniqueness constraint; `marker` governs execution behaviour. |
 | `[ui]...[/ui]` | GitHub-flavoured markdown block rendered natively in the interface. |
+
+### Execution Modes
+
+Classified by `processor.js` per response:
+
+| Mode | Meaning |
+|---|---|
+| `execute` | Action steps with system side-effects |
+| `data` | Information retrieval, no side-effects |
+| `ui` | Visual output without execution |
+| `refuse` | Structured refusal — no execution |
+
+### AI Decision Contract
+
+The LLM must emit exactly one decision per request:
+
+| Decision | When |
+|---|---|
+| `EXECUTE` | Request is feasible; emit execution steps |
+| `REQUEST_CONFIRMATION` | Request is destructive or ambiguous; confirm before executing |
+| `REFUSE` | Request is unsafe, infeasible, or requires unavailable resources |
+| `RETURN_DATA` | Informational; return data without side-effects |
+| `RETURN_UI` | Requires visual output; return UI without execution |
+
+### Refusal Contract
+
+Refusal is structured, not conversational. Format: `"Cannot [action]: [single-sentence reason]."`
+
+A refusal must not apologize, elaborate unnecessarily, or suggest workarounds unless directly relevant.
 
 ### Execution Markers
 
 | Marker | Semantics | Behaviour |
 |---|---|---|
-| `silently` | Background execution | No UI feedback, no notification. Used for memory writes, data fetches. Idempotency is the capability author's responsibility when retries are required. |
-| `announce` | User-visible operation | Result shown in UI or spoken aloud. Used for app launches, file operations. Logs to interaction history. |
-| `confirm` | Requires user approval | Execution paused until user explicitly approves. Required for destructive actions (delete, shutdown, exposing sensitive data). |
-
-Markers are set via the `marker` field on each skill or per-step inside a `[plan]`. The orchestrator reads the marker to decide notification behaviour. Per-step markers override the skill default.
+| `silently` | Background execution | No UI feedback, no notification. |
+| `announce` | User-visible operation | Result shown in UI or spoken aloud. |
+| `confirm` | Requires user approval | Execution paused until user explicitly approves. Required for destructive actions. |
 
 ### Return Types
 
-| Type | Meaning | Typical Usage |
-|---|---|---|
-| `data` | Returns structured data for the LLM to reason about | File search results, clipboard content, memory reads |
-| `action` | Performs a system mutation or side-effect | App launch, volume change, file write |
-| `ui` | Returns a renderable UI payload | Tables, card lists, key-value grids |
-| `memory` | Suggests context persistence | Writing preferences, storing aliases |
-| `hybrid` | Combination of two or more types | Data + UI (e.g. system resource monitor) |
+| Type | Meaning |
+|---|---|
+| `data` | Fetches information; AI waits for result to reason about |
+| `action` | Performs a system mutation or side-effect |
+| `ui` | Returns a renderable UI payload |
+| `memory` | Reads/writes internal state; never surfaced to user |
+| `hybrid` | Combination of two or more types |
+
+### Memory Mutation Contract
+
+All memory writes must be explicit. No implicit writes.
+
+Contract: `{ bucket, operation: 'set'|'append'|'remove', key, value }`
+
+API: `memory.mutate({ bucket, operation, key, value })`
+
+### Workflow Pipeline
+
+Every operation must traverse all 7 stages in order. No stage may be skipped.
+
+1. `INTENT_PARSING`
+2. `FEASIBILITY_EVALUATION`
+3. `PLAN_CONSTRUCTION`
+4. `STEP_EXECUTION`
+5. `RESULT_STRUCTURING`
+6. `UI_RENDERING`
+7. `MEMORY_UPDATE`
+
+#### Workflow Pipeline — Error Handling
+
+| Stage | On Failure |
+|---|---|
+| `INTENT_PARSING` | Abort pipeline; return structured refusal. |
+| `FEASIBILITY_EVALUATION` | Abort pipeline; return structured refusal with reason. |
+| `PLAN_CONSTRUCTION` | Abort pipeline; return structured refusal. |
+| `STEP_EXECUTION` | Abort remaining steps; rollback/compensate already-executed steps where possible. All step operations must be idempotent or provide a compensating action. |
+| `RESULT_STRUCTURING` | Return a degraded result with available data; never silently drop data. |
+| `UI_RENDERING` | Degrade gracefully (omit UI block); do not abort the response pipeline. |
+| `MEMORY_UPDATE` | Log the failure; do not abort the response. Memory writes are best-effort but must not silently corrupt state. |
+
+**Error propagation:** Errors are returned as structured objects `{ success: false, error: string }`. Do not throw unhandled exceptions across stage boundaries.
+
+**Retry policy:** `STEP_EXECUTION` steps that fail due to transient errors (network, timeout) may be retried up to 2 times with exponential backoff (base 500 ms, max 4 s). `INTENT_PARSING`, `FEASIBILITY_EVALUATION`, and `PLAN_CONSTRUCTION` are non-retryable — re-querying the LLM is the recovery path. `UI_RENDERING` and `MEMORY_UPDATE` are not retried; failures are logged and skipped.
+
+**Logging and metrics:** Every stage failure must be logged via `lib/logger.js` at `logger.error` level with the stage name, capability name (if applicable), error class (`transient` | `permanent`), and error message.
+
+**Canonical failure response:** `{ success: false, stage: 'STAGE_NAME', error: 'message' }`
+
+**Transient vs permanent:** Network/timeout/registry rate-limit errors are transient. Schema violations, refusals, and CVE-blocked packages are permanent. Transient errors back off and retry; permanent errors abort immediately.
+
+**Timeouts:** Each stage must complete within 30 s. Stages that exceed the timeout are treated as transient failures and aborted.
+
+### Agent Mode
+
+Long-running tasks use `createAgentHandle(plan)` from `orchestrator.js`.
+
+Rules:
+- State must be observable via `handle.state`.
+- User must be able to interrupt via `handle.abort()`.
+- No hidden background loops without lifecycle control.
 
 ---
 
@@ -59,9 +149,14 @@ Every capability MUST export an object with these fields:
 
 - **Exact versions required.** Every dependency entry must be an exact specifier (`name@x.y.z`). Floating ranges are rejected at validation time.
 - **Name and version allowlisting.** Capability loaders must validate that package names match the pattern `^(@[a-z0-9-~][a-z0-9-._~]*/)?[a-z0-9-~][a-z0-9-._~]*$` and that versions are semver-exact before passing them to the dep engine.
-- **CVE scanning.** Pinned versions must be scanned for known vulnerabilities (e.g., `npm audit` or equivalent) before publishing a capability. When a CVE is identified, the capability author must release a new version with the patched dependency; installations that exceed `MAX_FAILURES` consecutive failures are marked corrupted and halted. `MAX_FAILURES` is a fixed constant (value: **3**) defined in `dep-manager` and is not configurable via environment variables or external config files.
-- **Transitive dependency risk.** `dep-manager` uses pacote to recursively resolve the full transitive graph. Authors are responsible for auditing their entire closure, not only direct dependencies.
-- **Installation failure behaviour.** Failed installs increment a `consecutiveFailureCount` per package specifier, persisted in `dep-failures.json` at `~/.venesa/capabilities/<capabilityName>/dep-failures.json` (one file per capability, managed by `dep-manager`). The `consecutiveFailureCount` resets to `0` on a successful install for that specifier and increments by `1` on each failed attempt. Once `consecutiveFailureCount` reaches `MAX_FAILURES` (3), the capability is marked corrupted and no further install attempts are made until the capability is explicitly reinstalled. All failures are logged via `lib/logger.js` with full context (capability name, package spec, error message).
+- **CVE scanning.** Pinned versions must be scanned for known vulnerabilities via a publish-time CVE scan (e.g., `npm audit`, Snyk, or OSS-index) before publishing a capability. `dep-manager` must fail publish if any CVE is detected. When a CVE is identified post-publish, the capability author must release a new version with the patched dependency.
+- **Transient vs permanent failure classification.** `dep-manager` categorises install failures before incrementing the failure counter:
+  - *Transient*: network errors, timeouts, registry rate-limits — retried with exponential backoff (base 1 s, doubling, max 3 attempts) before counting as a failure.
+  - *Permanent*: invalid package name/version, CVE-blocked package, schema validation rejection — counted as a failure immediately, no retries.
+- **Failure backoff before corruption.** Installations that reach `MAX_FAILURES` consecutive failures do not mark corrupted immediately. After `MAX_FAILURES` (3) failures a cooldown period of 10 minutes is enforced before any further install attempt. If the attempt after cooldown also fails, the capability is marked corrupted and halted.
+- **Reinstall recovery.** A user or automated task triggers reinstall by: (1) calling the `reinstall-capability` IPC action, which resets `dep-failures.json` for that capability and re-runs `installDepsForCapability`; or (2) deleting `dep-failures.json` manually and restarting. The `dep-failures.json` file is reset to `{}` for the affected capability on a successful reinstall.
+- **Transitive dependency audit.** `dep-manager` uses `pacote` to recursively resolve the full transitive dependency graph. Authors are responsible for auditing the entire closure. Integration with `npm audit` or Snyk is recommended as part of the publish pipeline.
+- **Failure logging.** All failures are logged via `lib/logger.js` with: capability name, package spec, error class (`transient` | `permanent`), and current retry/cooldown state.
 
 ### Capability Template
 
@@ -165,6 +260,10 @@ lifecycle: {
 
 - **User authority:** Users have absolute authority over configuration, capability state, and assistant behaviour.
 - **Settings persistence:** User settings stored in `.venesa-settings.json` via `brain/settings.js`.
-- **Memory persistence:** `~/.venesa/memory.json` — buckets: `preferences`, `history`, `aliases`, `reminders`.
+- **Memory persistence:** `~/.venesa/` — named bucket files: `preferences.json`, `history.json`, `aliases.json`, `context.json`.
+- **Memory writes:** All mutations go through `memory.mutate({ bucket, operation, key, value })`. No implicit writes.
 - **Capability state:** Enable/disable state persisted to the `aliases` memory bucket under the key `capabilityStates`. Changes take effect immediately and survive restarts.
-- **No hidden defaults:** All defaults are documented in `brain/settings.js`. Nothing is silently overridden at runtime.
+- **No hidden defaults:** All defaults documented in `brain/settings.js`. Nothing silently overridden at runtime.
+- **Capability-agnostic core:** Core must not depend on any specific capability. Capabilities are plugins. Broken plugins cannot crash the system.
+- **Agent mode:** Long-running tasks expose lifecycle handles with observable state and user-interruptible execution.
+- **Deterministic interfaces:** Stable contracts. Versioned protocol. Strict validation before execution.

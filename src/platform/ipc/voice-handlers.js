@@ -22,17 +22,26 @@ const RESULT_MAX_CHARS = 1500;
  * @returns {string}
  */
 function summarizeOrTruncateResult(result, maxChars = RESULT_MAX_CHARS) {
+  const util = require('util');
+  function safeStringify(value) {
+    try {
+      return JSON.stringify(value);
+    } catch {
+      try { return util.inspect(value, { depth: null }); } catch { return '[Unserializable object]'; }
+    }
+  }
+
   let str;
   if (typeof result === 'string') {
     str = result;
   } else if (Array.isArray(result)) {
     // Summarise arrays: include item count and first few entries
-    const preview = JSON.stringify(result.slice(0, 10));
+    const preview = safeStringify(result.slice(0, 10));
     str = result.length > 10
       ? `(${result.length} items) ${preview} … [TRUNCATED]`
-      : JSON.stringify(result);
+      : safeStringify(result);
   } else if (result && typeof result === 'object') {
-    str = JSON.stringify(result);
+    str = safeStringify(result);
   } else {
     str = String(result);
   }

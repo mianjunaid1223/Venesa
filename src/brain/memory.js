@@ -2,6 +2,11 @@
  * ═══════════════════════════════════════════════════════════════
  *  MODULE: Memory
  *  File-backed structured memory with 4 buckets.
+ *
+ *  Governance Contract v2.0:
+ *    All memory writes must be explicit via mutate().
+ *    Mutation contract: { bucket, operation: 'set'|'append'|'remove', key, value }
+ *    No implicit memory writing.
  * ═══════════════════════════════════════════════════════════════
  *  DEPENDS ON: lib/logger
  *  USED BY:    brain/llm, brain/system-prompt, skills/core/manage-commands
@@ -280,6 +285,48 @@ function getCustomCommandsPromptSection() {
     return `\n## CUSTOM COMMANDS (user-created shortcuts)\nWhen the user says one of these triggers exactly, do NOT just say "Done". YOU MUST emit the EXACT action tags listed below:\n${list}\n`;
 }
 
+// ── Explicit Mutation Contract ─────────────────────────────
+// All memory writes should go through mutate() to enforce
+// the governance contract: { bucket, operation, key, value }
+// operation must be one of: 'set', 'append', 'remove'
+
+function mutate({ bucket, operation, key, value }) {
+    if (!BUCKETS.includes(bucket)) {
+        logger.error(`[memory] mutate: unknown bucket '${bucket}'`);
+        return false;
+    }
+    if (!key || typeof key !== 'string') {
+        logger.error(`[memory] mutate: key must be a non-empty string`);
+        return false;
+    }
+
+    switch (operation) {
+        case 'set':
+            return set(bucket, key, value);
+
+        case 'append': {
+            if (!data[bucket]) loadBucket(bucket);
+            const current = data[bucket][key];
+            if (Array.isArray(current)) {
+                current.push(value);
+                saveBucket(bucket);
+                return true;
+            }
+            if (current === undefined || current === null) {
+                return set(bucket, key, [value]);
+            }
+            return set(bucket, key, [current, value]);
+        }
+
+        case 'remove':
+            return remove(bucket, key);
+
+        default:
+            logger.error(`[memory] mutate: unknown operation '${operation}'. Must be set|append|remove`);
+            return false;
+    }
+}
+
 module.exports = {
     load,
     get,
@@ -287,6 +334,7 @@ module.exports = {
     list,
     remove,
     clear,
+    mutate,
     getSummary,
     addInteraction,
     getCustomCommands,
