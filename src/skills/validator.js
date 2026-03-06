@@ -1,13 +1,4 @@
-/**
- * ═══════════════════════════════════════════════════════════════
- *  MODULE: Skill / Capability Validator
- *  Validates skill/capability module structure before registration.
- *  Enforces the unified protocol standard.
- * ═══════════════════════════════════════════════════════════════
- *  DEPENDS ON: brain/protocol
- *  USED BY:    skills/loader, platform/capability-installer
- * ═══════════════════════════════════════════════════════════════
- */
+"use strict";
 
 const {
   VALID_RETURN_TYPES,
@@ -68,9 +59,7 @@ function validate(skill, filePath) {
   if (typeof skill.handler !== "function") {
     errors.push('Missing or invalid "handler" (must be a function)');
   } else if (!isAsyncFunction(skill.handler)) {
-    warnings.push(
-      '"handler" should be an async function or return a Promise; non-async handlers may cause unexpected behaviour',
-    );
+    warnings.push('"handler" should be async or return a Promise');
   }
 
   if (!skill.returnType) {
@@ -142,8 +131,7 @@ function validate(skill, filePath) {
         } else if (DISALLOWED.test(dep)) {
           errors.push(
             `Dependency "${dep}" uses a disallowed format. ` +
-              'Only "package" or "package@x.y.z" are accepted. ' +
-              "No ranges (^~>=<*), git, http, file:, or tarballs.",
+              'Only "package" or "package@x.y.z" are accepted.',
           );
         }
       }
@@ -173,12 +161,20 @@ function wrapHandler(skill, filePath) {
   return skill;
 }
 
-module.exports = {
-  validate,
-  checkSourceForSideEffects,
-  wrapHandler,
-  coerceParams,
-};
+function _zodTypeName(fieldSchema) {
+  if (!fieldSchema || !fieldSchema._def) return null;
+  const t = fieldSchema._def.typeName || "";
+  if (t === "ZodOptional" || t === "ZodNullable" || t === "ZodDefault") {
+    return _zodTypeName(fieldSchema._def.innerType || fieldSchema._def.type);
+  }
+  if (t === "ZodNumber") return "number";
+  if (t === "ZodBoolean") return "boolean";
+  if (t === "ZodString") return "string";
+  if (t === "ZodNull") return "null";
+  if (t === "ZodArray") return "array";
+  if (t === "ZodObject") return "object";
+  return null;
+}
 
 function coerceParams(params, schema) {
   if (!params || typeof params !== "object") return params;
@@ -219,9 +215,7 @@ function coerceParams(params, schema) {
     if (typeof raw !== "string") continue;
     try {
       if (type === "number" || type === "integer") {
-        if (typeof raw === "string" && raw.trim() === "") {
-          // leave coerced[key] as raw — do not convert empty string to 0
-        } else {
+        if (raw.trim() !== "") {
           const n = Number(raw);
           if (!Number.isNaN(n)) coerced[key] = n;
         }
@@ -236,17 +230,9 @@ function coerceParams(params, schema) {
   return coerced;
 }
 
-function _zodTypeName(fieldSchema) {
-  if (!fieldSchema || !fieldSchema._def) return null;
-  const t = fieldSchema._def.typeName || "";
-  if (t === "ZodOptional" || t === "ZodNullable" || t === "ZodDefault") {
-    return _zodTypeName(fieldSchema._def.innerType || fieldSchema._def.type);
-  }
-  if (t === "ZodNumber") return "number";
-  if (t === "ZodBoolean") return "boolean";
-  if (t === "ZodString") return "string";
-  if (t === "ZodNull") return "null";
-  if (t === "ZodArray") return "array";
-  if (t === "ZodObject") return "object";
-  return null;
-}
+module.exports = {
+  validate,
+  checkSourceForSideEffects,
+  wrapHandler,
+  coerceParams,
+};

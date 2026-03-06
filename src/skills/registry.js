@@ -176,13 +176,38 @@ function getMetadataForPrompt() {
 
     let output = lines.join('\n');
 
+    // Append general execution pattern guidance — no verbatim phrases, no capability-specific examples.
+    // The tool listing above already defines what each tool does and what params it accepts.
+    output += `
 
-    if (examples.length > 0) {
-        output += '\n\n### ACTION EXAMPLES (from skills)\n';
-        output += 'ALWAYS use these exact patterns when intent matches:\n';
-        output += examples.join('\n');
-        output += '\nCRITICAL: When user intent maps to ANY available tool, ALWAYS emit the matching action. This includes any installed capability listed above — data lookups, actions, comparisons, controls, or anything else. NEVER answer tool-dependent queries conversationally — invoke the tool every time. If a request requires multiple calls to the same tool (e.g. batch comparisons), emit a [plan] block with one step per item. NEVER ask the user to clarify when the intent and parameters are already clear from context — act immediately.';
-    }
+### EXECUTION PATTERNS
+
+Map user intent to the closest available tool and emit the correct syntax. General patterns:
+
+Single tool, no params required:
+  [action: toolName]
+
+Single tool with params (only include params the user explicitly mentioned):
+  [action: toolName, paramA: value, paramB: value]
+
+Multiple independent operations:
+  [plan]
+  [step: toolName, marker: announce, paramA: value, label: Brief description of this step]
+  [step: toolName2, marker: silently, paramA: value, label: Brief description of this step]
+  [/plan]
+
+Step that uses output from a previous step:
+  [plan]
+  [step: toolA, marker: silently, paramA: value, label: Fetch the data]
+  [step: toolB, marker: announce, paramA: $toolA, label: Use the fetched data]
+  [/plan]
+
+Rules:
+- Match tool to intent. If intent is clear, act immediately — never ask for clarification.
+- Only add optional params when the user explicitly asked for that behavior.
+- Batch operations (same tool, N items) → one [step:] per item inside a [plan].
+- Data tools (returnType: data) → result is verbalized by the platform after execution.
+- Action tools (returnType: action) → speak what you are about to do, not the outcome.`;
 
     return output;
 }

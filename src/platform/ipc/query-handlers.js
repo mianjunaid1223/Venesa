@@ -47,22 +47,43 @@ function register() {
 
             if (results && results.length > 0) {
                 const dataResults = results.filter(
-                    (r) => r.returnType === 'data' && r.result && !r.error,
+                    (r) => r.returnType === 'data' && (r.result !== undefined || r.error),
                 );
                 if (dataResults.length > 0) {
                     try {
                         const resultContext = dataResults
-                            .map((r) => `[RESULT for ${r.actionName}: ${JSON.stringify(r.result)}]`)
+                            .map((r) => {
+                                if (r.error) {
+                                    return `[FAILED ${r.actionName}: ${r.error}]`;
+                                }
+                                const raw = r.result;
+                                if (raw && typeof raw === 'object' && raw.success === false) {
+                                    return `[FAILED ${r.actionName}: ${raw.error || 'Unknown error'}]`;
+                                }
+                                return `[RESULT for ${r.actionName}: ${JSON.stringify(r.result)}]`;
+                            })
                             .join('\n');
                         const verbalizeQuery = `${resultContext}
 The user asked: "${query}"
 
 Present this data naturally. Rules:
+- If some results FAILED and others SUCCEEDED, present the successful ones and note which ones could not be retrieved naturally.
+- If ALL results failed, say so naturally in one sentence without technical detail.
 - If the data is clearer as a table or visual (e.g. comparisons, rankings, multi-column data), render it inside a [ui]...[/ui] block with proper markdown.
 - Keep the spoken/written summary concise.
 - Do NOT emit new [action:] tags.`;
                         const verbalRaw = await llm.sendQuery(verbalizeQuery, null, 'text');
-                        const { cleanResponse: spokenResult, uiBlocks: verbalUiBlocks } = await processor.processResponse(verbalRaw, 'text');
+                        // Only extract speak/ui blocks — never execute actions from verbalization response
+                        const verbalUiBlockMatches = [...verbalRaw.matchAll(/\[ui\]([\s\S]*?)\[\/ui\]/gi)];
+                        const verbalUiBlocks = verbalUiBlockMatches.map(m => m[1].trim()).filter(Boolean);
+                        const spokenResult = verbalRaw
+                            .replace(/\[action:[^\]]*\]/gi, '')
+                            .replace(/\[plan\][\s\S]*?\[\/plan\]/gi, '')
+                            .replace(/\[step:[^\]]*\]/gi, '')
+                            .replace(/\[silent\][\s\S]*?\[\/silent\]/gi, '')
+                            .replace(/\[speak\]([\s\S]*?)\[\/speak\]/gi, '$1')
+                            .replace(/\[ui\][\s\S]*?\[\/ui\]/gi, '')
+                            .trim();
                         if (spokenResult && spokenResult.trim()) {
                             textResponse = spokenResult.trim();
                         }

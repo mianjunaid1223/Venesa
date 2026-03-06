@@ -201,24 +201,45 @@ function register(getVoiceWindow, hideVoiceWindow) {
         // For data-returning skills, do a second LLM pass to verbalize the result naturally.
         // The first pass only emits the action — the result isn't known until after execution.
         const dataResults = results.filter(
-          (r) => r.returnType === "data" && r.result && !r.error,
+          (r) => r.returnType === "data" && (r.result !== undefined || r.error),
         );
         if (dataResults.length > 0) {
           try {
             const resultContext = dataResults
-              .map((r) => `[RESULT for ${r.actionName}: ${summarizeOrTruncateResult(r.result)}]`)
+              .map((r) => {
+                if (r.error) {
+                  return `[FAILED ${r.actionName}: ${r.error}]`;
+                }
+                // surface success:false from the handler's own return value
+                const raw = r.result;
+                if (raw && typeof raw === 'object' && raw.success === false) {
+                  return `[FAILED ${r.actionName}: ${raw.error || 'Unknown error'}]`;
+                }
+                return `[RESULT for ${r.actionName}: ${summarizeOrTruncateResult(r.result)}]`;
+              })
               .join("\n");
             const verbalizeQuery = `${resultContext}
 The user asked (via voice): "${payload.query}"
 
 Present this data naturally. Rules:
 - Speak conversationally in 1-2 sentences maximum.
+- If some results FAILED and others SUCCEEDED, speak the successful ones and note which ones could not be retrieved — do this naturally, not as an error message.
+- If ALL results failed, say so naturally in one sentence without technical detail.
 - If the data is clearer as a table or visual (e.g. comparisons, rankings, multi-column data), place the formatted data inside a [ui] block inside [silent] and keep spoken text brief (e.g. "Here's the comparison.").
 - Use [speak]...[/speak] for the spoken part and [silent][ui]...[/ui][/silent] for any visual block.
 - Do NOT emit new [action:] tags.`;
             const verbalRaw = await llm.sendQuery(verbalizeQuery, null, "voice");
-            const { cleanResponse: spokenResult, uiBlocks: verbalUiBlocks } =
-              await processor.processResponse(verbalRaw, "voice");
+            // Only extract speak/ui blocks — never execute actions from verbalization response
+            const speakMatch = verbalRaw.match(/\[speak\]([\s\S]*?)\[\/speak\]/i);
+            const spokenResult = speakMatch ? speakMatch[1].trim() : verbalRaw
+              .replace(/\[action:[^\]]*\]/gi, '')
+              .replace(/\[plan\][\s\S]*?\[\/plan\]/gi, '')
+              .replace(/\[step:[^\]]*\]/gi, '')
+              .replace(/\[silent\][\s\S]*?\[\/silent\]/gi, '')
+              .replace(/\[ui\][\s\S]*?\[\/ui\]/gi, '')
+              .trim();
+            const verbalUiBlockMatches = [...verbalRaw.matchAll(/\[ui\]([\s\S]*?)\[\/ui\]/gi)];
+            const verbalUiBlocks = verbalUiBlockMatches.map(m => m[1].trim()).filter(Boolean);
             if (spokenResult && spokenResult.trim()) {
               finalResponse = spokenResult.trim();
             }

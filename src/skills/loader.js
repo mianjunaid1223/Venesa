@@ -166,7 +166,7 @@ function getUserCapabilityState(capabilityName) {
     }
 }
 
-function loadSkillFile(filePath, source = 'core') {
+async function loadSkillFile(filePath, source = 'core') {
     try {
         if (require.cache[require.resolve(filePath)]) {
             delete require.cache[require.resolve(filePath)];
@@ -201,8 +201,22 @@ function loadSkillFile(filePath, source = 'core') {
         }
 
         if (registry.has(skill.name)) {
-            logger.warn(`Duplicate skill name '${skill.name}' in ${filePath} — skipping`);
-            return false;
+            const existing = registry.get(skill.name);
+            // Community capabilities are allowed to override core skills (user explicitly installed them).
+            if (source === 'community' && existing && existing._source === 'core') {
+                logger.info(`[loader] Community capability '${skill.name}' overriding core skill from ${filePath}`);
+                if (typeof existing.lifecycle?.onUnload === 'function') {
+                    try {
+                        await Promise.resolve(existing.lifecycle.onUnload());
+                    } catch (e) {
+                        logger.warn(`[loader] onUnload hook failed for core skill '${existing.name}' during override: ${e?.message ?? String(e)}`);
+                    }
+                }
+                registry.unregister(skill.name);
+            } else {
+                logger.warn(`Duplicate skill name '${skill.name}' in ${filePath} — skipping`);
+                return false;
+            }
         }
 
         registry.register(skill.name, skill, source);
@@ -226,7 +240,7 @@ function loadSkillFile(filePath, source = 'core') {
     }
 }
 
-function loadDirectory(dir, label, source = 'core') {
+async function loadDirectory(dir, label, source = 'core') {
     if (!fs.existsSync(dir)) {
         logger.debug(`Skill directory not found: ${dir}`);
         return 0;
@@ -239,7 +253,7 @@ function loadDirectory(dir, label, source = 'core') {
 
     for (const file of files) {
         const filePath = path.join(dir, file);
-        if (loadSkillFile(filePath, source)) {
+        if (await loadSkillFile(filePath, source)) {
             loaded++;
         }
     }
@@ -252,7 +266,7 @@ function loadDirectory(dir, label, source = 'core') {
  * Load all community capabilities from ~/.venesa/capabilities/
  * Each file must be a single-file capability (one .js file = one capability).
  */
-function loadCapabilities() {
+async function loadCapabilities() {
     const capDir = getCapabilitiesDir();
     if (!fs.existsSync(capDir)) return 0;
 
@@ -264,7 +278,7 @@ function loadCapabilities() {
         if (!entry.name.endsWith('.js')) continue;
         if (entry.name.startsWith('_') || entry.name.startsWith('.')) continue;
 
-        if (loadSkillFile(path.join(capDir, entry.name), 'community')) {
+        if (await loadSkillFile(path.join(capDir, entry.name), 'community')) {
             loaded++;
         }
     }
@@ -284,11 +298,11 @@ loadCapabilities();
 module.exports = {
     loadDirectory,
     loadCapabilities,
-    reload() {
+    async reload() {
         registry.clear();
-        loadDirectory(CORE_DIR, 'core', 'core');
-        loadDirectory(INTERNAL_DIR, 'internal', 'internal');
-        loadCapabilities();
+        await loadDirectory(CORE_DIR, 'core', 'core');
+        await loadDirectory(INTERNAL_DIR, 'internal', 'internal');
+        await loadCapabilities();
     },
     getCapabilitiesDir,
 };
