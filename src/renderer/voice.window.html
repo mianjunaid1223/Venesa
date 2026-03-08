@@ -1834,7 +1834,7 @@
               <div class="result-icon ${iconClass}">${iconSvg}</div>
               <div class="result-content">
                 <div class="result-name">${safeStr(item.name)}</div>
-                <div class="result-type" style="font-size:11px; color:rgba(255,255,255,0.5); margin-top:2px;">${safeStr(item.type)}</div>
+                <div class="result-type" style="font-size:11px; color:rgba(255,255,255,0.5); margin-top:2px;">${safeStr(item.path || item.type)}</div>
               </div>            `;
               // For voice selection we normally just wait for speech, but we can allow click too
               el.addEventListener("click", () => {

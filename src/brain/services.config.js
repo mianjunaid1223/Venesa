@@ -1,13 +1,4 @@
-/**
- * ═══════════════════════════════════════════════════════════════
- *  MODULE: Services Config
- *  LLM + TTS model and safety settings.
- * ═══════════════════════════════════════════════════════════════
- *  DEPENDS ON: (none)
- *  USED BY:    brain/llm, platform/speech/tts
- * ═══════════════════════════════════════════════════════════════
- */
-
+// Services config — LLM and TTS model settings.
 module.exports = {
   elevenlabs: {
     baseUrl: "https://api.elevenlabs.io/v1",

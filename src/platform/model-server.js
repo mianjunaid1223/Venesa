@@ -1,6 +1,7 @@
 const http = require('http');
 const fs = require('fs');
 const crypto = require('crypto');
+const logger = require('../lib/logger');
 
 // Use a fixed port so the model URL is stable across restarts.
 // A stable URL lets Chromium's HTTP disk cache persist the 40 MB
@@ -49,7 +50,7 @@ function buildHandler() {
             const stream = fs.createReadStream(modelTarGzPath_);
             stream.pipe(res);
             stream.on('error', (err) => {
-                console.error(`[ModelServer] Stream error: ${err.message}`);
+                logger.error(`[ModelServer] Stream error: ${err.message}`);
                 if (!res.headersSent) res.writeHead(500);
                 res.end();
             });
@@ -86,10 +87,10 @@ function startModelServer(modelTarGzPath) {
                 // stable URL (and therefore the Chromium disk-cache entry)
                 // rather than falling back to a random port and busting the
                 // cache every restart.
-                console.warn(`[ModelServer] Port ${FIXED_PORT} in use — probing existing server...`);
+                logger.warn(`[ModelServer] Port ${FIXED_PORT} in use — probing existing server...`);
                 const existingPort = await probeExistingServer(FIXED_PORT);
                 if (existingPort) {
-                    console.log(`[ModelServer] Existing server healthy on ${FIXED_PORT} — reusing`);
+                    logger.info(`[ModelServer] Existing server healthy on ${FIXED_PORT} — reusing`);
                     modelServer = null; // we don't own this server
                     modelServerPort = FIXED_PORT;
                     resolve(FIXED_PORT);
@@ -98,7 +99,7 @@ function startModelServer(modelTarGzPath) {
 
                 // Port held but not responding — give the OS 1 s to release it
                 // then retry; fall back to a random port only as a last resort.
-                console.warn('[ModelServer] Existing server unresponsive, waiting 1s then retrying...');
+                logger.warn('[ModelServer] Existing server unresponsive, waiting 1s then retrying...');
                 await new Promise(r => setTimeout(r, 1000));
 
                 const retryServer = http.createServer(buildHandler());
@@ -108,11 +109,10 @@ function startModelServer(modelTarGzPath) {
                     resolve(FIXED_PORT);
                 });
                 retryServer.once('error', () => {
-                    // Still busy — last resort: random port
-                    console.warn('[ModelServer] Still busy, falling back to random port (cache will miss this run)');
+                    logger.warn('[ModelServer] Still busy, falling back to random port (cache will miss this run)');
                     const fallbackServer = http.createServer(buildHandler());
                     fallbackServer.once('error', (fallbackErr) => {
-                        console.error(`[ModelServer] Fallback random-port listen failed: ${fallbackErr.message}`);
+                        logger.error(`[ModelServer] Fallback random-port listen failed: ${fallbackErr.message}`);
                         reject(fallbackErr);
                     });
                     fallbackServer.listen(0, '127.0.0.1', () => {

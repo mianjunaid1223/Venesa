@@ -1,17 +1,5 @@
 "use strict";
-
-/**
- * ═══════════════════════════════════════════════════════════════
- *  MODULE: Connectivity Monitor (Net Guard)
- *  Polls network reachability every 5 s using Electron's net API.
- *  Provides reactive callbacks and a synchronous online check.
- * ═══════════════════════════════════════════════════════════════
- *  DEPENDS ON: electron net, lib/logger
- *  USED BY:    platform/main, platform/ipc/query-handlers,
- *              platform/ipc/voice-handlers, skills/core/google-search
- * ═══════════════════════════════════════════════════════════════
- */
-
+// Connectivity — polls network reachability every 5s using Electron's net API.
 const { net } = require('electron');
 const logger = require('./logger');
 
@@ -23,12 +11,7 @@ let _online = null; // null = unknown until first probe; false = offline; true =
 let _monitorInterval = null;
 const _listeners = [];
 
-// ── Internal probe ───────────────────────────────────────────
 
-/**
- * Perform a single HEAD probe to measure reachability.
- * Resolves true/false — never rejects.
- */
 async function checkNow() {
     try {
         return await new Promise((resolve) => {
@@ -83,19 +66,11 @@ async function _poll() {
     }
 }
 
-// ── Public API ────────────────────────────────────────────────
 
-/**
- * Returns the last known online state (synchronous, never throws).
- */
 function isOnline() {
     return _online;
 }
 
-/**
- * Register a callback that fires whenever connectivity changes.
- * Callback receives a single boolean: true = online, false = offline.
- */
 function onChange(fn) {
     if (typeof fn !== 'function') return () => {};
     _listeners.push(fn);
@@ -108,11 +83,6 @@ function onChange(fn) {
     };
 }
 
-/**
- * Start the background polling loop.
- * Safe to call multiple times — only one interval runs at a time.
- * Call this as the first statement inside app.whenReady().
- */
 function startMonitoring() {
     try {
         if (_monitorInterval) return;

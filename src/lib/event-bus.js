@@ -1,13 +1,4 @@
-/**
- * ═══════════════════════════════════════════════════════════════
- *  MODULE: Event Bus
- *  Pub-sub event emitter — decouples domains without IPC.
- * ═══════════════════════════════════════════════════════════════
- *  DEPENDS ON: (none)
- *  USED BY:    brain/*, platform/*
- * ═══════════════════════════════════════════════════════════════
- */
-
+// Event Bus — pub-sub emitter that decouples domains without IPC.
 class EventBus {
     constructor() {
         this._listeners = new Map();

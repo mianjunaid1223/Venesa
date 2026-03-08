@@ -1,15 +1,13 @@
-/**
- * Orchestrator — parses and executes [plan]...[/plan] blocks.
- *
- * Exports: parseOrchestrationPlan, parseActionsStrict, executePlan, executeAction
- * Depends: lib/logger, skills/registry
- * Used by: brain/processor
- */
 const logger = require("../lib/logger");
 const registry = require("../skills/registry");
+const tokens = require("../lib/token-resolver");
 const { z } = require("zod");
 const { EXECUTION_MARKERS } = require("./protocol");
 const { coerceParams } = require("../skills/validator");
+
+const STEP_REF_PATTERN = /^\$step(\d+)(?:\.(.+))?$/;
+const DISCOVERY_SKILLS = new Set(["searchFiles", "search-files"]);
+const PATH_PARAMS = new Set(["filePath", "sourcePath", "destPath", "savePath", "path"]);
 
 function unwrapMemoryEnvelope(resolved) {
   if (typeof resolved !== "string") return resolved;
@@ -20,6 +18,63 @@ function unwrapMemoryEnvelope(resolved) {
     }
   } catch {}
   return resolved;
+}
+
+function resolveFieldPath(obj, fieldPath) {
+  if (!fieldPath) return obj;
+  const parts = fieldPath.replace(/\[(\d+)\]/g, ".$1").split(".");
+  let current = obj;
+  for (const part of parts) {
+    if (current == null) return undefined;
+    if (typeof current === "string") {
+      try { current = JSON.parse(current); } catch { return undefined; }
+    }
+    current = current[part];
+  }
+  return current;
+}
+
+function normalizePlan(plan) {
+  for (const step of plan.steps) {
+    for (const [key, value] of Object.entries(step.params)) {
+      if (typeof value !== "string") continue;
+      if (value.startsWith("$")) continue;
+      if (PATH_PARAMS.has(key)) {
+        step.params[key] = tokens.resolvePath(value);
+      } else if (value.includes("{{")) {
+        step.params[key] = tokens.resolveString(value);
+      }
+    }
+  }
+  return plan;
+}
+
+function validatePlan(plan) {
+  const totalSteps = plan.steps.length;
+  let hasDiscovery = false;
+
+  for (let i = 0; i < totalSteps; i++) {
+    const step = plan.steps[i];
+    const priorHasDiscovery = hasDiscovery;
+
+    for (const [key, value] of Object.entries(step.params)) {
+      if (typeof value !== "string") continue;
+      const refMatch = value.match(STEP_REF_PATTERN);
+      if (refMatch) {
+        const refIndex = parseInt(refMatch[1], 10);
+        if (refIndex < 1 || refIndex > totalSteps || refIndex > i) {
+          return { valid: false, error: `Step ${i + 1} references non-existent $step${refIndex}` };
+        }
+        continue;
+      }
+      if (priorHasDiscovery && PATH_PARAMS.has(key) && !value.startsWith("$")) {
+        return { valid: false, error: `Step ${i + 1} uses guessed path for '${key}' after a discovery step. Use $stepN.field to reference search results.` };
+      }
+    }
+
+    hasDiscovery = priorHasDiscovery || DISCOVERY_SKILLS.has(step.actionName);
+  }
+  return { valid: true };
 }
 
 function parseActionsStrict(text) {
@@ -159,26 +214,16 @@ function parseActionsStrict(text) {
 }
 
 function parseOrchestrationPlan(rawResponse) {
-  if (!rawResponse || typeof rawResponse !== "string") {
-    return null;
-  }
+  if (!rawResponse || typeof rawResponse !== "string") return null;
 
   const normalizedBlocks = rawResponse.replace(/\[step:/gi, "[action:");
   const steps = parseActionsStrict(normalizedBlocks);
-
   if (steps.length === 0) return null;
 
-  for (const step of steps) {
-    step.dependsOn = Object.values(step.params).filter(
-      (v) => typeof v === "string" && v.startsWith("$"),
-    );
-  }
-
   const planStart = rawResponse.toLowerCase().indexOf("[plan]");
-  const textBeforePlan =
-    planStart !== -1
-      ? rawResponse.substring(0, planStart).trim()
-      : rawResponse.split("[")[0].trim();
+  const textBeforePlan = planStart !== -1
+    ? rawResponse.substring(0, planStart).trim()
+    : rawResponse.split("[")[0].trim();
 
   return {
     steps,
@@ -196,6 +241,19 @@ async function executeAction(actionName, params, ctx = {}) {
     timestamp: Date.now(),
     duration: 0,
   };
+
+  // Resolve {{token}} placeholders before validation and execution
+  try {
+    params = tokens.resolve(params);
+  } catch (tokenErr) {
+    return {
+      success: false,
+      error: tokenErr.message,
+      trace,
+      marker: ctx.marker || "announce",
+      envKey: tokenErr.code === "ENV_NOT_SET" ? tokenErr.envKey : null,
+    };
+  }
 
   const startTime = process.hrtime();
 
@@ -291,53 +349,67 @@ async function executeAction(actionName, params, ctx = {}) {
   }
 }
 
-async function executePlan(plan) {
-  const results = [];
-  const stepOutputs = {};
+function resolveStepRefs(params, stepOutputs, stepIndex) {
+  const resolved = { ...params };
+  for (const [key, value] of Object.entries(resolved)) {
+    if (typeof value !== "string") continue;
+    const refMatch = value.match(STEP_REF_PATTERN);
+    if (!refMatch) continue;
+    const refIdx = parseInt(refMatch[1], 10) - 1;
+    const fieldPath = refMatch[2] || null;
+    if (refIdx < 0 || refIdx >= stepIndex || !(refIdx in stepOutputs)) {
+      throw new Error(`$step${refIdx + 1} not resolved for step ${stepIndex + 1}`);
+    }
+    const raw = unwrapMemoryEnvelope(stepOutputs[refIdx]);
+    resolved[key] = fieldPath ? resolveFieldPath(raw, fieldPath) : raw;
+    if (resolved[key] === undefined) {
+      throw new Error(`Field '${fieldPath}' not found in $step${refIdx + 1} output`);
+    }
+  }
+  return resolved;
+}
 
-  logger.info(
-    `Starting execution of plan: ${plan.planId} (${plan.steps.length} steps)`,
-  );
+function skipRemaining(plan, results, fromIndex) {
+  for (let j = fromIndex; j < plan.steps.length; j++) {
+    results.push({
+      actionName: plan.steps[j].actionName,
+      result: null,
+      error: "Aborted due to preceding failure",
+      skipped: true,
+      marker: "silently",
+      ui: null,
+      returnType: null,
+    });
+  }
+}
+
+async function executePlan(plan) {
+  if (!plan || !plan.steps) {
+    return [{ actionName: "_planValidation", result: null, error: "Invalid or missing plan", skipped: false, marker: "announce", ui: null, returnType: null }];
+  }
+  const validation = validatePlan(plan);
+  if (!validation.valid) {
+    logger.warn(`Plan ${plan.planId} rejected: ${validation.error}`);
+    return [{ actionName: "_planValidation", result: null, error: validation.error, skipped: false, marker: "announce", ui: null, returnType: null }];
+  }
+  normalizePlan(plan);
+
+  const results = [];
+  const stepOutputs = [];
+
+  logger.info(`Executing plan: ${plan.planId} (${plan.steps.length} steps)`);
 
   for (let i = 0; i < plan.steps.length; i++) {
     const step = plan.steps[i];
-
     try {
-      const resolvedParams = { ...step.params };
-      for (const [key, value] of Object.entries(resolvedParams)) {
-        if (typeof value === "string" && value.startsWith("$")) {
-          const depName = value.substring(1);
-
-          const foundKey = Object.keys(stepOutputs)
-            .reverse()
-            .find((k) => k === depName);
-          if (foundKey && stepOutputs[foundKey] !== undefined) {
-            resolvedParams[key] = unwrapMemoryEnvelope(stepOutputs[foundKey]);
-          } else {
-            const prefixMatch = Object.keys(stepOutputs)
-              .reverse()
-              .find((k) => k.startsWith(depName + "_"));
-            if (prefixMatch && stepOutputs[prefixMatch] !== undefined) {
-              resolvedParams[key] = unwrapMemoryEnvelope(
-                stepOutputs[prefixMatch],
-              );
-            } else {
-              throw new Error(
-                `Dependency ${depName} not found for step ${step.actionName}`,
-              );
-            }
-          }
-        }
-      }
-
+      const resolvedParams = resolveStepRefs(step.params, stepOutputs, i);
       const result = await executeAction(step.actionName, resolvedParams, {
         planId: plan.planId,
         stepIndex: i,
         marker: step.marker,
       });
 
-      const stepKey = `${step.actionName}_${i}`;
-      stepOutputs[stepKey] = result.success ? result.output : undefined;
+      stepOutputs[i] = result.success ? result.output : null;
 
       results.push({
         actionName: step.actionName,
@@ -347,29 +419,16 @@ async function executePlan(plan) {
         marker: result.marker,
         ui: result.ui || null,
         returnType: result.returnType || "action",
+        envKey: result.envKey || null,
       });
 
       if (!result.success) {
-        logger.warn(
-          `Plan ${plan.planId} aborted at step ${i} (${step.actionName}) due to failure.`,
-        );
-
-        for (let j = i + 1; j < plan.steps.length; j++) {
-          results.push({
-            actionName: plan.steps[j].actionName,
-            result: null,
-            error: "Aborted due to preceding failure",
-            skipped: true,
-            marker: "silently",
-            ui: null,
-          });
-        }
+        logger.warn(`Plan ${plan.planId} aborted at step ${i} (${step.actionName})`);
+        skipRemaining(plan, results, i + 1);
         break;
       }
     } catch (error) {
-      logger.error(
-        `Plan step ${step.actionName} orchestration failed: ${error.message}`,
-      );
+      logger.error(`Plan step ${step.actionName} failed: ${error.message}`);
       results.push({
         actionName: step.actionName,
         result: null,
@@ -377,17 +436,9 @@ async function executePlan(plan) {
         skipped: false,
         marker: step.marker,
         ui: null,
+        returnType: null,
       });
-      for (let j = i + 1; j < plan.steps.length; j++) {
-        results.push({
-          actionName: plan.steps[j].actionName,
-          result: null,
-          error: "Aborted due to preceding failure",
-          skipped: true,
-          marker: "silently",
-          ui: null,
-        });
-      }
+      skipRemaining(plan, results, i + 1);
       break;
     }
   }
@@ -398,7 +449,8 @@ async function executePlan(plan) {
 module.exports = {
   parseOrchestrationPlan,
   parseActionsStrict,
+  normalizePlan,
+  validatePlan,
   executePlan,
   executeAction,
-  EXECUTION_MARKERS,
 };

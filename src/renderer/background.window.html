@@ -1,226 +1,329 @@
-<!DOCTYPE html>
+<!doctype html>
 <html>
-
-<head>
-    <meta charset="UTF-8">
+  <head>
+    <meta charset="UTF-8" />
     <title>Background Audio</title>
-</head>
+  </head>
 
-<body>
+  <body>
     <script src="lib/vosk.js"></script>
     <script>
-        const SAMPLE_RATE = 16000;
+      const SAMPLE_RATE = 16000;
 
-        let audioContext = null;
-        let mediaStream = null;
-        let workletNode = null;
-        let recognizer = null;
-        let model = null;
-        let isPaused = false;
-        let resumeCooldown = false; // Ignore detections right after resume
-        let Vosk = window.Vosk;
+      let audioContext = null;
+      let mediaStream = null;
+      let workletNode = null;
+      let recognizer = null;
+      let model = null;
+      let isPaused = false;
+      let resumeCooldown = false; // Ignore detections right after resume
+      let Vosk = window.Vosk;
 
-        const log = (msg) => window.backgroundAudioApi.send('console-log', msg);
-        const logError = (msg) => window.backgroundAudioApi.send('console-error', msg);
+      const log = (msg) => window.backgroundAudioApi.send("console-log", msg);
+      const logError = (msg) =>
+        window.backgroundAudioApi.send("console-error", msg);
 
-        // Wrap createModel with a hard timeout so it never hangs forever.
-        // vosk-browser's createModel rejects with `undefined` on failure which
-        // causes error.message to throw – we guard against that here.
-        function createModelWithTimeout(url, timeoutMs) {
-            return new Promise((resolve, reject) => {
-                let done = false;
+      // Wrap createModel with a hard timeout so it never hangs forever.
+      // vosk-browser's createModel rejects with `undefined` on failure which
+      // causes error.message to throw – we guard against that here.
+      function createModelWithTimeout(url, timeoutMs) {
+        return new Promise((resolve, reject) => {
+          let done = false;
 
-                const timer = setTimeout(() => {
-                    if (done) return;
-                    done = true;
-                    reject(new Error('Vosk model load timed out after ' + (timeoutMs / 1000) + 's'));
-                }, timeoutMs);
+          const timer = setTimeout(() => {
+            if (done) return;
+            done = true;
+            reject(
+              new Error(
+                "Vosk model load timed out after " + timeoutMs / 1000 + "s",
+              ),
+            );
+          }, timeoutMs);
 
-                Vosk.createModel(url).then(
-                    (m) => { if (!done) { done = true; clearTimeout(timer); resolve(m); } },
-                    (err) => { if (!done) { done = true; clearTimeout(timer); reject(err instanceof Error ? err : new Error(String(err ?? 'Vosk createModel failed'))); } }
+          Vosk.createModel(url).then(
+            (m) => {
+              if (!done) {
+                done = true;
+                clearTimeout(timer);
+                resolve(m);
+              }
+            },
+            (err) => {
+              if (!done) {
+                done = true;
+                clearTimeout(timer);
+                reject(
+                  err instanceof Error
+                    ? err
+                    : new Error(String(err ?? "Vosk createModel failed")),
                 );
+              }
+            },
+          );
+        });
+      }
+
+      async function initializeVosk(modelUrl, attempt) {
+        attempt = attempt || 1;
+        const MAX_ATTEMPTS = 3;
+        try {
+          log(
+            "Loading Vosk model (attempt " +
+              attempt +
+              "/" +
+              MAX_ATTEMPTS +
+              "): " +
+              modelUrl,
+          );
+
+          if (!Vosk) {
+            Vosk = window.Vosk;
+            if (!Vosk && window.exports && window.exports.Vosk)
+              Vosk = window.exports.Vosk;
+          }
+
+          if (!Vosk) throw new Error("Vosk library not loaded");
+
+          log(
+            "WASM model init started — first run takes 20-40s, subsequent runs use disk cache...",
+          );
+          model = await createModelWithTimeout(modelUrl, 120000);
+          recognizer = new model.KaldiRecognizer(SAMPLE_RATE);
+
+          recognizer.on("result", (event) => {
+            if (event.result && event.result.text)
+              checkWakeWord(event.result.text);
+          });
+          recognizer.on("partialresult", (event) => {
+            if (event.result && event.result.partial)
+              checkWakeWord(event.result.partial);
+          });
+
+          log("Vosk model loaded and recognizer ready");
+          return true;
+        } catch (err) {
+          // Safely extract message — err may be undefined (vosk-browser quirk)
+          const msg =
+            err && err.message
+              ? err.message
+              : err != null
+                ? String(err)
+                : "unknown error";
+          logError("Vosk init failed (attempt " + attempt + "): " + msg);
+
+          if (attempt < MAX_ATTEMPTS) {
+            const delay = attempt * 2000;
+            log("Retrying Vosk init in " + delay / 1000 + "s...");
+            await new Promise((r) => setTimeout(r, delay));
+            return initializeVosk(modelUrl, attempt + 1);
+          }
+          return false;
+        }
+      }
+
+      function checkWakeWord(text) {
+        if (isPaused || resumeCooldown || !text) return;
+
+        // Support both string and object formats (Vosk sometimes returns JSON)
+        let cleanText = "";
+        if (typeof text === "string") {
+          cleanText = text.toLowerCase().trim();
+        } else if (text.text) {
+          cleanText = text.text.toLowerCase().trim();
+        } else {
+          return;
+        }
+
+        const patterns = [
+          /hey\s*v[ei]n[aeiou]?s+[aeu]/,
+          /hey\s*vanessa/,
+          /hey\s*venesa/,
+          /hey\s*venus/,
+          /^venesa$/,
+          /^vanessa$/,
+          /^venessa$/,
+          /^v[ei]n[aeiou]?s+[aeiou]$/,
+        ];
+
+        for (const pattern of patterns) {
+          if (pattern.test(cleanText)) {
+            log("Wake word: " + cleanText);
+            isPaused = true;
+            stopMic();
+            window.backgroundAudioApi.send("wake-word-detected", {
+              wakeWord: "hey_venessa",
+              score: 1.0,
             });
+            return;
+          }
         }
+      }
 
-        async function initializeVosk(modelUrl, attempt) {
-            attempt = attempt || 1;
-            const MAX_ATTEMPTS = 3;
-            try {
-                log('Loading Vosk model (attempt ' + attempt + '/' + MAX_ATTEMPTS + '): ' + modelUrl);
+      async function startMic() {
+        try {
+          if (audioContext) await audioContext.close().catch(() => {});
 
-                if (!Vosk) {
-                    Vosk = window.Vosk;
-                    if (!Vosk && window.exports && window.exports.Vosk) Vosk = window.exports.Vosk;
-                }
+          mediaStream = await navigator.mediaDevices
+            .getUserMedia({
+              audio: {
+                sampleRate: SAMPLE_RATE,
+                channelCount: 1,
+                echoCancellation: true,
+                noiseSuppression: true,
+              },
+            })
+            .catch(async (err) => {
+              // If mic is still held by another context, wait and retry once
+              logError(
+                "getUserMedia first attempt failed: " +
+                  err.message +
+                  " — retrying in 800ms",
+              );
+              await new Promise((r) => setTimeout(r, 800));
+              return navigator.mediaDevices.getUserMedia({
+                audio: {
+                  sampleRate: SAMPLE_RATE,
+                  channelCount: 1,
+                  echoCancellation: true,
+                  noiseSuppression: true,
+                },
+              });
+            });
 
-                if (!Vosk) throw new Error('Vosk library not loaded');
+          audioContext = new AudioContext({ sampleRate: SAMPLE_RATE });
+          await audioContext.audioWorklet.addModule(
+            "workers/audio.processor.js",
+          );
 
-                log('WASM model init started — first run takes 20-40s, subsequent runs use disk cache...');
-                model = await createModelWithTimeout(modelUrl, 120000);
-                recognizer = new model.KaldiRecognizer(SAMPLE_RATE);
+          const source = audioContext.createMediaStreamSource(mediaStream);
+          workletNode = new AudioWorkletNode(
+            audioContext,
+            "audio-capture-processor",
+          );
 
-                recognizer.on('result', (event) => {
-                    if (event.result && event.result.text) checkWakeWord(event.result.text);
-                });
-                recognizer.on('partialresult', (event) => {
-                    if (event.result && event.result.partial) checkWakeWord(event.result.partial);
-                });
-
-                log('Vosk model loaded and recognizer ready');
-                return true;
-            } catch (err) {
-                // Safely extract message — err may be undefined (vosk-browser quirk)
-                const msg = (err && err.message) ? err.message : (err != null ? String(err) : 'unknown error');
-                logError('Vosk init failed (attempt ' + attempt + '): ' + msg);
-
-                if (attempt < MAX_ATTEMPTS) {
-                    const delay = attempt * 2000;
-                    log('Retrying Vosk init in ' + (delay / 1000) + 's...');
-                    await new Promise(r => setTimeout(r, delay));
-                    return initializeVosk(modelUrl, attempt + 1);
-                }
-                return false;
+          workletNode.port.onmessage = (event) => {
+            if (event.data.type === "audio" && recognizer && !isPaused) {
+              const float32 = event.data.buffer;
+              // acceptWaveformFloat expects Float32Array with values -1.0 to 1.0
+              recognizer.acceptWaveformFloat(float32, SAMPLE_RATE);
             }
+          };
+
+          source.connect(workletNode);
+          // Connect to a muted GainNode to keep audio graph active without audible playback (prevents feedback)
+          const mutedGain = audioContext.createGain();
+          mutedGain.gain.value = 0;
+          workletNode.connect(mutedGain);
+          mutedGain.connect(audioContext.destination);
+          log("Mic started");
+        } catch (error) {
+          logError("Mic error: " + error.message);
         }
+      }
 
-        function checkWakeWord(text) {
-            if (isPaused || resumeCooldown || !text) return;
-
-            // Support both string and object formats (Vosk sometimes returns JSON)
-            let cleanText = "";
-            if (typeof text === 'string') {
-                cleanText = text.toLowerCase().trim();
-            } else if (text.text) {
-                cleanText = text.text.toLowerCase().trim();
-            } else {
-                return;
-            }
-
-            const patterns = [
-                /hey\s*v[ei]n[aeiou]?s+[aeu]/i,
-                /hey\s*vanessa/i,
-                /hey\s*venesa/i,
-                /hey\s*venus/i
-            ];
-
-            for (const pattern of patterns) {
-                if (pattern.test(cleanText)) {
-                    log('Wake word: ' + cleanText);
-                    isPaused = true;
-                    stopMic();
-                    window.backgroundAudioApi.send('wake-word-detected', { wakeWord: 'hey_venessa', score: 1.0 });
-                    return;
-                }
-            }
+      function stopMic() {
+        if (workletNode) {
+          workletNode.disconnect();
+          workletNode = null;
         }
-
-        async function startMic() {
-            try {
-                if (audioContext) await audioContext.close().catch(() => { });
-
-                mediaStream = await navigator.mediaDevices.getUserMedia({
-                    audio: { sampleRate: SAMPLE_RATE, channelCount: 1, echoCancellation: true, noiseSuppression: true }
-                }).catch(async (err) => {
-                    // If mic is still held by another context, wait and retry once
-                    logError('getUserMedia first attempt failed: ' + err.message + ' — retrying in 800ms');
-                    await new Promise(r => setTimeout(r, 800));
-                    return navigator.mediaDevices.getUserMedia({
-                        audio: { sampleRate: SAMPLE_RATE, channelCount: 1, echoCancellation: true, noiseSuppression: true }
-                    });
-                });
-
-                audioContext = new AudioContext({ sampleRate: SAMPLE_RATE });
-                await audioContext.audioWorklet.addModule('workers/audio.processor.js');
-
-                const source = audioContext.createMediaStreamSource(mediaStream);
-                workletNode = new AudioWorkletNode(audioContext, 'audio-capture-processor');
-
-                workletNode.port.onmessage = (event) => {
-                    if (event.data.type === 'audio' && recognizer && !isPaused) {
-                        const float32 = event.data.buffer;
-                        // acceptWaveformFloat expects Float32Array with values -1.0 to 1.0
-                        recognizer.acceptWaveformFloat(float32, SAMPLE_RATE);
-                    }
-                };
-
-                source.connect(workletNode);
-                // Connect to a muted GainNode to keep audio graph active without audible playback (prevents feedback)
-                const mutedGain = audioContext.createGain();
-                mutedGain.gain.value = 0;
-                workletNode.connect(mutedGain);
-                mutedGain.connect(audioContext.destination);
-                log('Mic started');
-            } catch (error) {
-                logError('Mic error: ' + error.message);
-            }
+        if (mediaStream) {
+          mediaStream.getTracks().forEach((t) => t.stop());
+          mediaStream = null;
         }
-
-        function stopMic() {
-            if (workletNode) { workletNode.disconnect(); workletNode = null; }
-            if (mediaStream) { mediaStream.getTracks().forEach(t => t.stop()); mediaStream = null; }
-            if (audioContext) { audioContext.close().catch(() => { }); audioContext = null; }
-            window.backgroundAudioApi.send('mic-released');
-            log('Mic stopped');
+        if (audioContext) {
+          audioContext.close().catch(() => {});
+          audioContext = null;
         }
+        window.backgroundAudioApi.send("mic-released");
+        log("Mic stopped");
+      }
 
-        async function playAck() {
-            try {
-                const ctx = new AudioContext();
-                const osc = ctx.createOscillator();
-                const gain = ctx.createGain();
-                osc.frequency.setValueAtTime(880, ctx.currentTime);
-                osc.frequency.setValueAtTime(1100, ctx.currentTime + 0.1);
-                gain.gain.setValueAtTime(0.1, ctx.currentTime);
-                gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.2);
-                osc.connect(gain);
-                gain.connect(ctx.destination);
-                osc.start();
-                osc.stop(ctx.currentTime + 0.2);
-                setTimeout(() => ctx.close(), 300);
-            } catch (e) { }
+      async function playAck() {
+        try {
+          const ctx = new AudioContext();
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+          osc.frequency.setValueAtTime(880, ctx.currentTime);
+          osc.frequency.setValueAtTime(1100, ctx.currentTime + 0.1);
+          gain.gain.setValueAtTime(0.1, ctx.currentTime);
+          gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.2);
+          osc.connect(gain);
+          gain.connect(ctx.destination);
+          osc.start();
+          osc.stop(ctx.currentTime + 0.2);
+          setTimeout(() => ctx.close(), 300);
+        } catch (e) {}
+      }
+
+      window.backgroundAudioApi.receive("play-acknowledgment", () => playAck());
+      window.backgroundAudioApi.receive("pause-detection", () => {
+        isPaused = true;
+        stopMic();
+      });
+      window.backgroundAudioApi.receive("resume-detection", async () => {
+        isPaused = false;
+        resumeCooldown = true; // Ignore detections for a short period after resume
+        // Delay startMic to allow the voice window renderer to release the mic
+        // before we try to claim it. Without this delay, getUserMedia races with
+        // the voice window's stopListening() and fails silently, leaving the
+        // background window deaf until the next app restart.
+        await new Promise((r) => setTimeout(r, 700));
+        // Guard: a pause-detection may have arrived during the delay
+        if (!isPaused && model) {
+          // Re-create the recognizer so Vosk starts from a clean state.
+          // The previous recognizer can become stale/frozen after a voice session
+          // and silently stop emitting results even while receiving audio.
+          try {
+            recognizer = new model.KaldiRecognizer(SAMPLE_RATE);
+            recognizer.on("result", (event) => {
+              if (event.result && event.result.text)
+                checkWakeWord(event.result.text);
+            });
+            recognizer.on("partialresult", (event) => {
+              if (event.result && event.result.partial)
+                checkWakeWord(event.result.partial);
+            });
+            log("Recognizer reset for new session");
+            await startMic();
+            log("Mic restarted after voice session");
+          } catch (e) {
+            logError("Failed to reset recognizer or start mic: " + e.message);
+          }
         }
+        // Clear cooldown after 1 second to avoid false triggers from leftover audio
+        setTimeout(() => {
+          resumeCooldown = false;
+          log("Detection cooldown ended");
+        }, 1000);
+      });
 
-        window.backgroundAudioApi.receive('play-acknowledgment', () => playAck());
-        window.backgroundAudioApi.receive('pause-detection', () => { isPaused = true; stopMic(); });
-        window.backgroundAudioApi.receive('resume-detection', async () => {
-            isPaused = false;
-            resumeCooldown = true; // Ignore detections for a short period after resume
-            // Delay startMic to allow the voice window renderer to release the mic
-            // before we try to claim it. Without this delay, getUserMedia races with
-            // the voice window's stopListening() and fails silently, leaving the
-            // background window deaf until the next app restart.
-            await new Promise(r => setTimeout(r, 700));
-            // Guard: a pause-detection may have arrived during the delay
-            if (!isPaused && recognizer) {
-                await startMic();
-                log('Mic restarted after voice session');
-            }
-            // Clear cooldown after 1 second to avoid false triggers from leftover audio
-            setTimeout(() => { resumeCooldown = false; log('Detection cooldown ended'); }, 1000);
-        });
+      window.backgroundAudioApi.receive("model-path", async (modelPath) => {
+        try {
+          const ok = await initializeVosk(modelPath);
+          if (ok) {
+            await startMic();
+            window.backgroundAudioApi.send("background-audio-ready");
+          } else {
+            logError(
+              "Vosk failed all attempts — wake word detection unavailable. Restart the app to retry.",
+            );
+          }
+        } catch (fatalErr) {
+          logError("Fatal error during Vosk init: " + String(fatalErr));
+        }
+      });
 
-        window.backgroundAudioApi.receive('model-path', async (modelPath) => {
-            try {
-                const ok = await initializeVosk(modelPath);
-                if (ok) {
-                    await startMic();
-                    window.backgroundAudioApi.send('background-audio-ready');
-                } else {
-                    logError('Vosk failed all attempts — wake word detection unavailable. Restart the app to retry.');
-                }
-            } catch (fatalErr) {
-                logError('Fatal error during Vosk init: ' + String(fatalErr));
-            }
-        });
+      window.backgroundAudioApi.receive("model-path-error", (errInfo) => {
+        logError(
+          "Failed to load Vosk model: " +
+            (errInfo && errInfo.error
+              ? errInfo.error
+              : JSON.stringify(errInfo)),
+        );
+      });
 
-        window.backgroundAudioApi.receive('model-path-error', (errInfo) => {
-            logError('Failed to load Vosk model: ' + (errInfo && errInfo.error ? errInfo.error : JSON.stringify(errInfo)));
-        });
-
-        window.backgroundAudioApi.send('get-model-paths');
-        log('Background window loaded');
+      window.backgroundAudioApi.send("get-model-paths");
+      log("Background window loaded");
     </script>
-</body>
-
+  </body>
 </html>

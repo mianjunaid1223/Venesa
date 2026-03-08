@@ -1,17 +1,9 @@
-/**
- * ═══════════════════════════════════════════════════════════════
- *  MODULE: IPC Action Handlers
- *  Handles file/app/URL actions from the renderer.
- * ═══════════════════════════════════════════════════════════════
- *  DEPENDS ON: brain/processor
- *  USED BY:    platform/main
- * ═══════════════════════════════════════════════════════════════
- */
-
+// IPC Action Handlers — handles file, app, and URL actions from the renderer.
 const { ipcMain, shell } = require('electron');
 const path = require('path');
 const os = require('os');
 const { execFile } = require('child_process');
+const logger = require('../../lib/logger');
 const processor = require('../../brain/processor');
 
 const HOME_DIR = os.homedir();
@@ -41,7 +33,7 @@ function register() {
 
             const skill = registry.get(actionName);
             if (!skill || typeof skill.handler !== 'function') {
-                console.log(`[perform-action] Skill '${actionName}' not found. Available: ${registry.getAllNames().join(', ')}`);
+                logger.warn(`[perform-action] Skill '${actionName}' not found. Available: ${registry.getAllNames().join(', ')}`);
                 if (!event.sender.isDestroyed()) {
                     event.sender.send('action-result', JSON.stringify({ notFound: true }));
                 }
@@ -62,7 +54,7 @@ function register() {
                     const { coerceParams } = require('../../skills/validator');
                     validatedParams = skill.schema.parse(coerceParams(params || {}, skill.schema));
                 } catch (valErr) {
-                    console.log(`[perform-action] Schema validation failed for '${actionName}':`, valErr.message);
+                    logger.warn(`[perform-action] Validation failed for '${actionName}': ${valErr.message}`);
                     if (!event.sender.isDestroyed()) {
                         event.sender.send('action-result', JSON.stringify({ error: valErr.message }));
                     }
@@ -76,7 +68,7 @@ function register() {
                 event.sender.send('action-result', resultStr);
             }
         } catch (err) {
-            console.error(`[perform-action] Error:`, err);
+            logger.error(`[perform-action] Error: ${err.message}`);
             if (!event.sender.isDestroyed()) {
                 event.sender.send('action-result', JSON.stringify({ error: err.message }));
             }
@@ -93,20 +85,20 @@ function register() {
                 const safeAppIdPattern = /^[a-zA-Z0-9._!\-]+$/;
                 if (!safeAppIdPattern.test(appInfo.appId)) return;
                 execFile('explorer.exe', [`shell:AppsFolder\\${appInfo.appId}`], { windowsHide: true }, (err) => {
-                    if (err) console.error(`Failed to launch app ${appInfo.appId}:`, err);
+                    if (err) logger.error(`Failed to launch app ${appInfo.appId}: ${err.message}`);
                 });
             } else {
                 await processor.launchApplication(appInfo.name);
             }
         } catch (error) {
-            console.error('Failed to launch app:', error);
+            logger.error(`Failed to launch app: ${error.message}`);
         }
     });
 
     ipcMain.on('open-file', (event, filePath) => {
         const fullPath = resolveAndValidatePath(filePath);
         if (!fullPath) return;
-        shell.openPath(fullPath).catch(err => console.error('open-file failed:', err));
+        shell.openPath(fullPath).catch(err => logger.error(`open-file failed: ${err.message}`));
     });
 
     ipcMain.on('show-file-in-folder', (event, filePath) => {
@@ -118,13 +110,13 @@ function register() {
     ipcMain.on('open-folder', (event, folderPath) => {
         const fullPath = resolveAndValidatePath(folderPath);
         if (!fullPath) return;
-        shell.openPath(fullPath).catch(err => console.error('open-folder failed:', err));
+        shell.openPath(fullPath).catch(err => logger.error(`open-folder failed: ${err.message}`));
     });
 
     ipcMain.on('open-external-url', (event, url) => {
         if (url && (url.startsWith('http://') || url.startsWith('https://'))) {
             shell.openExternal(url).catch(err => {
-                console.error('open-external-url failed:', err);
+                logger.error(`open-external-url failed: ${err.message}`);
             });
         }
     });

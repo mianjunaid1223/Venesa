@@ -1,18 +1,4 @@
-/**
- * ═══════════════════════════════════════════════════════════════
- *  MODULE: Memory
- *  File-backed structured memory with 4 buckets.
- *
- *  Governance Contract v2.0:
- *    All memory writes must be explicit via mutate().
- *    Mutation contract: { bucket, operation: 'set'|'append'|'remove', key, value }
- *    No implicit memory writing.
- * ═══════════════════════════════════════════════════════════════
- *  DEPENDS ON: lib/logger
- *  USED BY:    brain/llm, brain/system-prompt, skills/core/manage-commands
- * ═══════════════════════════════════════════════════════════════
- */
-
+// Memory — file-backed structured storage with 4 buckets (preferences, history, aliases, context).
 const fs = require('fs');
 const path = require('path');
 const logger = require('../lib/logger');
@@ -75,7 +61,7 @@ function saveBucket(bucket) {
     }, 50);
 }
 
-// ── Public API ──────────────────────────────────────────────
+// Public API
 
 function load() {
     ensureDir();
@@ -154,7 +140,7 @@ function getSummary() {
     return sections.length > 0 ? sections.join('\n\n') : '';
 }
 
-// ── History helpers ────────────────────────────────────────
+// History helpers
 
 const MAX_INTERACTIONS = 30;
 
@@ -172,7 +158,7 @@ function addInteraction(query, response, rawResponse) {
     saveBucket('history');
 }
 
-// ── Custom-commands helpers (backwards compat) ─────────────
+// Custom-commands helpers
 
 function getCustomCommands() {
     const cmds = get('aliases', 'customCommands');
@@ -227,12 +213,8 @@ function removeCustomCommand(trigger) {
     return { success: true };
 }
 
-// ── Corrupted capability helpers ───────────────────────────
+// Corrupted capability helpers
 
-/**
- * Mark a capability as corrupted with a human-readable reason.
- * Stored in aliases bucket under the key 'corruptedCapabilities'.
- */
 function markCorrupted(name, reason) {
     try {
         const map = get('aliases', 'corruptedCapabilities') || {};
@@ -243,9 +225,6 @@ function markCorrupted(name, reason) {
     }
 }
 
-/**
- * Clear the corrupted flag for a capability.
- */
 function clearCorrupted(name) {
     try {
         const map = get('aliases', 'corruptedCapabilities') || {};
@@ -258,10 +237,6 @@ function clearCorrupted(name) {
     }
 }
 
-/**
- * Return the full corrupted capabilities map.
- * @returns {{ [capabilityName: string]: string }}
- */
 function getCorruptedMap() {
     try {
         return get('aliases', 'corruptedCapabilities') || {};
@@ -285,11 +260,7 @@ function getCustomCommandsPromptSection() {
     return `\n## CUSTOM COMMANDS (user-created shortcuts)\nWhen the user says one of these triggers exactly, do NOT just say "Done". YOU MUST emit the EXACT action tags listed below:\n${list}\n`;
 }
 
-// ── Explicit Mutation Contract ─────────────────────────────
-// All memory writes should go through mutate() to enforce
-// the governance contract: { bucket, operation, key, value }
-// operation must be one of: 'set', 'append', 'remove'
-
+// Mutation contract: { bucket, operation: 'set'|'append'|'remove', key, value }
 function mutate({ bucket, operation, key, value }) {
     if (!BUCKETS.includes(bucket)) {
         logger.error(`[memory] mutate: unknown bucket '${bucket}'`);

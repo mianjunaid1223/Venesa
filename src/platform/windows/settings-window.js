@@ -1,14 +1,7 @@
-/**
- * ═══════════════════════════════════════════════════════════════
- *  MODULE: Settings Window
- *  Creates and manages the dedicated settings BrowserWindow.
- * ═══════════════════════════════════════════════════════════════
- *  DEPENDS ON: electron, path
- *  USED BY:    platform/main.js
- * ═══════════════════════════════════════════════════════════════
- */
+// Settings Window — creates and manages the dedicated settings window.
 const { BrowserWindow, screen } = require('electron');
 const path = require('path');
+const logger = require('../../lib/logger');
 
 let settingsWindow = null;
 
@@ -50,7 +43,7 @@ function create() {
 
     settingsWindow.loadFile(path.join(__dirname, '../../renderer/settings.window.html'))
         .catch(err => {
-            console.error(`[SettingsWindow] Failed to load settings HTML: ${err.message}`);
+            logger.error(`[SettingsWindow] Failed to load: ${err.message}`);
         });
 
     settingsWindow.once('ready-to-show', () => {

@@ -25,7 +25,7 @@ contextBridge.exposeInMainWorld('api', {
         }
     },
     invoke: (channel, ...args) => {
-        const validChannels = ['set-api-key', 'remove-api-key', 'get-key-status'];
+        const validChannels = ['set-api-key', 'remove-api-key', 'get-key-status', 'add-custom-key'];
         if (validChannels.includes(channel)) {
             return ipcRenderer.invoke(channel, ...args);
         }
@@ -45,7 +45,8 @@ contextBridge.exposeInMainWorld('api', {
             'restore-state',
             'screen-captured',
             'set-input',
-            'ui-blocks'
+            'ui-blocks',
+            'require-env-key'
         ];
         if (validChannels.includes(channel)) {
             const handler = (event, ...args) => func(...args);

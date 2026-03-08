@@ -1,13 +1,4 @@
-/**
- * ═══════════════════════════════════════════════════════════════
- *  MODULE: Wake Word
- *  Vosk-based wake word detection.
- * ═══════════════════════════════════════════════════════════════
- *  DEPENDS ON: lib/logger, lib/paths
- *  USED BY:    platform/windows/background-window, platform/windows/voice-window
- * ═══════════════════════════════════════════════════════════════
- */
-
+// Wake Word — Vosk-based wake word service (state management and callbacks).
 const path = require("path");
 const fs = require("fs");
 const logger = require("../../lib/logger");

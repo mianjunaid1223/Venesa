@@ -1,13 +1,4 @@
-/**
- * ═══════════════════════════════════════════════════════════════
- *  MODULE: Key Pool
- *  Round-robin API-key rotation with rate-limit handling.
- * ═══════════════════════════════════════════════════════════════
- *  DEPENDS ON: lib/logger, lib/paths
- *  USED BY:    brain/llm, platform/speech/tts
- * ═══════════════════════════════════════════════════════════════
- */
-
+// Key Pool — round-robin API key rotation with rate-limit tracking.
 const fs = require("fs");
 const path = require("path");
 const logger = require("./logger");

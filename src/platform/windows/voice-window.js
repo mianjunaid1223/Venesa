@@ -1,12 +1,7 @@
-/**
- * ═══════════════════════════════════════════════════════════════
- *  MODULE: Voice Window
- *  Full-screen voice interaction overlay.
- * ═══════════════════════════════════════════════════════════════
- */
-
+// Voice Window — full-screen voice interaction overlay.
 const { BrowserWindow, screen } = require('electron');
 const path = require('path');
+const logger = require('../../lib/logger');
 const sttService = require('../speech/stt');
 const wakeWordService = require('../speech/wake-word');
 
@@ -44,7 +39,7 @@ function createVoiceWindow() {
     voiceWindow.loadFile(path.join(__dirname, '../../renderer/voice.window.html'));
 
     voiceWindow.webContents.on('render-process-gone', (event, details) => {
-        console.error('[VoiceWindow] Renderer crashed:', details.reason);
+        logger.error(`[VoiceWindow] Renderer crashed: ${details.reason}`);
         sttService.stop();
         wakeWordService.resumeDetection();
         if (voiceWindow && !voiceWindow.isDestroyed()) voiceWindow.destroy();
@@ -52,7 +47,7 @@ function createVoiceWindow() {
     });
 
     voiceWindow.webContents.on('crashed', (event, killed) => {
-        console.error('[VoiceWindow] WebContents crashed, killed:', killed);
+        logger.error(`[VoiceWindow] WebContents crashed, killed: ${killed}`);
         sttService.stop();
         wakeWordService.resumeDetection();
         if (voiceWindow && !voiceWindow.isDestroyed()) voiceWindow.destroy();

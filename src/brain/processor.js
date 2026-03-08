@@ -1,20 +1,4 @@
-/**
- * ═══════════════════════════════════════════════════════════════
- *  MODULE: Processor
- *  Parses LLM responses — extracts [action:] tags, [plan] blocks,
- *  [ui] blocks, [speak]/[silent] sections. Dispatches to skills,
- *  returns structured results.
- *
- *  Governance Contract v2.0:
- *    - Classifies responses by execution mode (execute/data/ui/refuse)
- *    - Tracks workflow pipeline stages engaged per response
- *    - Structured refusal detection (no hidden conversational refusals)
- * ═══════════════════════════════════════════════════════════════
- *  DEPENDS ON: skills/registry, brain/orchestrator
- *  USED BY:    platform/ipc/query-handlers, platform/ipc/voice-handlers
- * ═══════════════════════════════════════════════════════════════
- */
-
+// Processor — parses LLM responses, dispatches to skills, returns structured results.
 const registry = require('../skills/registry');
 const orchestrator = require('./orchestrator');
 const { EXECUTION_MODES, WORKFLOW_STAGES } = require('./protocol');
@@ -177,6 +161,7 @@ async function processResponse(response) {
             marker: r.marker || 'announce',
             ui: r.ui || null,
             returnType: r.returnType || 'action',
+            envKey: r.envKey || null,
         }));
         const executionMode = classifyExecutionMode(results, uiBlocks, uiDirective, cleanResponse);
         const pipelineStages = getEngagedStages(results, uiBlocks, uiDirective, executionMode);
@@ -238,6 +223,7 @@ async function processResponse(response) {
                 marker: result.marker || 'announce',
                 ui: result.ui || null,
                 returnType: result.returnType || 'action',
+                envKey: result.envKey || null,
             });
         } catch (error) {
             results.push({

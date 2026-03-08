@@ -1,12 +1,4 @@
-/**
- * ═══════════════════════════════════════════════════════════════
- *  MODULE: Settings
- *  Single source of truth for user settings (persisted to disk).
- * ═══════════════════════════════════════════════════════════════
- *  USED BY: brain/llm, platform/ipc/system-handlers
- * ═══════════════════════════════════════════════════════════════
- */
-
+// Settings — single source of truth for user settings (persisted to disk).
 const fs = require('fs');
 const path = require('path');
 const logger = require('../lib/logger');

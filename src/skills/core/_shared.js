@@ -1,10 +1,4 @@
-/**
- * ═══════════════════════════════════════════════════════════════
- *  SKILL SHARED: _shared
- *  Shared helpers used by core skills (PowerShell, paths, etc.)
- * ═══════════════════════════════════════════════════════════════
- */
-
+// Shared helpers for core skills (PowerShell runner, path utilities).
 const os = require('os');
 const path = require('path');
 const logger = require('../../lib/logger');

@@ -7,6 +7,9 @@
 <p align="center">
   <strong>An autonomous, programmable AI platform for Windows that transforms natural language into executable system workflows.</strong>
 </p>
+<p align="center">
+  <em>Windows only. MIT licensed. Entirely local except for the LLM and speech APIs you configure.</em>
+</p>
 
 <p align="center">
   <img src="https://img.shields.io/badge/Platform-Windows%2010%2B-0078D6?logo=windows" alt="Platform" />
@@ -70,7 +73,7 @@ The wake word, voice style, and speech behavior are all configurable.
 
 ### Persistent Memory
 
-Every interaction can write to named memory buckets — preferences, aliases, reminders, and conversation history — that are injected into the AI's context on every subsequent query. Venesa remembers your name, your preferences, custom command aliases, and anything else you tell it to keep. There is no cloud sync; everything is stored locally in `~/.venesa/memory.json`.
+Every interaction can write to named memory buckets — preferences, aliases, reminders, and conversation history — that are injected into the AI's context on every subsequent query. Venesa remembers your name, your preferences, custom command aliases, and anything else you tell it to keep. There is no cloud sync; everything is stored locally in `%USERPROFILE%\.venesa\memory.json`.
 
 ### Dynamic Interfaces
 
@@ -109,7 +112,7 @@ The [venesa-capabilities](https://github.com/mianjunaid1223/venesa-capabilities)
 1. Open **Settings → Skills & Capabilities**
 2. Select the **Community** tab
 3. Browse the live registry, then click **Install** on any capability
-4. it's ready to use now.
+4. It's ready to use now.
 
 Installed capabilities are indistinguishable from built-in core skills at runtime.
 

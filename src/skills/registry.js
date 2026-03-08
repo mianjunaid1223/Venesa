@@ -199,15 +199,20 @@ Multiple independent operations:
 Step that uses output from a previous step:
   [plan]
   [step: toolA, marker: silently, paramA: value, label: Fetch the data]
-  [step: toolB, marker: announce, paramA: $toolA, label: Use the fetched data]
+  [step: toolB, marker: announce, paramA: $step1.field, label: Use the fetched data]
   [/plan]
+
+searchFiles output format (use $stepN references accordingly):
+  { files: [{name, path}, ...], folders: [{name, path}, ...] }
+  Example: $step1.files[0].path  or  $step1.folders[0].path
 
 Rules:
 - Match tool to intent. If intent is clear, act immediately — never ask for clarification.
 - Only add optional params when the user explicitly asked for that behavior.
 - Batch operations (same tool, N items) → one [step:] per item inside a [plan].
 - Data tools (returnType: data) → result is verbalized by the platform after execution.
-- Action tools (returnType: action) → speak what you are about to do, not the outcome.`;
+- Action tools (returnType: action) → speak what you are about to do, not the outcome.
+- When a search returns multiple results, present them to the user and ask which one to open. Do NOT auto-open the first result unless the user explicitly asked for the first one.`;
 
     return output;
 }

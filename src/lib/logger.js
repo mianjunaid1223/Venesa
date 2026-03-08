@@ -1,13 +1,4 @@
-/**
- * ═══════════════════════════════════════════════════════════════
- *  MODULE: Logger
- *  Levelled console logger — shared by every domain.
- * ═══════════════════════════════════════════════════════════════
- *  DEPENDS ON: (none)
- *  USED BY:    brain/*, skills/*, platform/*, lib/*
- * ═══════════════════════════════════════════════════════════════
- */
-
+// Logger — levelled console logger shared by every domain.
 const levels = {
     error: 0,
     warn: 1,

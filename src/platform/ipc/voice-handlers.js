@@ -280,16 +280,18 @@ Present this data naturally. Rules:
         );
         folders.forEach((folder) =>
           allResults.push({
-            name: path.basename(folder),
+            name: typeof folder === "string" ? path.basename(folder) : folder.name,
+            path: typeof folder === "string" ? folder : folder.path,
             type: "folder",
-            data: folder,
+            data: typeof folder === "string" ? folder : folder.path,
           }),
         );
         files.forEach((file) =>
           allResults.push({
-            name: path.basename(file),
+            name: typeof file === "string" ? path.basename(file) : file.name,
+            path: typeof file === "string" ? file : file.path,
             type: "file",
-            data: file,
+            data: typeof file === "string" ? file : file.path,
           }),
         );
         const displayResults = allResults.slice(0, 5);

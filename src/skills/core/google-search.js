@@ -10,9 +10,9 @@ const { shell } = require('electron');
 const connectivity = require('../../lib/connectivity');
 
 module.exports = {
-    schema: z.object({ query: z.string().trim().min(1).describe('The search query') }),
+    schema: z.object({ query: z.string().trim().min(1).describe('Search query. Use {{clipboard.text}} to search the current clipboard content') }),
     name: 'googleSearch',
-    description: 'Search Google for a query and open results in browser',
+    description: 'Open a Google search for the given query in the default browser. Use when the user asks to search the web or Google something. Supports {{clipboard.text}} to search clipboard content.',
     tags: ['web', 'search', 'google'],
 
     returnType: 'action',

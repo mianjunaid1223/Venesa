@@ -1,36 +1,5 @@
-/**
- * ═══════════════════════════════════════════════════════════════
- *  MODULE: Capability Loader
- *  Auto-discovers and registers capabilities from:
- *    - src/skills/core/       (built-in core capabilities)
- *    - src/skills/internal/   (internal system capabilities)
- *    - ~/.venesa/capabilities/ (community-installed capabilities)
- *
- *  All sources pass the same validator. Runtime does not distinguish
- *  capability origin — every registered entry is an equal module.
- * ═══════════════════════════════════════════════════════════════
- *  DEPENDS ON: lib/logger, skills/registry, skills/validator
- *  USED BY:    brain/processor (auto-loaded on first require)
- * ═══════════════════════════════════════════════════════════════
- *
- *  CAPABILITY STANDARD SCHEMA
- *  ──────────────────────────
- *  module.exports = {
- *    name:        string,                // unique camelCase identifier
- *    description: string,                // shown in Settings + injected into AI prompt
- *    version:     string,                // semver (e.g. "1.0.0") — recommended
- *    returnType:  'data'|'action'|'ui'|'memory'|'hybrid',  // REQUIRED
- *    marker:      'silently'|'announce'|'confirm',         // execution feedback level
- *    ui:          string|null,           // optional: 'table'|'key-value'|'card-list'|'command-list'
- *    schema:      ZodObject,             // Zod schema for parameter validation
- *    config:      ZodObject,             // optional: capability configuration schema
- *    lifecycle:   { onLoad, onUnload, onEnable, onDisable },  // optional hooks
- *    handler:     async (params, context) => any, // REQUIRED — must be async
- *  };
- *
- *  Community capabilities may also include:
- *    enabled:    boolean  // (optional) start disabled if false
- */
+// Loader — auto-discovers and registers capabilities from core, internal, and community directories.
+// Capability schema: { name, description, returnType, handler, schema?, marker?, ui?, tags?, version?, lifecycle?, config?, dependencies?, examples? }
 
 const fs = require('fs');
 const path = require('path');

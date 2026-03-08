@@ -1,0 +1,125 @@
+{
+    "version": "1.0",
+    "platform": "venesa",
+    "compatibility": {
+        "minNodeVersion": "18.17.0",
+        "protocolVersion": "2.0"
+    },
+    "naming": {
+        "identifiers": "camelCase",
+        "filenames": "kebab-case",
+        "constants": "UPPER_SNAKE_CASE",
+        "rules": [
+            "No synonyms for the same concept",
+            "No abbreviations that reduce clarity",
+            "No decorative names",
+            "No ambiguous names"
+        ]
+    },
+    "execution": {
+        "pipeline": [
+            "intent",
+            "plan",
+            "steps",
+            "execution",
+            "result",
+            "optional_ui",
+            "memory_update"
+        ],
+        "noBypass": true,
+        "tokenResolutionRequired": true,
+        "validationBeforeExecution": true
+    },
+    "tokens": {
+        "syntax": "{{token_name}}",
+        "unknownTokenPolicy": "error",
+        "logResolution": true,
+        "reserved": {
+            "system.time": "Current local time string",
+            "system.date": "Current local date string",
+            "system.os": "Operating system platform",
+            "system.arch": "CPU architecture",
+            "system.hostname": "Machine hostname",
+            "user.name": "Current OS username",
+            "user.home": "User home directory path",
+            "user.desktop": "User desktop directory path",
+            "user.downloads": "User downloads directory path",
+            "user.documents": "User documents directory path",
+            "runtime.cwd": "Current working directory",
+            "runtime.temp": "System temp directory",
+            "runtime.session_id": "Current session identifier",
+            "file.selected": "Currently selected file path",
+            "file.path": "Full path of target file",
+            "file.name": "Filename without extension",
+            "file.ext": "File extension",
+            "clipboard.text": "Current clipboard text content",
+            "network.ip": "Local IP address",
+            "network.hostname": "Network hostname",
+            "env.KEY": "Environment variable by name (replace KEY with actual name)"
+        }
+    },
+    "capability": {
+        "requiredFields": [
+            "name",
+            "description",
+            "returnType",
+            "handler"
+        ],
+        "optionalFields": [
+            "schema",
+            "marker",
+            "ui",
+            "tags",
+            "version",
+            "lifecycle",
+            "config",
+            "dependencies",
+            "examples"
+        ],
+        "returnTypes": [
+            "data",
+            "action",
+            "ui",
+            "memory",
+            "hybrid"
+        ],
+        "markers": [
+            "silently",
+            "announce",
+            "confirm"
+        ],
+        "envAccess": "getEnv only — direct process.env enumeration is not allowed"
+    },
+    "ui": {
+        "components": [
+            "table",
+            "key-value",
+            "card-list",
+            "command-list"
+        ],
+        "renderOnlyWhen": [
+            "Output is structurally complex",
+            "User requires interaction with the result",
+            "Visual layout meaningfully improves comprehension"
+        ]
+    },
+    "logging": {
+        "levels": [
+            "error",
+            "warn",
+            "info",
+            "debug"
+        ],
+        "defaultLevel": "info",
+        "devLevel": "debug",
+        "format": "YYYY-MM-DD HH:mm:ss level: message"
+    },
+    "validation": {
+        "startup": true,
+        "planStructure": true,
+        "stepStructure": true,
+        "tokenResolution": true,
+        "capabilityResponses": true,
+        "uiSchema": true
+    }
+}

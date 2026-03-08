@@ -16,13 +16,13 @@ const OPERATIONS = ['create', 'move', 'copy', 'rename', 'delete', 'zip', 'unzip'
 module.exports = {
     schema: z.object({
         operation: z.enum(OPERATIONS).describe('File operation to perform'),
-        sourcePath: z.string().describe('Source file/folder path'),
-        destPath: z.string().optional().describe('Destination path (for move, copy, rename)'),
-        content: z.string().optional().describe('Content for create operation (text files)'),
-        isFolder: z.boolean().optional().describe('True to create a folder instead of file'),
+        sourcePath: z.string().describe('Source file/folder path. Supports tokens: {{user.desktop}}, {{user.documents}}, {{user.downloads}}, {{user.home}}'),
+        destPath: z.string().optional().describe('Destination path for move/copy/rename. Supports tokens: {{user.desktop}}, {{user.documents}}, {{user.downloads}}, {{user.home}}'),
+        content: z.string().optional().describe('Text content for create operation. Use {{clipboard.text}} to write current clipboard content'),
+        isFolder: z.boolean().optional().describe('True to create a folder instead of a file'),
     }),
     name: 'fileOps',
-    description: 'Create, move, copy, rename, delete, zip/unzip files and folders. Operations: ' + OPERATIONS.join(', '),
+    description: 'Create, move, copy, rename, delete, zip/unzip files and folders. Operations: ' + OPERATIONS.join(', ') + '. Path parameters accept tokens: {{user.desktop}}, {{user.documents}}, {{user.downloads}}, {{user.home}}.',
     tags: ['file', 'folder', 'create', 'move', 'copy', 'rename', 'delete', 'zip', 'unzip'],
 
     returnType: 'hybrid',

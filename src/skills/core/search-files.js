@@ -11,7 +11,7 @@ const fs = require('fs');
 const { HOME_DIR, getRelativePath, logger } = require('./_shared');
 
 async function searchFilesAndFolders(query, maxResults = 20) {
-    const results = []; // { path, isDir, score }
+    const results = [];
     const keywords = query.toLowerCase().split(/\s+/).filter(k => k.length > 0);
     if (keywords.length === 0) return { files: [], folders: [] };
 
@@ -27,7 +27,7 @@ async function searchFilesAndFolders(query, maxResults = 20) {
     ];
 
     const searchDir = async (dir, depth) => {
-        if (depth > 2) return;
+        if (depth > 3) return;
         try {
             if (!fs.existsSync(dir)) return;
             const contents = await fs.promises.readdir(dir, { withFileTypes: true });
@@ -35,19 +35,13 @@ async function searchFilesAndFolders(query, maxResults = 20) {
                 const fullPath = path.join(dir, dirent.name);
                 if (dirent.name.startsWith('.') || dirent.name.startsWith('$')) continue;
                 const lowerName = dirent.name.toLowerCase();
-
-                // Score: count how many keywords match
+                const isDir = dirent.isDirectory();
                 const score = keywords.filter(k => lowerName.includes(k)).length;
                 if (score > 0) {
-                    results.push({
-                        path: getRelativePath(fullPath),
-                        isDir: dirent.isDirectory(),
-                        score,
-                    });
+                    results.push({ name: dirent.name, path: getRelativePath(fullPath), isDir, score });
+                    if (!isDir) continue;
                 }
-                if (dirent.isDirectory()) {
-                    await searchDir(fullPath, depth + 1);
-                }
+                if (isDir) await searchDir(fullPath, depth + 1);
             }
         } catch (e) {
             logger.debug(`Search dir error: ${e.message}`);
@@ -58,12 +52,10 @@ async function searchFilesAndFolders(query, maxResults = 20) {
         await searchDir(dir, 0);
     }
 
-    // Sort by score descending (best matches first), then take top N
     results.sort((a, b) => b.score - a.score);
     const top = results.slice(0, maxResults);
-
-    const folders = top.filter(r => r.isDir).map(r => r.path);
-    const files = top.filter(r => !r.isDir).map(r => r.path);
+    const folders = top.filter(r => r.isDir).map(r => ({ name: r.name, path: r.path }));
+    const files = top.filter(r => !r.isDir).map(r => ({ name: r.name, path: r.path }));
     return { files, folders };
 }
 

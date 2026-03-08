@@ -1,10 +1,4 @@
-/**
- * ═══════════════════════════════════════════════════════════════
- *  Venesa — Platform Entry Point
- *  Electron app lifecycle, global shortcuts, protocol, IPC wiring.
- * ═══════════════════════════════════════════════════════════════
- */
-
+// Platform Entry Point — Electron app lifecycle, global shortcuts, protocol, and IPC wiring.
 const {
   app,
   protocol,
@@ -46,6 +40,39 @@ const actionHandlers = require("./ipc/action-handlers");
 const trayManager = require("./tray");
 const connectivity = require("../lib/connectivity");
 
+// Assign a unique session ID for this runtime instance so tokens like
+// {{runtime.session_id}} resolve consistently within one session.
+global.__venesa_session_id = `session_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
+
+function validateStandard() {
+  try {
+    const standard = require("../../venesa.standard.json");
+    const { PROTOCOL_VERSION } = require("../brain/protocol");
+    const pkg = require("../../package.json");
+
+    const errors = [];
+    if (standard.compatibility?.protocolVersion && standard.compatibility.protocolVersion !== PROTOCOL_VERSION) {
+      errors.push(`Protocol version mismatch: standard expects ${standard.compatibility.protocolVersion}, runtime has ${PROTOCOL_VERSION}`);
+    }
+    if (standard.compatibility?.minNodeVersion) {
+      const [reqMaj, reqMin] = standard.compatibility.minNodeVersion.split('.').map(Number);
+      const [curMaj, curMin] = process.versions.node.split('.').map(Number);
+      if (curMaj < reqMaj || (curMaj === reqMaj && curMin < reqMin)) {
+        errors.push(`Node version ${process.versions.node} is below required ${standard.compatibility.minNodeVersion}`);
+      }
+    }
+
+    if (errors.length > 0) {
+      errors.forEach(e => logger.warn(`[standard] ${e}`));
+    } else {
+      logger.info(`[standard] Validated venesa.standard.json v${standard.version} OK`);
+    }
+  } catch (e) {
+    logger.warn(`[standard] Could not validate standard: ${e.message}`);
+  }
+}
+
+
 function getAssetsPath() {
   if (app.isPackaged) {
     return path.join(process.resourcesPath, "assets");
@@ -63,6 +90,9 @@ protocol.registerSchemesAsPrivileged([
 const startHidden = process.argv.includes("--hidden");
 
 app.whenReady().then(async () => {
+  // Validate platform standard before anything else runs
+  validateStandard();
+
   // Net guard — must be first so all subsequent checks have current status
   connectivity.startMonitoring();
 

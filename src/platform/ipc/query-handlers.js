@@ -1,13 +1,4 @@
-/**
- * ═══════════════════════════════════════════════════════════════
- *  MODULE: IPC Query Handlers
- *  Handles text-based queries from the renderer.
- * ═══════════════════════════════════════════════════════════════
- *  DEPENDS ON: brain/llm, brain/processor, brain/memory
- *  USED BY:    platform/main
- * ═══════════════════════════════════════════════════════════════
- */
-
+// IPC Query Handlers — handles text-based queries from the renderer.
 const { ipcMain } = require('electron');
 const logger = require('../../lib/logger');
 const llm = require('../../brain/llm');
@@ -94,6 +85,24 @@ Present this data naturally. Rules:
                         }
                     } catch (verbalErr) {
                         logger.warn(`[query] Verbalization pass failed: ${verbalErr.message}`);
+                    }
+                }
+            }
+
+            // If any result failed due to a missing env key, notify the renderer
+            // so it can show a targeted "add key" prompt in the UI.
+            if (results && results.length > 0) {
+                const missingKey = results.find(r => r.envKey && (r.error === 'MISSING_ENV' || r.status === 'failed' || r.missingEnv === true));
+                if (missingKey) {
+                    const missingKeyMsg = `To use this capability, add the key '${missingKey.envKey}' in Settings → Custom Keys, then try again.`;
+                    if (!textResponse) {
+                        textResponse = missingKeyMsg;
+                    }
+                    if (event.sender && !event.sender.isDestroyed()) {
+                        event.sender.send('require-env-key', {
+                            key: missingKey.envKey,
+                            capability: missingKey.actionName,
+                        });
                     }
                 }
             }

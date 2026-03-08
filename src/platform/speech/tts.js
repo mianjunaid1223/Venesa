@@ -1,13 +1,4 @@
-/**
- * ═══════════════════════════════════════════════════════════════
- *  MODULE: TTS (Text-to-Speech)
- *  ElevenLabs speech synthesis + transcription.
- * ═══════════════════════════════════════════════════════════════
- *  DEPENDS ON: lib/logger, lib/key-pool, brain/services.config
- *  USED BY:    platform/ipc/voice-handlers
- * ═══════════════════════════════════════════════════════════════
- */
-
+// TTS — ElevenLabs speech synthesis and transcription.
 const logger = require('../../lib/logger');
 const keyPool = require('../../lib/key-pool');
 const servicesConfig = require('../../brain/services.config');

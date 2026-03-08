@@ -1,14 +1,4 @@
-/**
- * ═══════════════════════════════════════════════════════════════
- *  MODULE: Key Store
- *  Plain-text API key management — reads and writes directly
- *  to the project .env file. No encryption.
- * ═══════════════════════════════════════════════════════════════
- *  DEPENDS ON: lib/logger, lib/paths
- *  USED BY:    lib/key-pool, platform/ipc/system-handlers
- * ═══════════════════════════════════════════════════════════════
- */
-
+// Key Store — reads and writes API keys directly to the project .env file.
 const fs = require('fs');
 const logger = require('./logger');
 const paths = require('./paths');

@@ -1,13 +1,4 @@
-/**
- * ═══════════════════════════════════════════════════════════════
- *  MODULE: PowerShell
- *  Persistent PowerShell session with queued command execution.
- * ═══════════════════════════════════════════════════════════════
- *  DEPENDS ON: lib/logger
- *  USED BY:    skills/core/_shared
- * ═══════════════════════════════════════════════════════════════
- */
-
+// PowerShell — persistent PowerShell session with queued command execution.
 const { spawn } = require("child_process");
 const logger = require('./logger');
 

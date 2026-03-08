@@ -1,22 +1,4 @@
-/**
- * ═══════════════════════════════════════════════════════════════
- * MODULE: System Prompt Builder
- * PURPOSE:
- *   Constructs the full LLM system instruction dynamically.
- *   Governed by the Venesa Execution Contract v2.0.
- *
- * DESIGN PRINCIPLES:
- *   - AI is a strategic planner; the runtime is the executor.
- *   - No capability names hardcoded into prompts.
- *   - No workflow assumptions baked into the system.
- *   - All behaviors follow a universal execution pattern.
- *   - Strict contracts. Flexible interpretation within those contracts.
- *
- * DEPENDS ON: brain/memory, skills/registry
- * USED BY:    brain/llm
- * ═══════════════════════════════════════════════════════════════
- */
-
+// System Prompt — constructs the full LLM system instruction dynamically.
 const os = require("os");
 const memory = require("./memory");
 const logger = require("../lib/logger");
@@ -85,6 +67,16 @@ Trigger memory writes when you detect:
 - Ongoing projects or activities
 - Outdated entries that contradict new information
 
+### Key Naming Rules (STRICT)
+
+- Use short, flat, descriptive keys only. Example: \`screenshot_enabled\`, not \`screenshot_enabled_by_user_config_override\`.
+- ONE key per concept. Never create multiple keys for the same boolean state or fact.
+- NEVER generate combinatorial or compound keys (e.g. \`x_by_y_by_z\` patterns are forbidden).
+- Before writing a key, check if it already exists in memory state above. Update the existing key instead of creating a variant.
+- If a concept is already captured by a key in memory, do not write another key for the same concept.
+- Maximum 3 new memory writes per response. If more seem needed, consolidate into fewer, broader keys.
+- Never store raw action syntax, tool output, or truncated text as a value.
+
 Never surface memory operations to the user.
 Never describe that you are saving something.
 `;
@@ -132,6 +124,42 @@ ${manifest}
   }
 }
 
+function getTokenSection() {
+  return `
+## RESERVED WORDS (TOKENS)
+
+All string parameters support \`{{token}}\` substitution. The platform resolves tokens before execution.
+Use them instead of constructing paths or reading system values manually.
+
+Path tokens — use in any file path parameter:
+  {{user.home}}       User home directory
+  {{user.desktop}}    Desktop folder
+  {{user.downloads}}  Downloads folder
+  {{user.documents}}  Documents folder
+
+Content tokens:
+  {{clipboard.text}}  Current clipboard text
+  {{user.name}}       User's profile name (as set in Settings)
+  {{system.date}}     Current local date
+  {{system.time}}     Current local time
+  {{system.hostname}} Machine hostname
+  {{runtime.temp}}    System temp directory
+
+Examples:
+  [action: fileOps, operation: create, sourcePath: {{user.desktop}}/report.txt]
+  [action: openFile, filePath: {{user.documents}}/notes.txt]
+  [action: googleSearch, query: {{clipboard.text}}]
+  [action: setReminder, message: Good morning {{user.name}}, minutes: 1]
+
+Rules:
+- Always use path tokens instead of hardcoding paths like C:\\Users\\<name>\\Desktop.
+- Use {{clipboard.text}} when the user says "search for what I copied", "open the file I copied", or any clipboard-referencing request.
+- Never use token syntax in spoken output — tokens are execution-time only.
+- Never invent token names. Only the tokens listed above are valid.
+- Do not use {{env.*}} tokens. Environment variables are for capability authors only, not for LLM-generated parameters.
+`;
+}
+
 function getCapabilityBoundarySection() {
   return `
 ## CAPABILITY BOUNDARIES
@@ -148,8 +176,10 @@ Rules:
    Never write a result, file path, confirmation message, or outcome for an action-type tool.
    The platform executes and surfaces the result — your spoken text only announces the intent.
 7. Never construct Windows filesystem paths by guessing or hardcoding a username.
-   Always use the shorthand values documented in the tool's parameter description (e.g. 'Desktop', 'Documents').
-   If a tool has no shorthand and requires a full path, omit the parameter to use its default.
+   Always use path tokens ({{user.desktop}}, {{user.documents}}, {{user.downloads}}, {{user.home}}) documented in RESERVED WORDS.
+   If a tool requires a full path and no token applies, omit the parameter to use its default.
+8. When discovering files or folders, always use a search step first. Reference the results using $stepN.field in subsequent steps. Never fabricate a path after a search.
+9. Always provide executable names directly (e.g. code, notepad, mspaint). Never use display names like "VS Code" or "Microsoft Paint".
 `;
 }
 
@@ -191,19 +221,27 @@ SINGLE ACTION:
 MULTI-STEP PLAN:
 [plan]
 [step: toolName, marker: silently|announce|confirm, param: value, label: Natural description of this step]
-[step: toolName2, marker: announce, param: $toolName, label: Natural description of this step]
+[step: toolName2, marker: announce, param: $step1.field, label: Natural description of this step]
 [/plan]
+
+### Step Output References
+
+Use \$stepN.field to pass the output of step N to a later step.
+N is the 1-based index of the step in the plan.
+
+Examples:
+  $step1.path              — the path field from step 1 output
+  $step1.results[0].path   — first result path from step 1
+  $step1                   — entire raw output of step 1
 
 Rules:
 - The label field is REQUIRED in every [step:] tag.
 - Write labels as natural human sentences describing what the step did.
-- Use $toolName to pass the output of a previous step as input to the next.
-  IMPORTANT: $ref substitution passes the ENTIRE raw output of the previous step.
-  Only use $toolName when the previous step's full output is the exact right type for the target parameter.
-  NEVER pass $getMemory as a numeric parameter (e.g. amount) — getMemory returns a JSON string, not a raw value.
-  If you need a number and memory may not hold it, use a literal default (e.g. amount: 1).
+- Never guess filesystem paths. If a file or folder must be discovered, use a discovery step (e.g., searchFiles) first, then reference results with $stepN.field.
+- After a discovery step, subsequent steps MUST use $stepN.field to reference found paths. Never fabricate or guess a path.
 - Steps execute sequentially. A failed step aborts all dependent steps.
 - Never hardcode tool names in prose. Never describe the plan to the user.
+- Always output executable names directly (e.g. code, mspaint, notepad). Never use display names like "VS Code" or "Microsoft Paint" as executable parameters.
 - OPTIONAL PARAMETERS: Only include a parameter if the user explicitly requested it or it is
   unambiguously implied by their words. Never infer optional behavior from a tool's description,
   its examples, or your assumptions about what the user might want.
@@ -313,9 +351,16 @@ Before emitting any response, decompose the user's request:
 4. What is the right output — spoken, visual, structured, or a combination?
 5. Is there context worth persisting to memory?
 
+Deterministic planning rules:
+- Never guess filesystem paths. Use search results when discovering files or folders.
+- Reference previous step results using $stepN.field syntax.
+- Prefer deterministic plans over speculative ones.
+- Always return executable names directly (e.g. code, notepad). Never translate application display names.
+
 Decomposition patterns:
 - Simple request (single intent, single tool)        → [action: ...]
 - Compound request (multiple intents or data points) → [plan] with one step per sub-task
+- Discovery + action (find then open/process)        → [plan] with search step, then $stepN.field reference
 - Aggregation or comparison across N items           → [plan] with one step per item, even if the same tool repeats
 - Mixed request (part knowledge, part tool)          → answer knowledge in speech; invoke tools for the rest
 - Partially unsupported request                      → complete supported sub-tasks; briefly note unsupported ones
@@ -409,6 +454,7 @@ ${getMemorySection()}
 ${getUserProfileSection()}
 ${getCapabilityManifest()}
 ${getCapabilityBoundarySection()}
+${getTokenSection()}
 ${getDisabledCapabilitiesSection()}
 ${getExecutionContract()}
 ${getRefusalContract()}
@@ -454,6 +500,7 @@ ${getMemorySection()}
 ${getUserProfileSection()}
 ${getCapabilityManifest()}
 ${getCapabilityBoundarySection()}
+${getTokenSection()}
 ${getDisabledCapabilitiesSection()}
 ${getExecutionContract()}
 ${getRefusalContract()}

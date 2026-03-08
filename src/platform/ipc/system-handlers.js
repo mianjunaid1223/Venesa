@@ -1,13 +1,4 @@
-/**
- * ═══════════════════════════════════════════════════════════════
- *  MODULE: IPC System Handlers
- *  Settings save/load, login-item, setup flow.
- * ═══════════════════════════════════════════════════════════════
- *  DEPENDS ON: brain/llm, platform/speech/stt
- *  USED BY:    platform/main
- * ═══════════════════════════════════════════════════════════════
- */
-
+// IPC System Handlers \u2014 settings save/load, login-item, setup flow, key management.
 const { ipcMain, app } = require("electron");
 const path = require("path");
 const llm = require("../../brain/llm");
@@ -24,6 +15,19 @@ function register(deps) {
     createMainWindow,
     startWakeWord,
   } = deps;
+
+  function applyWakeWordPatch(patch) {
+    if (patch.wakeWordEnabled === undefined) return;
+    const voiceWin = require("../windows/voice-window");
+    const voiceHandlers = require("./voice-handlers");
+    const bgWin = require("../windows/background-window").getWindow();
+    if (patch.wakeWordEnabled) {
+      startWakeWord(voiceWin.showVoiceWindow, voiceHandlers.captureScreenForVoice);
+      if (bgWin && !bgWin.isDestroyed()) bgWin.webContents.send("resume-detection");
+    } else {
+      if (bgWin && !bgWin.isDestroyed()) bgWin.webContents.send("pause-detection");
+    }
+  }
 
   // Setup flow: save API keys provided during onboarding
   ipcMain.on("set-api-keys-setup", async (event, keys) => {
@@ -58,53 +62,18 @@ function register(deps) {
         event.sender.send("settings-saved", true);
       }
 
-      if (patch.wakeWordEnabled !== undefined) {
+      applyWakeWordPatch(patch);
+
+      const setupWindow = getSetupWindow();
+      if (setupWindow && !setupWindow.isDestroyed()) {
         const voiceWin = require("../windows/voice-window");
         const voiceHandlers = require("./voice-handlers");
-        let wakeWordAlreadyStarted = false;
-        if (patch.wakeWordEnabled) {
-          startWakeWord(
-            voiceWin.showVoiceWindow,
-            voiceHandlers.captureScreenForVoice,
-          );
-          wakeWordAlreadyStarted = true;
-          const bgWin = require("../windows/background-window").getWindow();
-          if (bgWin && !bgWin.isDestroyed()) {
-            bgWin.webContents.send("resume-detection");          }
-        } else {
-          const bgWin = require("../windows/background-window").getWindow();
-          if (bgWin && !bgWin.isDestroyed()) {
-            bgWin.webContents.send("pause-detection");
-          }
+        await Promise.resolve(createMainWindow());
+        sttService.initialize();
+        if (settings.load().wakeWordEnabled) {
+          startWakeWord(voiceWin.showVoiceWindow, voiceHandlers.captureScreenForVoice);
         }
-
-        const setupWindow = getSetupWindow();
-        if (setupWindow && !setupWindow.isDestroyed()) {
-          createMainWindow();
-          sttService.initialize();
-          if (settings.load().wakeWordEnabled && !wakeWordAlreadyStarted) {
-            startWakeWord(
-              voiceWin.showVoiceWindow,
-              voiceHandlers.captureScreenForVoice,
-            );
-          }
-          destroySetupWindow();
-        }
-      } else {
-        const voiceWin2 = require("../windows/voice-window");
-        const voiceHandlers2 = require("./voice-handlers");
-        const setupWindow = getSetupWindow();
-        if (setupWindow && !setupWindow.isDestroyed()) {
-          createMainWindow();
-          sttService.initialize();
-          if (settings.load().wakeWordEnabled) {
-            startWakeWord(
-              voiceWin2.showVoiceWindow,
-              voiceHandlers2.captureScreenForVoice,
-            );
-          }
-          destroySetupWindow();
-        }
+        destroySetupWindow();
       }
     } else {
       if (!event.sender.isDestroyed()) {
@@ -140,25 +109,7 @@ function register(deps) {
         .catch((e) => logger.error(`Init API failed: ${e.message}`));
       // Expire prompt cache so userName changes etc. take effect immediately
       if (llm.invalidatePromptCache) llm.invalidatePromptCache();
-      if (patch.wakeWordEnabled !== undefined) {
-        const voiceWin = require("../windows/voice-window");
-        const voiceHandlers = require("./voice-handlers");
-        if (patch.wakeWordEnabled) {
-          startWakeWord(
-            voiceWin.showVoiceWindow,
-            voiceHandlers.captureScreenForVoice,
-          );
-          const bgWin = require("../windows/background-window").getWindow();
-          if (bgWin && !bgWin.isDestroyed()) {
-            bgWin.webContents.send("resume-detection");
-          }
-        } else {
-          const bgWin = require("../windows/background-window").getWindow();
-          if (bgWin && !bgWin.isDestroyed()) {
-            bgWin.webContents.send("pause-detection");
-          }
-        }
-      }
+      applyWakeWordPatch(patch);
       return true;
     }
     throw new Error("Failed to save settings");

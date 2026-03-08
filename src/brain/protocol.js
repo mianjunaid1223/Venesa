@@ -1,28 +1,7 @@
-/**
- * ═══════════════════════════════════════════════════════════════
- *  MODULE: Protocol
- *  Single source of truth for Venesa's unified execution contract.
- *  Version 2.0 — Governance & Execution Contract compliant.
- *
- *  Governs:
- *    - Return types
- *    - Execution markers
- *    - Execution modes (AI decision outputs)
- *    - UI contract schema
- *    - Memory mutation operations
- *    - Lifecycle hooks
- *    - Workflow pipeline stages
- * ═══════════════════════════════════════════════════════════════
- *  USED BY: skills/validator, skills/registry, skills/loader,
- *           brain/orchestrator, brain/processor
- * ═══════════════════════════════════════════════════════════════
- */
-
+// Protocol — single source of truth for the execution contract (return types, markers, modes, pipeline stages).
 const PROTOCOL_VERSION = '2.0';
 
-// ── Workflow Pipeline Stages ────────────────────────────────
-// Every operation must traverse all 7 stages in order.
-// No stage may be skipped. No stage may mutate another's responsibility.
+// Workflow Pipeline Stages
 
 const WORKFLOW_STAGES = Object.freeze([
     'INTENT_PARSING',
@@ -34,13 +13,7 @@ const WORKFLOW_STAGES = Object.freeze([
     'MEMORY_UPDATE',
 ]);
 
-// ── AI Decision Contract ────────────────────────────────────
-// The LLM emits exactly one of these decisions per resolved intent.
-//   EXECUTE             → proceed with action steps
-//   REQUEST_CONFIRMATION→ pause, require user approval before executing
-//   REFUSE              → task is unsafe, infeasible, or ill-defined
-//   RETURN_DATA         → return structured data, no side-effects
-//   RETURN_UI           → return renderable UI payload, no side-effects
+// AI Decision Contract
 
 const AI_DECISIONS = Object.freeze({
     EXECUTE: 'EXECUTE',
@@ -52,8 +25,7 @@ const AI_DECISIONS = Object.freeze({
 
 const VALID_AI_DECISIONS = Object.freeze(Object.values(AI_DECISIONS));
 
-// ── Execution Modes ─────────────────────────────────────────
-// The mode field in a structured execution contract.
+// Execution Modes
 
 const EXECUTION_MODES = Object.freeze({
     execute: 'execute',
@@ -64,13 +36,7 @@ const EXECUTION_MODES = Object.freeze({
 
 const VALID_EXECUTION_MODES = Object.freeze(Object.values(EXECUTION_MODES));
 
-// ── Return Types ────────────────────────────────────────────
-// Every capability MUST declare exactly one returnType.
-//   data   → fetches information; AI waits for result to reason about
-//   action → performs a system mutation or side-effect
-//   ui     → returns renderable UI payload
-//   memory → reads/writes internal state; never surfaced to user
-//   hybrid → combination of two or more types
+// Return Types
 
 const RETURN_TYPES = Object.freeze({
     data: 'data',
@@ -82,11 +48,7 @@ const RETURN_TYPES = Object.freeze({
 
 const VALID_RETURN_TYPES = Object.freeze(Object.values(RETURN_TYPES));
 
-// ── Execution Markers ───────────────────────────────────────
-// Control user-visible feedback level per step.
-//   silently → background; no narration or notification
-//   announce → narrate the action as it executes
-//   confirm  → pauses execution until user explicitly approves
+// Execution Markers
 
 const EXECUTION_MARKERS = Object.freeze({
     silently: 'silently',
@@ -96,12 +58,7 @@ const EXECUTION_MARKERS = Object.freeze({
 
 const VALID_MARKERS = Object.freeze(Object.values(EXECUTION_MARKERS));
 
-// ── UI Schema ───────────────────────────────────────────────
-// Governs declarative UI payloads emitted by the AI.
-// UI is optional and only justified when:
-//   a) User intent benefits from interaction
-//   b) The action requires user control
-//   c) The output is structurally complex
+// UI Schema
 
 const UI_SCHEMA_TYPES = Object.freeze({
     structured: 'structured',
@@ -127,9 +84,7 @@ const CONTROL_TYPES = Object.freeze({
 
 const VALID_CONTROL_TYPES = Object.freeze(Object.values(CONTROL_TYPES));
 
-// ── UI Components ───────────────────────────────────────────
-// Valid values for a capability's `ui` field (structured data hint).
-// Separate from [ui] markdown blocks which render free-form content.
+// UI Components
 
 const UI_COMPONENTS = Object.freeze([
     'table',
@@ -138,9 +93,7 @@ const UI_COMPONENTS = Object.freeze([
     'command-list',
 ]);
 
-// ── Memory Mutation Operations ──────────────────────────────
-// All memory writes must be explicit. No implicit memory mutations.
-// Memory mutation contract: { bucket, operation, key, value }
+// Memory Mutation Operations
 
 const MEMORY_OPERATIONS = Object.freeze({
     set: 'set',
@@ -150,8 +103,7 @@ const MEMORY_OPERATIONS = Object.freeze({
 
 const VALID_MEMORY_OPERATIONS = Object.freeze(Object.values(MEMORY_OPERATIONS));
 
-// ── Lifecycle Hooks ─────────────────────────────────────────
-// Optional hooks a capability can implement for lifecycle events.
+// Lifecycle Hooks
 
 const LIFECYCLE_HOOKS = Object.freeze([
     'onLoad',
@@ -160,8 +112,7 @@ const LIFECYCLE_HOOKS = Object.freeze([
     'onDisable',
 ]);
 
-// ── Agent State ─────────────────────────────────────────────
-// States for long-running task lifecycle handles.
+// Agent States
 
 const AGENT_STATES = Object.freeze({
     PENDING: 'PENDING',

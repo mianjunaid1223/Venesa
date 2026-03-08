@@ -1,14 +1,4 @@
-/**
- * ═══════════════════════════════════════════════════════════════
- *  MODULE: UI Pipeline
- *  Dispatches dynamic UI events to renderer windows.
- *  Handles both structured skill UI and [ui] markdown blocks.
- * ═══════════════════════════════════════════════════════════════
- *  DEPENDS ON: lib/logger
- *  USED BY:    platform/ipc/query-handlers, platform/ipc/voice-handlers
- * ═══════════════════════════════════════════════════════════════
- */
-
+// UI Pipeline — dispatches dynamic UI events to renderer windows.
 const { BrowserWindow } = require('electron');
 const logger = require('../lib/logger');
 

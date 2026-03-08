@@ -1,13 +1,4 @@
-/**
- * ═══════════════════════════════════════════════════════════════
- *  MODULE: Paths
- *  Resolves file-system paths for models, assets, logs, etc.
- * ═══════════════════════════════════════════════════════════════
- *  DEPENDS ON: electron (app)
- *  USED BY:    lib/key-pool, platform/*, skills/core/_shared
- * ═══════════════════════════════════════════════════════════════
- */
-
+// Paths — resolves file-system paths for models, assets, logs, and user data.
 const path = require('path');
 const { app } = require('electron');
 

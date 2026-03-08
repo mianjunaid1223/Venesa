@@ -1,13 +1,4 @@
-/**
- * ═══════════════════════════════════════════════════════════════
- *  MODULE: LLM
- *  Gemini API client — sends queries, manages chat sessions.
- * ═══════════════════════════════════════════════════════════════
- *  DEPENDS ON: lib/logger, lib/key-pool, brain/settings,
- *              brain/services.config, brain/system-prompt
- * ═══════════════════════════════════════════════════════════════
- */
-
+// LLM — Gemini API client. Manages queries and prompt caching.
 const { GoogleGenerativeAI } = require("@google/generative-ai");
 const logger = require("../lib/logger");
 const keyPool = require("../lib/key-pool");
@@ -16,8 +7,7 @@ const settings = require("./settings");
 let genAI = null;
 let activeKey = null;
 
-// TTL-based prompt cache — rebuilt at most once every 60 seconds per mode.
-// Keeps responses fast while ensuring fresh memory is reflected quickly.
+// TTL-based prompt cache rebuilt at most once every 60s per mode.
 const PROMPT_TTL_MS = 60_000;
 const promptCache = {
   text: { prompt: null, builtAt: 0 },

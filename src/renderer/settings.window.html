@@ -11,6 +11,8 @@
         margin: 0;
         padding: 0;
         text-wrap: balance;
+        transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        animation: fade-in-up 0.3s ease-out;
       }
 
       :root {
@@ -58,7 +60,16 @@
         --radius: 8px;
         --radius-sm: 6px;
       }
-
+      @keyframes fade-in-up {
+        from {
+          opacity: 0;
+          transform: translateY(10px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
       html,
       body {
         height: 100%;
@@ -2855,24 +2866,30 @@
                 e.stopPropagation();
                 dropdown.classList.contains("open") ? closeDd() : openDd();
               });
-              row.querySelector(".cap-dd-toggle").addEventListener("click", (e) => {
-                e.stopPropagation();
-                closeDd();
-                const chk = row.querySelector(".cap-toggle");
-                const newState = !chk.checked;
-                chk.checked = newState;
-                toggleCapability(p.name, newState);
-              });
-              row.querySelector(".cap-dd-update").addEventListener("click", (e) => {
-                e.stopPropagation();
-                closeDd();
-                updateCapability(p.name);
-              });
-              row.querySelector(".cap-dd-uninstall").addEventListener("click", (e) => {
-                e.stopPropagation();
-                closeDd();
-                uninstallCapability(p.name);
-              });
+              row
+                .querySelector(".cap-dd-toggle")
+                .addEventListener("click", (e) => {
+                  e.stopPropagation();
+                  closeDd();
+                  const chk = row.querySelector(".cap-toggle");
+                  const newState = !chk.checked;
+                  chk.checked = newState;
+                  toggleCapability(p.name, newState);
+                });
+              row
+                .querySelector(".cap-dd-update")
+                .addEventListener("click", (e) => {
+                  e.stopPropagation();
+                  closeDd();
+                  updateCapability(p.name);
+                });
+              row
+                .querySelector(".cap-dd-uninstall")
+                .addEventListener("click", (e) => {
+                  e.stopPropagation();
+                  closeDd();
+                  uninstallCapability(p.name);
+                });
               capList.appendChild(row);
             });
           } else {
@@ -2998,8 +3015,12 @@
       /** Returns true if semver string a is strictly greater than b. */
       function semverGt(a, b) {
         if (!a) return false;
-        const pa = String(a).split(".").map((n) => parseInt(n, 10) || 0);
-        const pb = String(b || "0").split(".").map((n) => parseInt(n, 10) || 0);
+        const pa = String(a)
+          .split(".")
+          .map((n) => parseInt(n, 10) || 0);
+        const pb = String(b || "0")
+          .split(".")
+          .map((n) => parseInt(n, 10) || 0);
         for (let i = 0; i < Math.max(pa.length, pb.length); i++) {
           const diff = (pa[i] || 0) - (pb[i] || 0);
           if (diff !== 0) return diff > 0;
@@ -3056,13 +3077,13 @@
             // Fall back to local registry (which may contain a stale computed hash).
             const localEntry = localReg[reg.name];
             const installedHash =
-              row.dataset.capHash ||
-              (localEntry && localEntry.fileHash) ||
-              "";
+              row.dataset.capHash || (localEntry && localEntry.fileHash) || "";
             let needsUpdate = false;
             if (installedHash) {
               // Hash-based: show badge only if hashes differ
-              needsUpdate = reg.fileHash ? reg.fileHash !== installedHash : false;
+              needsUpdate = reg.fileHash
+                ? reg.fileHash !== installedHash
+                : false;
             } else {
               // Semver fallback: show badge if registry has a higher version
               const instCap = Array.isArray(installedCaps)
@@ -3072,7 +3093,8 @@
                 (instCap && instCap.version) ||
                 (localEntry && localEntry.version) ||
                 "0";
-              needsUpdate = !!reg.version && semverGt(reg.version, installedVersion);
+              needsUpdate =
+                !!reg.version && semverGt(reg.version, installedVersion);
             }
             if (!needsUpdate) continue;
             const nameEl = row.querySelector(".skill-name");
@@ -3167,8 +3189,10 @@
               }
             }
             for (const [name, entry] of Object.entries(localReg)) {
-              if (entry && entry.fileHash) installedHashes.set(name, entry.fileHash);
-              if (entry && entry.version && !installedVersions.has(name)) installedVersions.set(name, entry.version);
+              if (entry && entry.fileHash)
+                installedHashes.set(name, entry.fileHash);
+              if (entry && entry.version && !installedVersions.has(name))
+                installedVersions.set(name, entry.version);
             }
           } catch (e) {
             console.error(
@@ -3190,11 +3214,13 @@
             // Use fileHash for update detection; fall back to semver if hash absent or not yet stored.
             const isUpdatable =
               isInstalled &&
-              (
-                item.fileHash && installedHashes.has(item.name)
-                  ? installedHashes.get(item.name) !== item.fileHash
-                  : (!!item.version && semverGt(item.version, installedVersions.get(item.name) || "0"))
-              );
+              (item.fileHash && installedHashes.has(item.name)
+                ? installedHashes.get(item.name) !== item.fileHash
+                : !!item.version &&
+                  semverGt(
+                    item.version,
+                    installedVersions.get(item.name) || "0",
+                  ));
             const card = document.createElement("div");
             card.className = "skill-row community-card";
             card.dataset.capName = item.name;
@@ -3283,7 +3309,12 @@
             } else if (!isInstalled) {
               const btn = card.querySelector(".community-install-btn");
               btn.addEventListener("click", () =>
-                installCommunityCapability(item.download_url, item.name, btn, item.fileHash || null),
+                installCommunityCapability(
+                  item.download_url,
+                  item.name,
+                  btn,
+                  item.fileHash || null,
+                ),
               );
             }
             list.appendChild(card);
@@ -3336,7 +3367,12 @@
         await loadCommunity();
       }
 
-      async function installCommunityCapability(rawUrl, capName, btn, fileHash) {
+      async function installCommunityCapability(
+        rawUrl,
+        capName,
+        btn,
+        fileHash,
+      ) {
         if (!api.installCapability) {
           toast.show("Install API not available", "err");
           return;

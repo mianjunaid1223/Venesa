@@ -1,13 +1,8 @@
-/**
- * ═══════════════════════════════════════════════════════════════
- *  MODULE: Background Window
- *  Hidden audio window for Vosk wake word detection.
- * ═══════════════════════════════════════════════════════════════
- */
-
+// Background Window — hidden audio window for Vosk wake word detection.
 const { BrowserWindow, ipcMain } = require('electron');
 const path = require('path');
 const fs = require('fs');
+const logger = require('../../lib/logger');
 const wakeWordService = require('../speech/wake-word');
 const modelServer = require('../model-server');
 
@@ -38,7 +33,7 @@ function createBackgroundAudioWindow() {
     );
 
     backgroundAudioWindow.webContents.on('did-fail-load', (event, code, desc) => {
-        console.error(`[Background] Failed to load: ${desc} (${code})`);
+        logger.error(`[Background] Failed to load: ${desc} (${code})`);
     });
 
     backgroundAudioWindow.on('close', (e) => {
@@ -54,7 +49,7 @@ function createBackgroundAudioWindow() {
 
 function startBackgroundWakeWordDetection(showVoiceWindow, captureScreenForVoice) {
     if (!wakeWordService.initialize()) {
-        console.error('[Main] Wake word models not found, skipping wake word detection');
+        logger.error('[Background] Wake word models not found, skipping detection');
         return;
     }
 
@@ -72,7 +67,7 @@ function startBackgroundWakeWordDetection(showVoiceWindow, captureScreenForVoice
     });
 
     function onWakeDetected(wakeWord) {
-        console.log(`[Main] Wake word detected ("${wakeWord}"), opening voice window`);
+        logger.info(`[Background] Wake word detected ("${wakeWord}"), opening voice window`);
         wakeWordService.pauseDetection();
         if (backgroundAudioWindow && !backgroundAudioWindow.isDestroyed()) {
             backgroundAudioWindow.webContents.send('pause-detection');
@@ -87,7 +82,7 @@ function startBackgroundWakeWordDetection(showVoiceWindow, captureScreenForVoice
     wakeWordService.startDetection(onWakeDetected);
 
     ipcMain.on('background-audio-ready', () => {
-        console.log('[Main] Background audio window ready');
+        logger.info('[Background] Audio window ready');
     });
 
     ipcMain.on('get-model-paths', async (event) => {
@@ -95,7 +90,7 @@ function startBackgroundWakeWordDetection(showVoiceWindow, captureScreenForVoice
 
         if (!modelTarGzPath || !fs.existsSync(modelTarGzPath)) {
             const errMsg = `Model file not found: ${modelTarGzPath}`;
-            console.error(`[Main] ${errMsg}`);
+            logger.error(`[Background] ${errMsg}`);
             if (!event.sender.isDestroyed()) {
                 event.sender.send('model-path-error', { error: errMsg, path: modelTarGzPath });
             }
@@ -109,7 +104,7 @@ function startBackgroundWakeWordDetection(showVoiceWindow, captureScreenForVoice
                 event.sender.send('model-path', modelUrl);
             }
         } catch (err) {
-            console.error(`[Main] Model server failed: ${err.message}`);
+            logger.error(`[Background] Model server failed: ${err.message}`);
             if (!event.sender.isDestroyed()) {
                 event.sender.send('model-path-error', { error: err.message });
             }
@@ -117,15 +112,15 @@ function startBackgroundWakeWordDetection(showVoiceWindow, captureScreenForVoice
     });
 
     ipcMain.on('console-log', (event, msg) => {
-        console.log(`[BackgroundAudio] ${msg}`);
+        logger.info(`[BackgroundAudio] ${msg}`);
     });
 
     ipcMain.on('console-error', (event, msg) => {
-        console.error(`[BackgroundAudio] ${msg}`);
+        logger.error(`[BackgroundAudio] ${msg}`);
     });
 
     ipcMain.on('resume-failed', () => {
-        console.error('[Main] Wake word detection failed to resume - mic may be in use');
+        logger.error('[Background] Wake word detection failed to resume - mic may be in use');
     });
 }
 
