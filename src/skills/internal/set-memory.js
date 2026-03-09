@@ -1,10 +1,3 @@
-/**
- * ═══════════════════════════════════════════════════════════════
- *  SKILL: set-memory
- *  Write to memory buckets.
- * ═══════════════════════════════════════════════════════════════
- */
-
 const { z } = require('zod');
 const memory = require('../../brain/memory');
 

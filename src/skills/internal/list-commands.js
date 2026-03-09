@@ -1,10 +1,3 @@
-/**
- * ═══════════════════════════════════════════════════════════════
- *  SKILL: list-commands
- *  List all saved custom voice commands.
- * ═══════════════════════════════════════════════════════════════
- */
-
 const { z } = require("zod");
 const memory = require("../../brain/memory");
 

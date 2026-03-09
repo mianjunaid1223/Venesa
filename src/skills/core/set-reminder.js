@@ -1,10 +1,3 @@
-/**
- * ═══════════════════════════════════════════════════════════════
- *  SKILL: set-reminder
- *  Set a timed reminder notification.
- * ═══════════════════════════════════════════════════════════════
- */
-
 const { z } = require('zod');
 const { logger } = require('./_shared');
 
@@ -13,7 +6,7 @@ let nextReminderId = 1;
 
 module.exports = {
     schema: z.object({
-        message: z.string().optional().describe('The reminder message. Supports {{user.name}} for personalization'),
+        message: z.string().optional().describe('The reminder message'),
         text: z.string().optional().describe('The reminder message (alias for message)'),
         delay: z.preprocess((val) => Number(val), z.number()).optional(),
         minutes: z.preprocess((val) => Number(val), z.number()).optional().describe('Delay in minutes before reminder fires'),
@@ -38,15 +31,6 @@ module.exports = {
 
     async handler(params) {
         let message = params.message || params.text || 'Reminder';
-        // Substitute {{user.name}} with the profile name from settings.
-        if (message.includes('{{user.name}}')) {
-            try {
-                const settings = require('../../brain/settings');
-                const s = settings.load();
-                const name = (s.userName && s.userName !== 'User') ? s.userName : require('os').userInfo().username;
-                message = message.split('{{user.name}}').join(name);
-            } catch { /* keep original token text */ }
-        }
         let delaySec = 5;
         if (params.delay !== undefined) {
             delaySec = parseInt(params.delay, 10);

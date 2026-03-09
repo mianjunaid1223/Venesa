@@ -1,10 +1,3 @@
-/**
- * ═══════════════════════════════════════════════════════════════
- *  SKILL: take-screenshot
- *  Capture screen, save to a configurable path, open with any app.
- * ═══════════════════════════════════════════════════════════════
- */
-
 const { z } = require('zod');
 const path = require('path');
 const fs = require('fs');
@@ -143,7 +136,7 @@ $bitmap.Dispose()
             } else if (openWith === 'ms-photos:') {
                 openScript = `\n$_photoUri = 'ms-photos:viewer?file=' + [System.Uri]::EscapeDataString('file:///' + $SafePath.Replace('\\', '/'))\nStart-Process $_photoUri`;
             } else {
-                openScript = `\nStart-Process '${safeApp}' -ArgumentList $SafePath`;
+                openScript = `\nStart-Process '${safeApp}' -ArgumentList ([string[]](,$SafePath))`;
             }
         }
 

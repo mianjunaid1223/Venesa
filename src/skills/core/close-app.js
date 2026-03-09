@@ -1,10 +1,3 @@
-/**
- * ═══════════════════════════════════════════════════════════════
- *  SKILL: close-app
- *  Close a specific application by name.
- * ═══════════════════════════════════════════════════════════════
- */
-
 const { z } = require('zod');
 const { runPowerShell, escapeForPowerShell } = require('./_shared');
 

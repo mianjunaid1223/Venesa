@@ -1,11 +1,3 @@
-/**
- * ═══════════════════════════════════════════════════════════════
- *  SKILL: file-ops
- *  Full filesystem power: create, move, copy, rename, delete,
- *  zip/unzip files and folders.
- * ═══════════════════════════════════════════════════════════════
- */
-
 const { z } = require('zod');
 const path = require('path');
 const fs = require('fs');
@@ -39,7 +31,9 @@ module.exports = {
 
 
     async handler(params) {
-        const { operation, sourcePath, destPath, content, isFolder } = params;
+        let { operation, content, isFolder } = params;
+        let sourcePath = params.sourcePath;
+        let destPath = params.destPath;
 
         // Resolve paths relative to home
         const resolvePath = (p) => {

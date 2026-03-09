@@ -1,10 +1,3 @@
-/**
- * ═══════════════════════════════════════════════════════════════
- *  SKILL: run-powershell
- *  Run a safe read-only PowerShell command.
- * ═══════════════════════════════════════════════════════════════
- */
-
 const { z } = require('zod');
 const { runPowerShell } = require('./_shared');
 

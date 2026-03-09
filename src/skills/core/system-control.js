@@ -1,10 +1,3 @@
-/**
- * ═══════════════════════════════════════════════════════════════
- *  SKILL: system-control
- *  Control system settings (volume, brightness, wifi, power).
- * ═══════════════════════════════════════════════════════════════
- */
-
 const { z } = require('zod');
 const { runPowerShell } = require('./_shared');
 

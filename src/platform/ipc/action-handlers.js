@@ -4,7 +4,7 @@ const path = require('path');
 const os = require('os');
 const { execFile } = require('child_process');
 const logger = require('../../lib/logger');
-const processor = require('../../brain/processor');
+const orchestrator = require('../../brain/orchestrator');
 
 const HOME_DIR = os.homedir();
 
@@ -88,7 +88,14 @@ function register() {
                     if (err) logger.error(`Failed to launch app ${appInfo.appId}: ${err.message}`);
                 });
             } else {
-                await processor.launchApplication(appInfo.name);
+                if (!appInfo.name || typeof appInfo.name !== 'string') {
+                    logger.error(`Cannot launch app: missing or invalid name in appInfo ${JSON.stringify(appInfo)}`);
+                    return;
+                }
+                const result = await orchestrator.executeAction('launchApplication', { appName: appInfo.name });
+                if (!result.success) {
+                    logger.error(`Failed to launch app: ${result.error}`);
+                }
             }
         } catch (error) {
             logger.error(`Failed to launch app: ${error.message}`);
@@ -114,7 +121,11 @@ function register() {
     });
 
     ipcMain.on('open-external-url', (event, url) => {
-        if (url && (url.startsWith('http://') || url.startsWith('https://'))) {
+        if (typeof url !== 'string') {
+            logger.warn(`[action-handlers] open-external-url received non-string: ${typeof url}`);
+            return;
+        }
+        if (url.startsWith('http://') || url.startsWith('https://')) {
             shell.openExternal(url).catch(err => {
                 logger.error(`open-external-url failed: ${err.message}`);
             });

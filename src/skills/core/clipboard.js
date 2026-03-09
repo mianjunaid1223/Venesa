@@ -1,10 +1,3 @@
-/**
- * ═══════════════════════════════════════════════════════════════
- *  SKILL: clipboard
- *  Read and write system clipboard. Unified from get/set.
- * ═══════════════════════════════════════════════════════════════
- */
-
 const { z } = require('zod');
 const { clipboard } = require('electron');
 

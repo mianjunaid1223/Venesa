@@ -6,9 +6,6 @@ const powershell = require('../../lib/powershell');
 
 const HOME_DIR = os.homedir();
 
-const IMAGE_EXTENSIONS = ['.png', '.jpg', '.jpeg', '.gif', '.bmp', '.svg', '.webp', '.ico', '.tiff'];
-const CODE_EXTENSIONS = ['.js', '.ts', '.py', '.java', '.c', '.cpp', '.h', '.cs', '.rb', '.go', '.rs', '.php', '.html', '.css', '.json', '.xml', '.yaml', '.yml', '.md', '.txt', '.sh', '.bat', '.ps1'];
-
 async function runPowerShell(script, args = [], timeout = 30000) {
     if (typeof args === 'number') {
         timeout = args;
@@ -29,8 +26,6 @@ function escapeForPowerShell(str) {
 
 module.exports = {
     HOME_DIR,
-    IMAGE_EXTENSIONS,
-    CODE_EXTENSIONS,
     runPowerShell,
     getRelativePath,
     escapeForPowerShell,

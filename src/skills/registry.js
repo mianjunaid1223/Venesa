@@ -1,4 +1,4 @@
-
+// Registry — in-memory skill map with metadata for prompt injection and enable/disable state.
 
 const logger = require('../lib/logger');
 const { z } = require('zod');

@@ -92,10 +92,10 @@ Present this data naturally. Rules:
             // If any result failed due to a missing env key, notify the renderer
             // so it can show a targeted "add key" prompt in the UI.
             if (results && results.length > 0) {
-                const missingKey = results.find(r => r.envKey && (r.error === 'MISSING_ENV' || r.status === 'failed' || r.missingEnv === true));
+                const missingKey = results.find(r => r.envKey);
                 if (missingKey) {
                     const missingKeyMsg = `To use this capability, add the key '${missingKey.envKey}' in Settings → Custom Keys, then try again.`;
-                    if (!textResponse) {
+                    if (textResponse === 'Done.') {
                         textResponse = missingKeyMsg;
                     }
                     if (event.sender && !event.sender.isDestroyed()) {
@@ -143,7 +143,7 @@ Present this data naturally. Rules:
 
         } catch (error) {
             logger.error(`[query] Error processing query: ${error.message}`);
-            if (!event.sender.isDestroyed()) {
+            if (event.sender && !event.sender.isDestroyed()) {
                 event.sender.send('gemini-response', 'Something went wrong. Try again.');
             }
         }

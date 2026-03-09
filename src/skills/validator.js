@@ -114,8 +114,8 @@ function validate(skill, filePath) {
     }
   }
 
-  if (skill.config && typeof skill.config.parse !== "function") {
-    errors.push('"config" must be a Zod schema (must have a parse() method)');
+  if (skill.config !== undefined && (typeof skill.config !== "object" || skill.config === null || Array.isArray(skill.config))) {
+    errors.push('"config" must be a plain object');
   }
 
   if (skill.dependencies !== undefined) {

@@ -99,21 +99,53 @@ Every operation must traverse all 7 stages in order. No stage may be skipped.
 | `FEASIBILITY_EVALUATION` | Abort pipeline; return structured refusal with reason. |
 | `PLAN_CONSTRUCTION` | Abort pipeline; return structured refusal. |
 | `STEP_EXECUTION` | Abort remaining steps; rollback/compensate already-executed steps where possible. All step operations must be idempotent or provide a compensating action. |
+
+**STEP_EXECUTION — Compensation and Recovery:**
+
+Every step in a multi-step workflow must document whether it is **compensable** and, if so, the name of its compensating handler.
+
+- *Compensable operations* (database writes, reversible inventory reservations, file moves): provide a `compensate(stepResult)` handler or inverse operation that undoes the effect. Orchestrator calls compensating handlers in reverse order on failure.
+- *Non-compensable operations* (outbound emails, external irreversible payments, third-party API calls with side effects): cannot be automatically undone. For these:
+  - Log the completed step and its output at `logger.error` level with full context.
+  - Emit an `uncompensable-step-failure` event via `lib/event-bus.js` with the step name, plan ID, and partial results.
+  - Document a manual remediation procedure (e.g., "contact payment provider", "send correction email").
+  - If a non-compensable step is followed by a failing step, the pipeline must still abort forward execution but must **not** attempt to undo the non-compensable step.
+- *Recommended patterns*: saga/compensation handlers, idempotent commands (use idempotency keys where applicable), durable retry queues for transient failures, two-phase commit only where both systems support it.
+- Each capability that participates in plans should declare `compensable: true | false` in its metadata and, if true, export a `compensate` function.
+
 | `RESULT_STRUCTURING` | Return a degraded result with available data; never silently drop data. |
 | `UI_RENDERING` | Degrade gracefully (omit UI block); do not abort the response pipeline. |
 | `MEMORY_UPDATE` | Log the failure; do not abort the response. Memory writes are best-effort but must not silently corrupt state. |
 
 **Error propagation:** Errors are returned as structured objects `{ success: false, error: string }`. Do not throw unhandled exceptions across stage boundaries.
 
-**Retry policy:** `STEP_EXECUTION` steps that fail due to transient errors (network, timeout) may be retried up to 2 times with exponential backoff (base 500 ms, max 4 s). `INTENT_PARSING`, `FEASIBILITY_EVALUATION`, and `PLAN_CONSTRUCTION` are non-retryable — re-querying the LLM is the recovery path. `UI_RENDERING` and `MEMORY_UPDATE` are not retried; failures are logged and skipped.
+**Retry policy:** `STEP_EXECUTION` steps that fail due to transient errors (network, timeout) must be retried up to 2 times unless the error is classified as non-retryable. Non-retryable errors include: schema validation failures, access-denied responses, missing-capability errors, and any error with `permanent: true` in its metadata. Retries use exponential backoff with the formula `min(500 * 2^n, 4000)` ms where `n` is the retry attempt (0-indexed), yielding wait times of 500 ms, 1000 ms. `INTENT_PARSING`, `FEASIBILITY_EVALUATION`, and `PLAN_CONSTRUCTION` are non-retryable — re-querying the LLM is the recovery path. `UI_RENDERING` and `MEMORY_UPDATE` are not retried; failures are logged and skipped.
 
 **Logging and metrics:** Every stage failure must be logged via `lib/logger.js` at `logger.error` level with the stage name, capability name (if applicable), error class (`transient` | `permanent`), and error message.
 
-**Canonical failure response:** `{ success: false, stage: 'STAGE_NAME', error: 'message' }`
+**Canonical failure response:** `{ success: false, stage: 'STAGE_NAME', error: 'message', partialResult: null }`
+
+When a stage fails but has produced partial output (e.g., `RESULT_STRUCTURING` parsed some but not all results), the `partialResult` field must carry the degraded data instead of being null. Example:
+```json
+{ "success": false, "stage": "RESULT_STRUCTURING", "error": "Failed to parse item 3 of 5", "partialResult": { "items": ["item1", "item2"], "totalExpected": 5 } }
+```
+Consumers must check `partialResult` before discarding a failed response.
 
 **Transient vs permanent:** Network/timeout/registry rate-limit errors are transient. Schema violations, refusals, and CVE-blocked packages are permanent. Transient errors back off and retry; permanent errors abort immediately.
 
-**Timeouts:** Each stage must complete within 30 s. Stages that exceed the timeout are treated as transient failures and aborted.
+**Timeouts:** Stage-specific timeout defaults:
+
+| Stage | Default Timeout | Notes |
+|---|---|---|
+| `INTENT_PARSING` | 30 s | LLM response window |
+| `FEASIBILITY_EVALUATION` | 30 s | |
+| `PLAN_CONSTRUCTION` | 30 s | |
+| `STEP_EXECUTION` | 5 min | Capabilities may declare `expectedDuration` in metadata to override |
+| `RESULT_STRUCTURING` | 30 s | |
+| `UI_RENDERING` | 10 s | |
+| `MEMORY_UPDATE` | 10 s | |
+
+Stages that exceed their timeout are treated as transient failures and aborted. Capabilities can declare an `expectedDuration` (in milliseconds) in their metadata to override the `STEP_EXECUTION` default for their handler. The orchestrator must honour declared durations up to a platform maximum of 10 minutes.
 
 ### Agent Mode
 
@@ -150,6 +182,10 @@ Every capability MUST export an object with these fields:
 - **Exact versions required.** Every dependency entry must be an exact specifier (`name@x.y.z`). Floating ranges are rejected at validation time.
 - **Name and version allowlisting.** Capability loaders must validate that package names match the pattern `^(@[a-z0-9-~][a-z0-9-._~]*/)?[a-z0-9-~][a-z0-9-._~]*$` and that versions are semver-exact before passing them to the dep engine.
 - **CVE scanning.** Pinned versions must be scanned for known vulnerabilities via a publish-time CVE scan (e.g., `npm audit`, Snyk, or OSS-index) before publishing a capability. `dep-manager` must fail publish if any CVE is detected. When a CVE is identified post-publish, the capability author must release a new version with the patched dependency.
+  - **Enforcement:** The `dep-manager` publish hook must integrate a CVE scanner (npm audit, Snyk, or OSS-index) and reject the publish if any vulnerability is found. Capability authors publish via `dep-manager` with CI enforcement.
+  - **Runtime monitoring:** Published capability versions must be periodically scanned (automated, at least daily) for newly disclosed CVEs. The registry must flag vulnerable versions in its UI and API responses.
+  - **Notification:** When a CVE is detected post-publish, `dep-manager` or the registry must send a signed alert to all subscribers and installed instances. Vulnerable versions must be visually flagged in the capability browser.
+  - **Quarantine (optional):** The platform may block or quarantine execution of flagged capability versions until a patched version is published. This policy is configurable per-instance.
 - **Transient vs permanent failure classification.** `dep-manager` categorises install failures before incrementing the failure counter:
   - *Transient*: network errors, timeouts, registry rate-limits — retried with exponential backoff (base 1 s, doubling, max 3 attempts) before counting as a failure.
   - *Permanent*: invalid package name/version, CVE-blocked package, schema validation rejection — counted as a failure immediately, no retries.
@@ -222,6 +258,11 @@ lifecycle: {
 
 ### Security
 
+**Token expansion in handlers:**
+- The orchestrator resolves all `{{token}}` placeholders in every string parameter before calling handlers via `token-resolver.resolve`. This is a platform guarantee — capabilities must never import or call `token-resolver` themselves.
+- `resolvePath` handles tilde expansion (`~/...` → home dir), absolute path passthrough, and relative → home-relative resolution.
+- Folder tokens (`{{user.desktop}}`, `{{user.documents}}`, `{{user.downloads}}`, `{{user.pictures}}`) are resolved via Electron `app.getPath`, falling back to Windows registry known-folder GUIDs (Win32), XDG dirs config (Linux), or HOME-relative defaults.
+
 **Input validation:**
 - All capability inputs are Zod-validated before reaching the handler. Do not access `params` before validation.
 - Sanitize any string that will be interpolated into shell commands or file paths.
@@ -232,9 +273,17 @@ lifecycle: {
 - Never construct file paths by raw string concatenation with user input.
 
 **Shell execution:**
-- PowerShell execution goes through `lib/powershell.js` which applies sandboxing and restriction policies.
-- Never call `child_process.exec` or `spawn` directly in capabilities. Use the provided wrapper.
+- PowerShell execution goes through `lib/powershell.js` — a **persistent session** (single process, queued commands, auto-restart on crash).
+- **Never** call `child_process.exec`, `execFile`, `execFileSync`, or bare `spawn` to invoke PowerShell. Creating a new PowerShell process per call adds 2–5 s startup overhead, breaks the session model, and causes stderr to abort the call even when stdout has valid output.
+- Use `const powershell = require('../../lib/powershell')` and call `powershell.execute(script, args, timeoutMs)`.
 - Destructive shell commands (format, rm -rf equivalents) must use the `confirm` marker.
+- Add `-ErrorAction SilentlyContinue` to any `Get-CimInstance` query that reads optional hardware (battery, GPU, sensors) so a desktop with no battery does not abort the call.
+
+**PowerShell edge cases (`lib/powershell.js`):**
+- **Hanging commands:** `powershell.execute(script, args, timeoutMs)` enforces a per-command timeout. If a command exceeds `timeoutMs`, the implementation must terminate the stuck command, mark it as failed with error code `POWERSHELL_TIMEOUT`, and return a structured error to the caller. The session remains usable after a timeout kill.
+- **Session-state corruption:** Because the session is persistent, a prior command may leave residual state (changed cwd, modified env vars, imported modules). Between commands the implementation should reset the working directory to the user's home and clear any transient variables. If state corruption is detected (e.g., session becomes unresponsive), the session must be restarted automatically.
+- **Queue handling during auto-restart:** When the PowerShell process crashes or is restarted, the command queue must be paused. The in-flight command is marked as failed with error code `POWERSHELL_SESSION_CRASH`. Queued commands are **not** automatically retried — callers receive a `SESSION_RESTARTING` error and are responsible for retry/backoff. Once the new session is ready, queued commands resume in order. An `event-bus` event (`powershell:session-restart`) must be emitted so callers can react.
+- **Caller pattern:** Always use `powershell.execute(script, args, timeoutMs)`. Never hold references to the underlying process. Handle `POWERSHELL_TIMEOUT`, `POWERSHELL_SESSION_CRASH`, and `SESSION_RESTARTING` error codes with appropriate retry logic (recommended: 1 retry after 2 s for transient session errors).
 
 **API keys:**
 - Never log or surface API keys. Read from environment or `lib/key-store.js` only.
@@ -259,7 +308,7 @@ lifecycle: {
 ## Governance
 
 - **User authority:** Users have absolute authority over configuration, capability state, and assistant behaviour.
-- **Settings persistence:** User settings stored in `.venesa-settings.json` via `brain/settings.js`.
+- **Settings persistence:** User settings stored in `~/.venesa/settings.json` via `brain/settings.js`. A one-time migration routine in `brain/settings.js` detects the legacy path (`~/.venesa-settings.json`) and, if the new path does not exist, moves the file to `~/.venesa/settings.json` at startup before any read/write. Migration success and failure are logged explicitly.
 - **Memory persistence:** `~/.venesa/` — named bucket files: `preferences.json`, `history.json`, `aliases.json`, `context.json`.
 - **Memory writes:** All mutations go through `memory.mutate({ bucket, operation, key, value })`. No implicit writes.
 - **Capability state:** Enable/disable state persisted to the `aliases` memory bucket under the key `capabilityStates`. Changes take effect immediately and survive restarts.

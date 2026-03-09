@@ -1,10 +1,3 @@
-/**
- * ═══════════════════════════════════════════════════════════════
- *  SKILL: google-search
- *  Search Google for a query and open results in browser.
- * ═══════════════════════════════════════════════════════════════
- */
-
 const { z } = require('zod');
 const { shell } = require('electron');
 const connectivity = require('../../lib/connectivity');

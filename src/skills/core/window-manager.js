@@ -1,11 +1,3 @@
-/**
- * ═══════════════════════════════════════════════════════════════
- *  SKILL: window-manager
- *  Move, resize, snap, and control application windows.
- *  PowerToys FancyZones replacement — voice-controlled.
- * ═══════════════════════════════════════════════════════════════
- */
-
 const { z } = require('zod');
 const { runPowerShell } = require('./_shared');
 

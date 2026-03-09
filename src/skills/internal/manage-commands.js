@@ -1,10 +1,3 @@
-/**
- * ═══════════════════════════════════════════════════════════════
- *  SKILL: manage-commands
- *  Save, remove, and list custom voice command shortcuts.
- * ═══════════════════════════════════════════════════════════════
- */
-
 const { z } = require('zod');
 const memory = require('../../brain/memory');
 

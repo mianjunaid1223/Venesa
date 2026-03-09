@@ -42,9 +42,10 @@
             "system.hostname": "Machine hostname",
             "user.name": "Current OS username",
             "user.home": "User home directory path",
-            "user.desktop": "User desktop directory path",
-            "user.downloads": "User downloads directory path",
-            "user.documents": "User documents directory path",
+            "user.desktop": "User desktop directory path (resolved via Electron, Windows registry, or XDG dirs)",
+            "user.downloads": "User downloads directory path (resolved via Electron, Windows registry, or XDG dirs)",
+            "user.documents": "User documents directory path (resolved via Electron, Windows registry, or XDG dirs)",
+            "user.pictures": "User pictures directory path (resolved via Electron, Windows registry, or XDG dirs)",
             "runtime.cwd": "Current working directory",
             "runtime.temp": "System temp directory",
             "runtime.session_id": "Current session identifier",
@@ -53,7 +54,7 @@
             "file.name": "Filename without extension",
             "file.ext": "File extension",
             "clipboard.text": "Current clipboard text content",
-            "network.ip": "Local IP address",
+            "network.ip": "Local IPv4 address (family string or numeric 4 — Node.js 18+ compatible)",
             "network.hostname": "Network hostname",
             "env.KEY": "Environment variable by name (replace KEY with actual name)"
         }
@@ -88,6 +89,13 @@
             "announce",
             "confirm"
         ],
+        "dependencies": {
+            "versionSpecifier": "exact",
+            "allowedFormats": [ "package@x.y.z" ],
+            "disallowedFormats": [ "^x", "~x", ">=x", "*", "git+url", "file:" ],
+            "isolation": "Each capability gets its own node_modules under ~/.venesa/capabilities/<name>/node_modules/",
+            "cvePolicy": "Pinned versions must be scanned before publish; dep-manager rejects CVE-flagged packages"
+        },
         "envAccess": "getEnv only — direct process.env enumeration is not allowed"
     },
     "ui": {

@@ -1,10 +1,3 @@
-/**
- * ═══════════════════════════════════════════════════════════════
- *  SKILL: clipboard-history
- *  Track clipboard changes, browse history, paste from history.
- * ═══════════════════════════════════════════════════════════════
- */
-
 const { z } = require('zod');
 const { clipboard } = require('electron');
 

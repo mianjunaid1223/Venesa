@@ -11,9 +11,7 @@
         padding: 0;
         box-sizing: border-box;
         text-wrap: balance;
-        transition: all 0.8s cubic-bezier(0.16, 1, 0.3, 1);
-
-        animation: fadein 0.5s ease-in;
+        transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
       }
 
       :root {
@@ -1309,6 +1307,7 @@
         <input
           type="text"
           id="searchInput"
+          aria-label="Search — type / for AI, // for Google"
           placeholder="Search, / for AI, // for Google"
           autofocus
           spellcheck="false"
@@ -1317,6 +1316,7 @@
           class="settings-btn"
           id="voiceBtn"
           title="Voice Mode (Ctrl+Shift+V)"
+          aria-label="Voice Mode (Ctrl+Shift+V)"
         >
           <svg viewBox="0 0 24 24">
             <path
@@ -1327,7 +1327,12 @@
             <line x1="8" y1="23" x2="16" y2="23"></line>
           </svg>
         </button>
-        <button class="settings-btn" id="settingsBtn" title="Settings">
+        <button
+          class="settings-btn"
+          id="settingsBtn"
+          title="Settings"
+          aria-label="Settings"
+        >
           <svg viewBox="0 0 24 24">
             <circle cx="12" cy="12" r="3"></circle>
             <path
@@ -1344,7 +1349,12 @@
         <span id="searchTime">0.00s</span>
       </div>
 
-      <div class="results-wrapper" id="resultsWrapper">
+      <div
+        class="results-wrapper"
+        id="resultsWrapper"
+        aria-live="polite"
+        aria-atomic="false"
+      >
         <div class="loader-wrapper" id="loader">
           <div class="newtons-cradle">
             <div class="newtons-cradle__dot"></div>
@@ -1392,6 +1402,7 @@
       let pendingQuery = "";
       let settingsOpen = false;
       let isGeminiAction = false;
+      let currentRequestId = null;
       let isAIMode = false;
       let isGoogleMode = false;
       let searchStartTime = 0;
@@ -1551,30 +1562,21 @@
       });
 
       googleWebview.addEventListener("will-navigate", (e) => {
+        let isExternal = false;
         try {
           const url = new URL(e.url);
           const hostname = url.hostname;
           if (hostname === "google.com" || hostname.endsWith(".google.com")) {
             return;
           }
+          isExternal = true;
         } catch (parseError) {
-          // Invalid URL, block navigation
+          // Invalid URL — block navigation
         }
-        openUrlExternally(e.url);
-
-        const goBackOnce = () => {
-          googleWebview.removeEventListener("did-finish-load", goBackOnce);
-          googleWebview.removeEventListener("did-fail-load", goBackOnce);
-          try {
-            googleWebview.goBack();
-          } catch (err) {}
-        };
-        googleWebview.addEventListener("did-finish-load", goBackOnce, {
-          once: true,
-        });
-        googleWebview.addEventListener("did-fail-load", goBackOnce, {
-          once: true,
-        });
+        e.preventDefault();
+        if (isExternal) {
+          openUrlExternally(e.url);
+        }
       });
 
       const HEIGHTS = {
@@ -1955,6 +1957,10 @@
               if (aiQuery) {
                 showLoader();
                 searchStartTime = performance.now();
+                currentRequestId =
+                  Date.now().toString(36) +
+                  "_" +
+                  Math.random().toString(36).slice(2, 6);
                 isGeminiAction = true; // Flag to preserve action-result handling
                 lastQuery = aiQuery;
                 window.api.send("send-to-gemini", aiQuery);
@@ -1988,8 +1994,24 @@
         loader.classList.remove("visible");
         loader.style.display = "none";
 
+        // Check for stale response via request ID if backend echoes it
+        let parsedEarly;
+        try {
+          parsedEarly = JSON.parse(result);
+        } catch {
+          parsedEarly = null;
+        }
+        if (
+          parsedEarly &&
+          parsedEarly.requestId !== undefined &&
+          parsedEarly.requestId !== currentRequestId
+        ) {
+          return; // stale response from a previous request
+        }
+
         const wasGeminiAction = isGeminiAction;
         isGeminiAction = false;
+        currentRequestId = null;
 
         if (!wasGeminiAction) {
           const currentQuery = searchInput.value.trim();
@@ -2083,13 +2105,20 @@
 
             const foldersToShow = folders.slice(0, remainingSlots);
             foldersToShow.forEach((folderRaw) => {
-              const folderPath = typeof folderRaw === 'string' ? folderRaw : folderRaw.path;
-              const folderName = typeof folderRaw === 'string' ? folderPath.split(/[\\/]/).pop() : folderRaw.name;
+              const folderPath =
+                typeof folderRaw === "string" ? folderRaw : folderRaw.path;
+              const folderName =
+                typeof folderRaw === "string"
+                  ? folderPath.split(/[\\/]/).pop()
+                  : folderRaw.name;
+              const folderLastSep = Math.max(
+                folderPath.lastIndexOf("/"),
+                folderPath.lastIndexOf("\\"),
+              );
               const parentPath =
-                folderPath.substring(
-                  0,
-                  folderPath.lastIndexOf(/[\\/]/.exec(folderPath)?.[0] || "\\"),
-                ) || folderPath;
+                folderLastSep === -1
+                  ? folderPath
+                  : folderPath.substring(0, folderLastSep) || folderPath;
 
               const item = document.createElement("button");
               item.className = "result-item";
@@ -2122,13 +2151,20 @@
             remainingSlots -= foldersToShow.length;
 
             files.slice(0, remainingSlots).forEach((fileRaw) => {
-              const filePath = typeof fileRaw === 'string' ? fileRaw : fileRaw.path;
-              const fileName = typeof fileRaw === 'string' ? filePath.split(/[\\/]/).pop() : fileRaw.name;
+              const filePath =
+                typeof fileRaw === "string" ? fileRaw : fileRaw.path;
+              const fileName =
+                typeof fileRaw === "string"
+                  ? filePath.split(/[\\/]/).pop()
+                  : fileRaw.name;
+              const fileLastSep1 = Math.max(
+                filePath.lastIndexOf("/"),
+                filePath.lastIndexOf("\\"),
+              );
               const dirPath =
-                filePath.substring(
-                  0,
-                  filePath.lastIndexOf(/[\\/]/.exec(filePath)?.[0] || "\\"),
-                ) || filePath;
+                fileLastSep1 === -1
+                  ? filePath
+                  : filePath.substring(0, fileLastSep1) || filePath;
 
               const fileIconData = getFileIcon(fileName);
 
@@ -2193,11 +2229,14 @@
             const items = data.slice(0, 20);
             items.forEach((filePath, i) => {
               const fileName = filePath.split(/[\\/]/).pop();
+              const fileLastSep2 = Math.max(
+                filePath.lastIndexOf("/"),
+                filePath.lastIndexOf("\\"),
+              );
               const dirPath =
-                filePath.substring(
-                  0,
-                  filePath.lastIndexOf(/[\\/]/.exec(filePath)?.[0] || "\\"),
-                ) || filePath;
+                fileLastSep2 === -1
+                  ? filePath
+                  : filePath.substring(0, fileLastSep2) || filePath;
 
               const fileIconData = getFileIcon(fileName);
 

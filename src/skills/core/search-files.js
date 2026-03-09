@@ -1,10 +1,3 @@
-/**
- * ═══════════════════════════════════════════════════════════════
- *  SKILL: search-files
- *  Search for files, folders, and apps on the system.
- * ═══════════════════════════════════════════════════════════════
- */
-
 const { z } = require('zod');
 const path = require('path');
 const fs = require('fs');

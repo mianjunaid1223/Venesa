@@ -1,10 +1,3 @@
-/**
- * ═══════════════════════════════════════════════════════════════
- *  SKILL: remove-command
- *  Remove a custom voice command.
- * ═══════════════════════════════════════════════════════════════
- */
-
 const { z } = require('zod');
 const memory = require('../../brain/memory');
 

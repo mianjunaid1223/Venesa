@@ -1,6 +1,5 @@
+// Environment — safe accessor for environment variables.
 const logger = require('./logger');
-
-const ALLOWED_PREFIXES = [];
 
 function getEnv(key) {
     if (!key || typeof key !== 'string') {

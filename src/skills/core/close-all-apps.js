@@ -1,10 +1,3 @@
-/**
- * ═══════════════════════════════════════════════════════════════
- *  SKILL: close-all-apps
- *  Close all visible user applications.
- * ═══════════════════════════════════════════════════════════════
- */
-
 const { z } = require('zod');
 const { runPowerShell } = require('./_shared');
 

@@ -360,7 +360,13 @@ function resolveStepRefs(params, stepOutputs, stepIndex) {
     if (refIdx < 0 || refIdx >= stepIndex || !(refIdx in stepOutputs)) {
       throw new Error(`$step${refIdx + 1} not resolved for step ${stepIndex + 1}`);
     }
+    if (stepOutputs[refIdx] === null) {
+      throw new Error(`Referenced step $step${refIdx + 1} failed or returned no output`);
+    }
     const raw = unwrapMemoryEnvelope(stepOutputs[refIdx]);
+    if (raw === null) {
+      throw new Error(`Referenced step $step${refIdx + 1} failed or returned no output`);
+    }
     resolved[key] = fieldPath ? resolveFieldPath(raw, fieldPath) : raw;
     if (resolved[key] === undefined) {
       throw new Error(`Field '${fieldPath}' not found in $step${refIdx + 1} output`);

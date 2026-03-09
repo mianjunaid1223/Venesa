@@ -1,10 +1,3 @@
-/**
- * ═══════════════════════════════════════════════════════════════
- *  SKILL: open-url
- *  Open a URL in the default browser.
- * ═══════════════════════════════════════════════════════════════
- */
-
 const { z } = require('zod');
 const { shell } = require('electron');
 

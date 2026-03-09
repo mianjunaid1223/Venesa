@@ -20,7 +20,6 @@ app.commandLine.appendSwitch("autoplay-policy", "no-user-gesture-required");
 app.commandLine.appendSwitch("disable-gpu-cache");
 app.commandLine.appendSwitch("disable-http-cache");
 
-const os = require("os");
 const fs = require("fs");
 const llm = require("../brain/llm");
 const logger = require("../lib/logger");
@@ -55,8 +54,12 @@ function validateStandard() {
       errors.push(`Protocol version mismatch: standard expects ${standard.compatibility.protocolVersion}, runtime has ${PROTOCOL_VERSION}`);
     }
     if (standard.compatibility?.minNodeVersion) {
-      const [reqMaj, reqMin] = standard.compatibility.minNodeVersion.split('.').map(Number);
-      const [curMaj, curMin] = process.versions.node.split('.').map(Number);
+      const reqParts = standard.compatibility.minNodeVersion.split('.');
+      const curParts = process.versions.node.split('.');
+      const reqMaj = Number(reqParts[0]) || 0;
+      const reqMin = Number(reqParts[1]) || 0;
+      const curMaj = Number(curParts[0]) || 0;
+      const curMin = Number(curParts[1]) || 0;
       if (curMaj < reqMaj || (curMaj === reqMaj && curMin < reqMin)) {
         errors.push(`Node version ${process.versions.node} is below required ${standard.compatibility.minNodeVersion}`);
       }
@@ -100,7 +103,9 @@ app.whenReady().then(async () => {
     let filePath = request.url.replace("venesa-asset://", "");
     try {
       filePath = decodeURIComponent(filePath);
-    } catch (e) {}
+    } catch (e) {
+      logger.warn(`[main] Failed to decode filePath "${filePath}": ${e.message}`);
+    }
 
     const assetsPath = path.resolve(getAssetsPath());
     const fullPath = path.resolve(assetsPath, filePath);
@@ -117,17 +122,8 @@ app.whenReady().then(async () => {
     return net.fetch(`file://${fullPath}`);
   });
 
-  const settingsPath = path.join(os.homedir(), ".venesa-settings.json");
-  let autoStartEnabled = false;
-  try {
-    if (fs.existsSync(settingsPath)) {
-      const settings = JSON.parse(fs.readFileSync(settingsPath, "utf8"));
-      autoStartEnabled = settings.openAtLogin === true;
-    }
-  } catch (e) {
-    logger.error(`[Main] Failed to read settings: ${e?.message ?? String(e)}`);
-    autoStartEnabled = false;
-  }
+  const s = require("../brain/settings").load();
+  const autoStartEnabled = s.openAtLogin === true;
 
   app.setLoginItemSettings({
     openAtLogin: autoStartEnabled,

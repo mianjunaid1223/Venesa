@@ -1,10 +1,3 @@
-/**
- * ═══════════════════════════════════════════════════════════════
- *  SKILL: open-file
- *  Open a file from the user home directory.
- * ═══════════════════════════════════════════════════════════════
- */
-
 const { z } = require("zod");
 const { shell } = require("electron");
 const path = require("path");
@@ -13,10 +6,10 @@ const { HOME_DIR } = require("./_shared");
 
 module.exports = {
   schema: z.object({
-    filePath: z.string().describe("Path of the file to open. Supports tokens: {{user.desktop}}, {{user.documents}}, {{user.downloads}}, {{user.home}}"),
+    filePath: z.string().describe("Path of the file to open (relative to home directory or absolute)"),
   }),
   name: "openFile",
-  description: "Open a file using the system default application. Use when the user says 'open', 'show', or 'launch' a specific file. Path supports tokens: {{user.desktop}}/file.txt, {{user.documents}}/file.txt.",
+  description: "Open a file using the system default application. Use when the user says 'open', 'show', or 'launch' a specific file. Accepts relative paths (resolved from home directory) or absolute paths.",
   tags: ["file", "open"],
 
   returnType: "action",
@@ -40,21 +33,6 @@ module.exports = {
     if (!filePath || typeof filePath !== "string") {
       return "No file path provided.";
     }
-
-    // Defensive inline token expansion (orchestrator resolves these before
-    // execution, but guard against direct/test invocations).
-    try {
-      const os = require("os");
-      const tokenMap = {
-        '{{user.home}}': HOME_DIR,
-        '{{user.desktop}}': path.join(HOME_DIR, 'Desktop'),
-        '{{user.documents}}': path.join(HOME_DIR, 'Documents'),
-        '{{user.downloads}}': path.join(HOME_DIR, 'Downloads'),
-      };
-      for (const [token, value] of Object.entries(tokenMap)) {
-        filePath = filePath.split(token).join(value);
-      }
-    } catch { /* ignore */ }
 
     try {
       const resolvedPath = path.isAbsolute(filePath)

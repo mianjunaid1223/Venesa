@@ -1,9 +1,11 @@
 const { ipcMain, shell, desktopCapturer, BrowserWindow } = require("electron");
 const path = require("path");
+const fs = require("fs");
 const os = require("os");
 const logger = require("../../lib/logger");
 const llm = require("../../brain/llm");
 const processor = require("../../brain/processor");
+const orchestrator = require("../../brain/orchestrator");
 const memory = require("../../brain/memory");
 const ttsService = require("../speech/tts");
 const sttService = require("../speech/stt");
@@ -468,15 +470,9 @@ Present this data naturally. Rules:
             openError = await shell.openPath(selectedItem.data.path);
           } else {
             try {
-              const launchResult = await processor.launchApplication(
-                selectedItem.name,
-              );
-              if (
-                launchResult &&
-                (launchResult.startsWith("Error") ||
-                  launchResult.startsWith("Could not"))
-              ) {
-                openError = launchResult;
+              const launchResult = await orchestrator.executeAction('launchApplication', { appName: selectedItem.name });
+              if (!launchResult.success) {
+                openError = launchResult.error || 'Failed to launch application';
               }
             } catch (err) {
               openError = err.message || "Failed to launch application";
@@ -490,19 +486,28 @@ Present this data naturally. Rules:
         ) {
           if (selectedItem.path) {
             const rawPath = selectedItem.path;
-            const itemPath = path.isAbsolute(rawPath)
+            let itemPath = path.isAbsolute(rawPath)
               ? rawPath
               : path.join(os.homedir(), rawPath);
             const fold = process.platform === 'win32' ? (s) => s.toLowerCase() : (s) => s;
-            const normalizedItem = fold(path.normalize(itemPath));
-            const homeNorm = fold(path.normalize(os.homedir()));
-            const homePrefix = fold(path.normalize(os.homedir() + path.sep));
-            if (
-              normalizedItem !== homeNorm &&
-              !normalizedItem.startsWith(homePrefix)
-            ) {
-              openError = "Access denied: path escapes home directory";
-            } else {
+            try {
+              const realItemPath = fs.realpathSync(itemPath);
+              const realHome = fs.realpathSync(os.homedir());
+              const normalizedItem = fold(path.normalize(realItemPath));
+              const homeNorm = fold(path.normalize(realHome));
+              const homePrefix = fold(path.normalize(realHome + path.sep));
+              if (
+                normalizedItem !== homeNorm &&
+                !normalizedItem.startsWith(homePrefix)
+              ) {
+                openError = "Access denied: path escapes home directory";
+              } else {
+                itemPath = realItemPath;
+              }
+            } catch (e) {
+              openError = `Path resolution failed: ${e.message}`;
+            }
+            if (!openError) {
               openError = await shell.openPath(itemPath);
             }
           }

@@ -1,10 +1,3 @@
-/**
- * ═══════════════════════════════════════════════════════════════
- *  SKILL: get-memory
- *  Read from memory buckets.
- * ═══════════════════════════════════════════════════════════════
- */
-
 const { z } = require('zod');
 const memory = require('../../brain/memory');
 

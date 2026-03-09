@@ -1,22 +1,12 @@
-/**
- * ═══════════════════════════════════════════════════════════════
- *  MODULE: System Tray
- *  Creates and manages the Venesa tray icon and context menu so
- *  users can see the app is running in the background and quickly
- *  access common actions without the main window open.
- * ═══════════════════════════════════════════════════════════════
- */
+// Tray — system tray icon and context menu.
 
 const { Tray, Menu, app, nativeImage } = require("electron");
 const path = require("path");
-const os = require("os");
 const fs = require("fs");
+const settings = require("../brain/settings");
 
 let tray = null;
 
-/**
- * Resolves the icon path according to whether the app is packaged.
- */
 function getIconPath() {
   const base = app.isPackaged
     ? path.join(process.resourcesPath, "assets")
@@ -29,36 +19,21 @@ function getIconPath() {
     const full = path.join(base, candidate);
     if (fs.existsSync(full)) return full;
   }
-  return path.join(base, "icon.ico");
+  const fallback = path.join(base, "icon.ico");
+  if (!fs.existsSync(fallback)) {
+    console.warn(`[tray] No tray icon found in ${base}. Candidates: ${candidates.join(', ')}, icon.ico`);
+    return null;
+  }
+  return fallback;
 }
 
-/**
- * Reads the persisted open-at-login setting.
- */
 function isAutoStartEnabled() {
-  try {
-    const settingsPath = path.join(os.homedir(), ".venesa-settings.json");
-    if (fs.existsSync(settingsPath)) {
-      const settings = JSON.parse(fs.readFileSync(settingsPath, "utf8"));
-      return settings.openAtLogin === true;
-    }
-  } catch (_) {}
-  return false;
+  const s = settings.load();
+  return s.openAtLogin === true;
 }
 
-/**
- * Persists and applies the open-at-login setting.
- */
 function setAutoStart(enabled) {
-  try {
-    const settingsPath = path.join(os.homedir(), ".venesa-settings.json");
-    let settings = {};
-    if (fs.existsSync(settingsPath)) {
-      settings = JSON.parse(fs.readFileSync(settingsPath, "utf8"));
-    }
-    settings.openAtLogin = enabled;
-    fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
-  } catch (_) {}
+  settings.save({ openAtLogin: enabled });
 
   app.setLoginItemSettings({
     openAtLogin: enabled,
@@ -67,15 +42,6 @@ function setAutoStart(enabled) {
   });
 }
 
-/**
- * Builds and sets the tray context menu.
- * Called on creation and whenever state changes (e.g. auto-start toggle).
- *
- * @param {object} deps - Injected window helpers from main.js
- * @param {() => void} deps.showMain    - Show / focus the main window
- * @param {() => void} deps.showVoice   - Open voice mode
- * @param {() => void} deps.showSettings - Open settings window
- */
 function buildContextMenu(deps) {
   const { showMain, showVoice, showSettings } = deps;
   const autoStart = isAutoStartEnabled();
@@ -125,15 +91,14 @@ function buildContextMenu(deps) {
   ]);
 }
 
-/**
- * Creates the tray icon. Safe to call multiple times (no-op after first call).
- *
- * @param {object} deps - See buildContextMenu() docs above.
- */
 function createTray(deps) {
   if (tray && !tray.isDestroyed()) return;
 
   const iconPath = getIconPath();
+  if (!iconPath) {
+    console.warn('[tray] No icon available — skipping tray creation');
+    return;
+  }
   const icon = nativeImage.createFromPath(iconPath);
 
   // On Windows the tray icon should be small (16×16); resize if needed.
@@ -144,7 +109,7 @@ function createTray(deps) {
     tray = new Tray(icon);
   }
 
-  tray.setToolTip("Venesa — Redy to assist");
+  tray.setToolTip("Venesa — Ready to assist");
   tray.setContextMenu(buildContextMenu(deps));
 
   // Left-click / double-click also opens the main window for convenience.
@@ -152,9 +117,6 @@ function createTray(deps) {
   tray.on("double-click", () => deps.showMain());
 }
 
-/**
- * Destroys the tray icon (called on quit).
- */
 function destroyTray() {
   if (tray && !tray.isDestroyed()) {
     tray.destroy();

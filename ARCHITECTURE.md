@@ -172,13 +172,15 @@ src/
 ├── brain/                       # Intelligence core
 │   ├── protocol.js              # Single source of truth: all protocol constants v2.0
 │   │                            #   RETURN_TYPES, EXECUTION_MARKERS, EXECUTION_MODES,
-│   │                            #   AI_DECISIONS, UI_SCHEMA_TYPES, MEMORY_OPERATIONS,
+│   │                            #   AI_DECISIONS, MEMORY_OPERATIONS,
 │   │                            #   WORKFLOW_STAGES, AGENT_STATES, LIFECYCLE_HOOKS
 │   ├── llm.js                   # Gemini API client; streaming, key rotation, session management
 │   ├── processor.js             # Protocol parser: extracts [speak], [silent], [ui], [action:], [plan]
 │   │                            #   Classifies execution mode and engaged pipeline stages
 │   ├── orchestrator.js          # Plan executor: lexes steps, resolves $variables, serial execution
 │   │                            #   createAgentHandle: long-running task with observable state + interrupt
+│   │                            #   resolveStepRefs: null-output detection — throws clear error when a
+│   │                            #   referenced step failed, distinct from a genuinely missing field
 │   ├── system-prompt.js         # Builds LLM context from memory + skill registry
 │   │                            #   Governance v2.0: role, execution contract, refusal contract,
 │   │                            #   UI contract, memory contract, decomposition rules
@@ -205,6 +207,8 @@ src/
 │   │   ├── voice-handlers.js    # Voice query lifecycle + TTS coordination
 │   │   ├── action-handlers.js   # Direct skill invocations and plan execution
 │   │   └── system-handlers.js   # Settings CRUD, capability management, app controls
+│   │                            #   Wake-word deduplication: wakeWordActive flag prevents double-start
+│   │                            #   across applyWakeWordPatch and setup-flow startWakeWord calls
 │   ├── preload/                 # Context-bridged preload scripts per window
 │   ├── speech/                  # Audio I/O (stt.js, tts.js, wake-word.js)
 │   └── windows/                 # BrowserWindow factory functions
@@ -215,7 +219,11 @@ src/
 │   ├── event-bus.js             # Internal pub/sub event bus
 │   ├── key-pool.js              # API key rotation pool
 │   ├── key-store.js             # Secure on-disk key storage (electron safeStorage)
-│   └── powershell.js            # Sandboxed PowerShell execution wrapper
+│   ├── token-resolver.js        # {{token}} resolution: resolveToken, resolveString, resolvePath
+│   │                            #   Platform-aware folder paths (Electron → Windows registry → XDG dirs)
+│   │                            #   Tilde expansion: ~/... resolved to home before path.normalize
+│   │                            #   Node.js 18+ safe: network.ip accepts numeric family (4) and string ("IPv4")
+│   └── powershell.js            # Persistent PowerShell session — single process, command queue, auto-restart
 │
 └── renderer/                    # Renderer process files (HTML/JS — no Node access)
 ```
@@ -269,6 +277,8 @@ processor.js dispatches → registry → validator.js runs Zod parse → handler
 ```
 
 Community capabilities go through identical validation. Origin (core vs community) has no effect on runtime behaviour. A broken capability cannot crash the system — each handler runs in an isolated try-catch boundary.
+
+**Community override of core skills:** A community capability with the same `name` as a built-in core skill overrides it at load time. The core skill's `onUnload` lifecycle hook is called before deregistration. This lets the community repository ship improved versions of built-ins without patching source.
 
 ## System Contracts
 

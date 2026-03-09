@@ -58,32 +58,6 @@ const EXECUTION_MARKERS = Object.freeze({
 
 const VALID_MARKERS = Object.freeze(Object.values(EXECUTION_MARKERS));
 
-// UI Schema
-
-const UI_SCHEMA_TYPES = Object.freeze({
-    structured: 'structured',
-    interactive: 'interactive',
-    custom: 'custom',
-});
-
-const VALID_UI_SCHEMA_TYPES = Object.freeze(Object.values(UI_SCHEMA_TYPES));
-
-const UI_MODES = Object.freeze({
-    embedded: 'embedded',
-    detached: 'detached',
-});
-
-const VALID_UI_MODES = Object.freeze(Object.values(UI_MODES));
-
-const CONTROL_TYPES = Object.freeze({
-    button: 'button',
-    toggle: 'toggle',
-    slider: 'slider',
-    input: 'input',
-});
-
-const VALID_CONTROL_TYPES = Object.freeze(Object.values(CONTROL_TYPES));
-
 // UI Components
 
 const UI_COMPONENTS = Object.freeze([
@@ -123,7 +97,7 @@ const AGENT_STATES = Object.freeze({
     ABORTED: 'ABORTED',
 });
 
-const VALID_AGENT_STATES = Object.values(AGENT_STATES);
+const VALID_AGENT_STATES = Object.freeze(Object.values(AGENT_STATES));
 
 module.exports = {
     PROTOCOL_VERSION,
@@ -136,12 +110,6 @@ module.exports = {
     VALID_RETURN_TYPES,
     EXECUTION_MARKERS,
     VALID_MARKERS,
-    UI_SCHEMA_TYPES,
-    VALID_UI_SCHEMA_TYPES,
-    UI_MODES,
-    VALID_UI_MODES,
-    CONTROL_TYPES,
-    VALID_CONTROL_TYPES,
     UI_COMPONENTS,
     MEMORY_OPERATIONS,
     VALID_MEMORY_OPERATIONS,

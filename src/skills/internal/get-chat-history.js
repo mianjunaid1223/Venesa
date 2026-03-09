@@ -1,10 +1,3 @@
-/**
- * ═══════════════════════════════════════════════════════════════
- *  SKILL: get-chat-history
- *  Retrieve the recent conversational context on demand.
- * ═══════════════════════════════════════════════════════════════
- */
-
 const { z } = require('zod');
 const memory = require('../../brain/memory');
 

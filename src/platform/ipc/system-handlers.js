@@ -16,15 +16,21 @@ function register(deps) {
     startWakeWord,
   } = deps;
 
+  let wakeWordActive = false;
+
   function applyWakeWordPatch(patch) {
     if (patch.wakeWordEnabled === undefined) return;
     const voiceWin = require("../windows/voice-window");
     const voiceHandlers = require("./voice-handlers");
     const bgWin = require("../windows/background-window").getWindow();
     if (patch.wakeWordEnabled) {
-      startWakeWord(voiceWin.showVoiceWindow, voiceHandlers.captureScreenForVoice);
+      if (!wakeWordActive) {
+        startWakeWord(voiceWin.showVoiceWindow, voiceHandlers.captureScreenForVoice);
+        wakeWordActive = true;
+      }
       if (bgWin && !bgWin.isDestroyed()) bgWin.webContents.send("resume-detection");
     } else {
+      wakeWordActive = false;
       if (bgWin && !bgWin.isDestroyed()) bgWin.webContents.send("pause-detection");
     }
   }
@@ -69,9 +75,10 @@ function register(deps) {
         const voiceWin = require("../windows/voice-window");
         const voiceHandlers = require("./voice-handlers");
         await Promise.resolve(createMainWindow());
-        sttService.initialize();
-        if (settings.load().wakeWordEnabled) {
+        sttService.initialize().catch(err => logger.error(`[system-handlers] STT initialization error: ${err.message}`));
+        if (settings.load().wakeWordEnabled && !wakeWordActive) {
           startWakeWord(voiceWin.showVoiceWindow, voiceHandlers.captureScreenForVoice);
+          wakeWordActive = true;
         }
         destroySetupWindow();
       }
