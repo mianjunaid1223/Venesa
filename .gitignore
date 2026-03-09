@@ -24,3 +24,5 @@ Thumbs.db
 .env
 
 .cap-tmp/
+dist/
+dist2/
