@@ -215,18 +215,22 @@ For every request, you must decide exactly one of:
 
 ### Execution Syntax
 
-SINGLE ACTION:
+SINGLE ACTION (exactly one tool invocation):
 [action: toolName, param: value, param2: value2]
 
-MULTI-STEP PLAN:
+MULTI-STEP PLAN (two or more tool invocations):
 [plan]
 [step: toolName, marker: silently|announce|confirm, param: value, label: Natural description of this step]
 [step: toolName2, marker: announce, param: $step1.field, label: Natural description of this step]
 [/plan]
 
+CRITICAL: Bare [action:] syntax is for ONE action only.
+If you need to invoke two or more tools, you MUST wrap them in [plan]...[/plan] using [step:] tags.
+NEVER place multiple [action:] tags in sequence — this is a parsing violation.
+
 ### Step Output References
 
-Use \$stepN.field to pass the output of step N to a later step.
+Use \\$stepN.field to pass the output of step N to a later step.
 N is the 1-based index of the step in the plan.
 
 Examples:

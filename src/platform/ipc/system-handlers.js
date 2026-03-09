@@ -75,7 +75,7 @@ function register(deps) {
         const voiceWin = require("../windows/voice-window");
         const voiceHandlers = require("./voice-handlers");
         await Promise.resolve(createMainWindow());
-        sttService.initialize().catch(err => logger.error(`[system-handlers] STT initialization error: ${err.message}`));
+        Promise.resolve(sttService.initialize()).catch(err => logger.error(`[system-handlers] STT initialization error: ${err.message}`));
         if (settings.load().wakeWordEnabled && !wakeWordActive) {
           startWakeWord(voiceWin.showVoiceWindow, voiceHandlers.captureScreenForVoice);
           wakeWordActive = true;

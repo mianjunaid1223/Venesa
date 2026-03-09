@@ -16,7 +16,7 @@ function unwrapMemoryEnvelope(resolved) {
     if (parsed && typeof parsed === "object" && "value" in parsed) {
       return parsed.value;
     }
-  } catch {}
+  } catch { }
   return resolved;
 }
 
@@ -100,9 +100,14 @@ function parseActionsStrict(text) {
       } else if (char === "\\") {
         isEscaped = true;
       } else if (char === '"' || char === "'") {
+
         if (!inQuotes) {
-          inQuotes = true;
-          quoteChar = char;
+          const prev = j > 0 ? text[j - 1] : "";
+          const isAfterDelimiter = prev === ":" || prev === "," || prev === "[" || prev === " " || prev === "\t";
+          if (isAfterDelimiter) {
+            inQuotes = true;
+            quoteChar = char;
+          }
         } else if (quoteChar === char) {
           inQuotes = false;
         }
@@ -186,10 +191,18 @@ function parseActionsStrict(text) {
             currentVal += c;
           }
         } else if (!inStr && pBracketDepth === 0 && c === ",") {
-          if (currentKey.trim()) params[currentKey.trim()] = currentVal.trim();
-          currentKey = "";
-          currentVal = "";
-          readingKey = true;
+
+          const rest = pStr.substring(k + 1);
+          const hasNextKey = /^\s*\w+\s*:/.test(rest);
+          if (hasNextKey) {
+            if (currentKey.trim()) params[currentKey.trim()] = currentVal.trim();
+            currentKey = "";
+            currentVal = "";
+            readingKey = true;
+          } else {
+            if (readingKey) currentKey += c;
+            else currentVal += c;
+          }
         } else {
           if (readingKey) currentKey += c;
           else currentVal += c;

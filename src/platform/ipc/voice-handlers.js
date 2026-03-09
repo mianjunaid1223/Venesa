@@ -110,7 +110,7 @@ function sendStatus(event, stage) {
 }
 
 function register(getVoiceWindow, hideVoiceWindow) {
-  ipcMain.on("voice-window-ready", () => {});
+  ipcMain.on("voice-window-ready", () => { });
 
   ipcMain.on("close-voice-window", () => {
     hideVoiceWindow();
@@ -189,8 +189,8 @@ function register(getVoiceWindow, hideVoiceWindow) {
                   : res.result;
               const hasItems =
                 (searchResultData.apps?.length || 0) +
-                  (searchResultData.files?.length || 0) +
-                  (searchResultData.folders?.length || 0) >
+                (searchResultData.files?.length || 0) +
+                (searchResultData.folders?.length || 0) >
                 0;
               if (hasItems) hasSearchResults = true;
             } catch (e) {
@@ -202,10 +202,16 @@ function register(getVoiceWindow, hideVoiceWindow) {
 
         // For data-returning skills, do a second LLM pass to verbalize the result naturally.
         // The first pass only emits the action — the result isn't known until after execution.
+        // Suppress the initial [speak] text — only speak after data is received and verbalized.
         const dataResults = results.filter(
-          (r) => r.returnType === "data" && (r.result !== undefined || r.error),
+          (r) => (
+            r.returnType === "data" ||
+            (r.returnType === "memory" && r.actionName === "getMemory")
+          ) && (r.result !== undefined || r.error),
         );
         if (dataResults.length > 0) {
+          // Clear anticipatory speak text — we only want the verbalized data response
+          finalResponse = "";
           try {
             const resultContext = dataResults
               .map((r) => {
@@ -252,6 +258,8 @@ Present this data naturally. Rules:
             }
           } catch (verbalErr) {
             logger.warn(`[voice] Verbalization pass failed: ${verbalErr.message}`);
+            // Fallback — don't leak the anticipatory text
+            finalResponse = "I couldn't retrieve that information right now.";
           }
         }
       }

@@ -38,9 +38,14 @@ function register() {
 
             if (results && results.length > 0) {
                 const dataResults = results.filter(
-                    (r) => r.returnType === 'data' && (r.result !== undefined || r.error),
+                    (r) => (
+                        r.returnType === 'data' ||
+                        (r.returnType === 'memory' && r.actionName === 'getMemory')
+                    ) && (r.result !== undefined || r.error),
                 );
                 if (dataResults.length > 0) {
+                    // Clear anticipatory text — only respond with the verbalized data
+                    textResponse = "";
                     try {
                         const resultContext = dataResults
                             .map((r) => {
@@ -85,6 +90,8 @@ Present this data naturally. Rules:
                         }
                     } catch (verbalErr) {
                         logger.warn(`[query] Verbalization pass failed: ${verbalErr.message}`);
+                        // Fallback — don't leak the anticipatory text
+                        textResponse = "I couldn't retrieve that information right now.";
                     }
                 }
             }

@@ -4,7 +4,7 @@
     "productName": "Venesa",
     "copyright": "Copyright © 2026 Mian Junaid - MIT License",
     "directories": {
-        "output": "dist",
+        "output": "dist2",
         "buildResources": "build"
     },
     "files": [

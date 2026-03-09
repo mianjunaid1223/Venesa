@@ -14,11 +14,12 @@ function createSetupWindow() {
     if (setupWindow && !setupWindow.isDestroyed()) return setupWindow;
 
     setupWindow = new BrowserWindow({
-        width: 420,
-        height: 550,
+        width: 460,
+        height: 630,
         frame: false,
         transparent: false,
-        backgroundColor: '#e7e7fb',
+        backgroundColor: '#000000',
+        backgroundMaterial: 'acrylic',
         resizable: false,
         minimizable: false,
         maximizable: false,

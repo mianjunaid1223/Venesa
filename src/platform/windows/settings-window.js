@@ -50,6 +50,19 @@ function create() {
         settingsWindow.show();
     });
 
+    // Re-apply acrylic after fullscreen / maximize state changes (Windows drops the effect)
+    const reapplyAcrylic = () => {
+        if (settingsWindow && !settingsWindow.isDestroyed()) {
+            settingsWindow.setBackgroundMaterial('none');
+            settingsWindow.setBackgroundMaterial('acrylic');
+        }
+    };
+    settingsWindow.on('maximize', reapplyAcrylic);
+    settingsWindow.on('unmaximize', reapplyAcrylic);
+    settingsWindow.on('enter-full-screen', reapplyAcrylic);
+    settingsWindow.on('leave-full-screen', reapplyAcrylic);
+    settingsWindow.on('restore', reapplyAcrylic);
+
     settingsWindow.on('closed', () => {
         settingsWindow = null;
     });
