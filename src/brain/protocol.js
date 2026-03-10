@@ -86,18 +86,7 @@ const LIFECYCLE_HOOKS = Object.freeze([
     'onDisable',
 ]);
 
-// Agent States
 
-const AGENT_STATES = Object.freeze({
-    PENDING: 'PENDING',
-    RUNNING: 'RUNNING',
-    PAUSED: 'PAUSED',
-    COMPLETED: 'COMPLETED',
-    FAILED: 'FAILED',
-    ABORTED: 'ABORTED',
-});
-
-const VALID_AGENT_STATES = Object.freeze(Object.values(AGENT_STATES));
 
 module.exports = {
     PROTOCOL_VERSION,
@@ -114,7 +103,6 @@ module.exports = {
     MEMORY_OPERATIONS,
     VALID_MEMORY_OPERATIONS,
     LIFECYCLE_HOOKS,
-    AGENT_STATES,
-    VALID_AGENT_STATES,
+
 };
 

@@ -25,9 +25,9 @@
 
 ## What is Venesa?
 
-Venesa is a desktop AI assistant for Windows built on a fundamentally different premise than most voice assistants or chatbots. It does not treat the AI as a conversational interface — it treats the AI as an **execution engine**. When you ask Venesa to do something, the language model formulates a structured plan and the platform executes it as real system operations: launching apps, managing files, controlling settings, running scripts, and more.
+Venesa is a desktop AI assistant for Windows built on a fundamentally different premise than most voice assistants or chatbots. It does not treat the AI as a conversational interface - it treats the AI as an **execution engine**. When you ask Venesa to do something, the language model formulates a structured plan and the platform executes it as real system operations: launching apps, managing files, controlling settings, running scripts, and more.
 
-The result is an assistant that can take a complex, loosely-worded request and carry it out end-to-end — autonomously, silently, or with confirmation steps where appropriate — without you needing to specify every instruction manually.
+The result is an assistant that can take a complex, loosely-worded request and carry it out end-to-end - autonomously, silently, or with confirmation steps where appropriate - without you needing to specify every instruction manually.
 
 You interact with Venesa by voice (wake word or push-to-talk) or through the text interface. The assistant remembers your preferences and context across sessions, so it gets more useful the more you use it.
 
@@ -51,7 +51,7 @@ Venesa ships with a full set of built-in capabilities covering common Windows op
 
 ### Multi-Step Workflows
 
-Where Venesa stands apart is in orchestration. Rather than executing one command at a time, it can decompose a single request into a serialized sequence of steps — a plan — and execute them in order, passing results between steps automatically.
+Where Venesa stands apart is in orchestration. Rather than executing one command at a time, it can decompose a single request into a serialized sequence of steps - a plan - and execute them in order, passing results between steps automatically.
 
 Examples of what this enables:
 
@@ -63,33 +63,33 @@ Examples of what this enables:
 
 > "Find all PDF files modified in the last week and list them out."
 
-Each step in a plan carries a visibility marker — it can run silently in the background, announce its result, or pause and ask for your confirmation before proceeding. This gives you fine-grained control over how automated the assistant behaves for any given action.
+Each step in a plan carries a visibility marker - it can run silently in the background, announce its result, or pause and ask for your confirmation before proceeding. This gives you fine-grained control over how automated the assistant behaves for any given action.
 
 ### Voice Interaction
 
-Venesa runs a continuous, offline wake-word listener using the Vosk speech model. When the wake phrase is detected, it captures your speech, transcribes it via ElevenLabs Scribe, sends it through the reasoning engine, and responds through a floating voice overlay — speaking the response aloud with ElevenLabs Flash v2.5 synthesis. The voice overlay is always-on-top and unobtrusive.
+Venesa runs a continuous, offline wake-word listener using the Vosk speech model. When the wake phrase is detected, it captures your speech, transcribes it via ElevenLabs Scribe, sends it through the reasoning engine, and responds through a floating voice overlay - speaking the response aloud with ElevenLabs Flash v2.5 synthesis. The voice overlay is always-on-top and unobtrusive.
 
 The wake word, voice style, and speech behavior are all configurable.
 
 ### Persistent Memory
 
-Every interaction can write to named memory buckets — preferences, aliases, reminders, and conversation history — that are injected into the AI's context on every subsequent query. Venesa remembers your name, your preferences, custom command aliases, and anything else you tell it to keep. There is no cloud sync; everything is stored locally in `%USERPROFILE%\.venesa\memory.json`.
+Every interaction can write to named memory buckets - preferences, aliases, reminders, and conversation history - that are injected into the AI's context on every subsequent query. Venesa remembers your name, your preferences, custom command aliases, and anything else you tell it to keep. There is no cloud sync; everything is stored locally in `%USERPROFILE%\.venesa\memory.json`.
 
 ### Dynamic Interfaces
 
-When a query warrants structured output — a list of running processes, disk usage, network adapters, installed apps — the AI renders it as a formatted UI element directly in the interface: tables, key-value grids, card lists, or command lists. The layout is determined by the response content, not hardcoded.
+When a query warrants structured output - a list of running processes, disk usage, network adapters, installed apps - the AI renders it as a formatted UI element directly in the interface: tables, key-value grids, card lists, or command lists. The layout is determined by the response content, not hardcoded.
 
 ---
 
 ## Flexibility: The Capability System
 
-Venesa's built-in features are only the starting point. The platform is designed to be extended with **capabilities** — single JavaScript files that give the AI a new skill. Once a capability is installed, it becomes part of the AI's tool chain and can be invoked by name in any query or as a step in a plan.
+Venesa's built-in features are only the starting point. The platform is designed to be extended with **capabilities** - single JavaScript files that give the AI a new skill. Once a capability is installed, it becomes part of the AI's tool chain and can be invoked by name in any query or as a step in a plan.
 
 ### How Capabilities Work
 
 A capability is a CommonJS module that exports an object describing a skill: its name, a description that gets injected into the AI's system prompt so the model knows when to use it, a Zod schema for parameter validation, and an async handler that performs the actual work.
 
-When the AI decides to use a capability, the platform validates the parameters against the schema and calls the handler. Errors are isolated — a broken capability cannot take down the rest of the system.
+When the AI decides to use a capability, the platform validates the parameters against the schema and calls the handler. Errors are isolated - a broken capability cannot take down the rest of the system.
 
 Capabilities can return data for the AI to reason about further, trigger UI renders, write to memory, perform system actions, or do a combination of all of these.
 
@@ -166,7 +166,7 @@ There are two ways to contribute to Venesa:
 
 ### 1. Contribute to the Platform
 
-If you want to improve the core assistant — fix bugs, improve orchestration, extend the speech pipeline, add new built-in capabilities, or improve the UI — open a pull request on this repository.
+If you want to improve the core assistant - fix bugs, improve orchestration, extend the speech pipeline, add new built-in capabilities, or improve the UI - open a pull request on this repository.
 
 Before contributing, read [ARCHITECTURE.md](ARCHITECTURE.md) to understand the execution pipeline and module responsibilities, and [standards.md](standards.md) for code conventions, capability schema rules, and security requirements. All contributions must conform to the unified protocol standard described there.
 
@@ -184,7 +184,7 @@ const { z } = require("zod");
 module.exports = {
   name: "myCapability",
   description:
-    "Describe what this does — the AI reads this to decide when to use it.",
+    "Describe what this does - the AI reads this to decide when to use it.",
   returnType: "action", // data | action | ui | memory | hybrid
   marker: "announce", // silently | announce | confirm
   schema: z.object({
@@ -196,7 +196,7 @@ module.exports = {
 };
 ```
 
-Full specification — schema options, return types, lifecycle hooks, UI rendering hints — is documented in the [venesa-capabilities](https://github.com/mianjunaid1223/venesa-capabilities) repository. The same rules apply whether a capability is built-in or community-contributed.
+Full specification - schema options, return types, lifecycle hooks, UI rendering hints - is documented in the [venesa-capabilities](https://github.com/mianjunaid1223/venesa-capabilities) repository. The same rules apply whether a capability is built-in or community-contributed.
 
 ---
 

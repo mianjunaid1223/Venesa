@@ -55,7 +55,9 @@ async function initializeAPI() {
 
 function needsSetup() {
   const fs = require("fs");
-  return !keyPool.hasKeys("gemini") || !fs.existsSync(settings.SETTINGS_PATH);
+  // Only check if the user has completed onboarding (settings.json exists).
+  // API keys can be added later via Settings — don't force the setup loop.
+  return !fs.existsSync(settings.SETTINGS_PATH);
 }
 
 function getModel(mode = "text") {

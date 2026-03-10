@@ -9,9 +9,30 @@ const {
 } = require("electron");
 const path = require("path");
 
+const fs = require("fs");
+const os = require("os");
+
 let envPath;
 if (app.isPackaged) {
-  envPath = path.join(process.resourcesPath, ".env");
+  // Production: use ~/.venesa/.env (user-writable).
+  // On first run, seed it from the bundled .env so any defaults carry over.
+  const venesaDir = path.join(os.homedir(), ".venesa");
+  envPath = path.join(venesaDir, ".env");
+  try {
+    if (!fs.existsSync(venesaDir)) fs.mkdirSync(venesaDir, { recursive: true });
+    if (!fs.existsSync(envPath)) {
+      const bundled = path.join(process.resourcesPath, ".env");
+      if (fs.existsSync(bundled)) {
+        fs.copyFileSync(bundled, envPath);
+      } else {
+        // Create an empty .env so key-store can write to it later
+        fs.writeFileSync(envPath, "");
+      }
+    }
+  } catch (e) {
+    // Non-fatal: dotenv will just see an empty env
+    console.error("Failed to bootstrap .env:", e.message);
+  }
 } else {
   envPath = path.join(__dirname, "../../.env");
 }
@@ -20,7 +41,6 @@ app.commandLine.appendSwitch("autoplay-policy", "no-user-gesture-required");
 app.commandLine.appendSwitch("disable-gpu-cache");
 app.commandLine.appendSwitch("disable-http-cache");
 
-const fs = require("fs");
 const llm = require("../brain/llm");
 const logger = require("../lib/logger");
 const sttService = require("./speech/stt");
@@ -215,7 +235,13 @@ app.whenReady().then(async () => {
     // so the 20-40s WASM model load overlaps with the rest of startup.
     startWakeWord();
 
-    await llm.initializeAPI();
+    try {
+      await llm.initializeAPI();
+    } catch (e) {
+      // Non-fatal: user may not have API keys yet (skipped during setup).
+      // The main window still opens so they can add keys via Settings.
+      logger.error(`[Main] initializeAPI failed: ${e.message}`);
+    }
     createMainWindow();
     sttService.initialize();
   }
@@ -281,7 +307,7 @@ app.whenReady().then(async () => {
   });
 });
 
-app.on("window-all-closed", () => {});
+app.on("window-all-closed", () => { });
 
 app.on("before-quit", () => {
   trayManager.destroyTray();

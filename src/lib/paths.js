@@ -34,6 +34,11 @@ function getAssetsPath() {
 }
 
 function getEnvPath() {
+    if (isPackaged()) {
+        // In production, store .env in ~/.venesa/ (user-writable).
+        // The install directory (process.resourcesPath) is often read-only.
+        return path.join(getVenesaDir(), '.env');
+    }
     return path.join(getResourcesPath(), '.env');
 }
 
