@@ -58,34 +58,34 @@ module.exports = {
     },
   ],
 
-    async handler(params) {
-        const saveDir = params && params.savePath ? params.savePath : DEFAULT_SAVE_DIR;
+  async handler(params) {
+    const saveDir = params && params.savePath ? params.savePath : DEFAULT_SAVE_DIR;
 
-        const filename = params && params.filename ? params.filename : `screenshot_${Date.now()}.png`;
+    const filename = params && params.filename ? params.filename : `screenshot_${Date.now()}.png`;
 
-        try {
-            if (!fs.existsSync(saveDir)) fs.mkdirSync(saveDir, { recursive: true });
-        } catch (err) {
-            return JSON.stringify({ error: `Failed to create screenshot directory: ${err?.message ?? String(err)}` });
-        }
+    try {
+      if (!fs.existsSync(saveDir)) fs.mkdirSync(saveDir, { recursive: true });
+    } catch (err) {
+      return JSON.stringify({ error: `Failed to create screenshot directory: ${err?.message ?? String(err)}` });
+    }
 
-        const screenshotPath = path.join(saveDir, filename);
-        const openWith = params && params.openWith ? params.openWith.trim() : null;
+    const screenshotPath = path.join(saveDir, filename);
+    const openWith = params && params.openWith ? params.openWith.trim() : null;
 
-        let voiceWin = null;
-        try {
-            const { BrowserWindow } = require('electron');
-            voiceWin = BrowserWindow.getAllWindows().find(
-                w => !w.isDestroyed() && w.isVisible() && w.getTitle() === 'Venesa'
-            ) || null;
-            if (voiceWin) voiceWin.setOpacity(0);
-        } catch (e) {
-            logger.warn(`[screenshot] Could not hide voice window: ${e?.message}`);
-        }
+    let voiceWin = null;
+    try {
+      const { BrowserWindow } = require('electron');
+      voiceWin = BrowserWindow.getAllWindows().find(
+        w => !w.isDestroyed() && w.isVisible() && w.getTitle() === 'Venesa'
+      ) || null;
+      if (voiceWin) voiceWin.setOpacity(0);
+    } catch (e) {
+      logger.warn(`[screenshot] Could not hide voice window: ${e?.message}`);
+    }
 
-        await new Promise(r => setTimeout(r, 200));
+    await new Promise(r => setTimeout(r, 200));
 
-        const psScript = `
+    const captureScript = `
 param($SafePath)
 Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
@@ -100,52 +100,37 @@ $graphics = [System.Drawing.Graphics]::FromImage($bitmap)
 $graphics.CopyFromScreen($left, $top, 0, 0, (New-Object System.Drawing.Size($width, $height)))
 
 $bitmap.Save($SafePath, [System.Drawing.Imaging.ImageFormat]::Png)
-try { [System.Windows.Forms.Clipboard]::SetText($SafePath) } catch { }
-
-$clipSuccess = $false
-try {
-    $bitmapClone = $bitmap.Clone()
-    $thread = New-Object System.Threading.Thread([System.Threading.ThreadStart]{
-        try {
-            [System.Windows.Forms.Clipboard]::SetImage($bitmapClone)
-            $script:clipSuccess = $true
-            $bitmapClone.Dispose()
-        } catch {
-            $script:clipSuccess = $false
-            try { $bitmapClone.Dispose() } catch { }
-        }
-    })
-    $thread.SetApartmentState([System.Threading.ApartmentState]::STA)
-    $thread.Start()
-    $joined = $thread.Join(5000)
-    if (-not $joined) { $clipSuccess = $false }
-} catch {
-    $clipSuccess = $false
-}
 $graphics.Dispose()
 $bitmap.Dispose()
 
-@{ success = $true; path = $SafePath; clipboard = $clipSuccess } | ConvertTo-Json -Compress
+try { [System.Windows.Forms.Clipboard]::SetText($SafePath) } catch { }
+
+@{ success = $true; path = $SafePath } | ConvertTo-Json -Compress
 `;
 
-        let openScript = '';
-        if (openWith) {
-            const safeApp = escapeForPowerShell(openWith);
-            if (openWith === 'default') {
-                openScript = `\nInvoke-Item $SafePath`;
-            } else if (openWith === 'ms-photos:') {
-                openScript = `\n$_photoUri = 'ms-photos:viewer?file=' + [System.Uri]::EscapeDataString('file:///' + $SafePath.Replace('\\', '/'))\nStart-Process $_photoUri`;
-            } else {
-                openScript = `\nStart-Process '${safeApp}' -ArgumentList ([string[]](,$SafePath))`;
-            }
-        }
+    let captureResult;
+    try {
+      captureResult = await runPowerShell(captureScript, [screenshotPath], 20000);
+    } catch (e) {
+      return JSON.stringify({ error: e?.message ?? String(e) });
+    } finally {
+      try { if (voiceWin && !voiceWin.isDestroyed()) voiceWin.setOpacity(1); } catch { }
+    }
 
-        try {
-            return await runPowerShell(psScript + openScript, [screenshotPath], 15000);
-        } catch (e) {
-            return JSON.stringify({ error: e?.message ?? String(e) });
-        } finally {
-            try { if (voiceWin && !voiceWin.isDestroyed()) voiceWin.setOpacity(1); } catch {}
-        }
-    },
+    // ── Step 2: Open with requested app (fire-and-forget, separate call) ──
+    if (openWith) {
+      const safeApp = escapeForPowerShell(openWith);
+      let openScript;
+      if (openWith === 'default') {
+        openScript = `param($F); Invoke-Item $F`;
+      } else {
+        openScript = `param($F); try { Start-Process '${safeApp}' -ArgumentList ([string[]](,$F)) -ErrorAction Stop } catch { Invoke-Item $F }`;
+      }
+      runPowerShell(openScript, [screenshotPath], 10000).catch(e => {
+        logger.warn(`[screenshot] openWith failed: ${e?.message}`);
+      });
+    }
+
+    return captureResult;
+  },
 };

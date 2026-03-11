@@ -19,11 +19,12 @@ function getCapDir() {
 }
 
 function getTmpDir() {
-  const dir = path.join(__dirname, "..", "..", ".cap-tmp");
+  const os = require("os");
+  const dir = path.join(os.homedir(), ".venesa", ".cap-tmp");
   if (!fs.existsSync(dir)) {
     try {
       fs.mkdirSync(dir, { recursive: true });
-    } catch {}
+    } catch { }
   }
   return dir;
 }
@@ -146,10 +147,10 @@ async function fetchMetadata(rawUrl) {
   } finally {
     try {
       fs.unlinkSync(tmpFile);
-    } catch {}
+    } catch { }
     try {
       delete require.cache[require.resolve(tmpFile)];
-    } catch {}
+    } catch { }
   }
 
   return {
@@ -214,10 +215,10 @@ async function install(rawUrl, registryFileHash) {
   } finally {
     try {
       fs.unlinkSync(tmpFile);
-    } catch {}
+    } catch { }
     try {
       delete require.cache[require.resolve(tmpFile)];
-    } catch {}
+    } catch { }
   }
 
   const result = validate(exported, rawUrl);
@@ -362,10 +363,10 @@ async function update(capabilityName, rawUrl, registryFileHash) {
   } finally {
     try {
       fs.unlinkSync(tmpFile);
-    } catch {}
+    } catch { }
     try {
       delete require.cache[require.resolve(tmpFile)];
-    } catch {}
+    } catch { }
   }
 
   const result = validate(exported, rawUrl);
@@ -478,7 +479,7 @@ async function uninstall(capabilityName) {
 
     try {
       delete require.cache[require.resolve(filePath)];
-    } catch {}
+    } catch { }
   } catch (e) {
     logger.error(`[capability-installer] Uninstall failed: ${e.message}`);
     return { success: false, error: e.message };

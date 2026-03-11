@@ -40,6 +40,7 @@ function register() {
                 const dataResults = results.filter(
                     (r) => (
                         r.returnType === 'data' ||
+                        r.returnType === 'hybrid' ||
                         (r.returnType === 'memory' && r.actionName === 'getMemory')
                     ) && (r.result !== undefined || r.error),
                 );

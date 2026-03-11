@@ -28,14 +28,30 @@ function unwrapSilentBlocks(text) {
 
 function extractUiBlocks(text) {
   const uiBlocks = [];
-  const regex = /\[ui\]([\s\S]*?)\[\/ui\]/gi;
+  let extractedDirective = null;
+
+  // Match plain [ui]...[/ui] blocks
+  const plainRegex = /\[ui\]([\s\S]*?)\[\/ui\]/gi;
   let match;
-  while ((match = regex.exec(text)) !== null) {
+  while ((match = plainRegex.exec(text)) !== null) {
     const content = match[1].trim();
     if (content) uiBlocks.push(content);
   }
-  const remainder = text.replace(regex, "").trim();
-  return { uiBlocks, remainder };
+  let remainder = text.replace(plainRegex, "");
+
+  // Match combined [ui: directive]...[/ui] blocks (LLM often merges these)
+  const directiveRegex = /\[ui:\s*([\w-]+)\]([\s\S]*?)\[\/ui\]/gi;
+  while ((match = directiveRegex.exec(remainder)) !== null) {
+    if (!extractedDirective) extractedDirective = match[1].trim();
+    const content = match[2].trim();
+    if (content) uiBlocks.push(content);
+  }
+  remainder = remainder.replace(directiveRegex, "");
+
+  // Clean up any stray [/ui] tags left over
+  remainder = remainder.replace(/\[\/ui\]/gi, "").trim();
+
+  return { uiBlocks, remainder, extractedDirective };
 }
 
 function classifyExecutionMode(results, uiBlocks, uiDirective, cleanResponse) {
@@ -45,7 +61,7 @@ function classifyExecutionMode(results, uiBlocks, uiDirective, cleanResponse) {
   }
   if (
     results.length > 0 &&
-    results.every((r) => r.returnType === "data" || r.returnType === "memory")
+    results.every((r) => r.returnType === "data" || r.returnType === "hybrid" || r.returnType === "memory")
   ) {
     return EXECUTION_MODES.data;
   }
@@ -76,13 +92,14 @@ async function processResponse(response) {
 
   const actionableText = unwrapSilentBlocks(remainder);
 
-  const { uiBlocks, remainder: textAfterUi } = extractUiBlocks(actionableText);
+  const { uiBlocks, remainder: textAfterUi, extractedDirective } = extractUiBlocks(actionableText);
 
-  let uiDirective = null;
+  let uiDirective = extractedDirective || null;
   let textForParsing = textAfterUi;
+  // Also check for standalone [ui: directive] (no closing [/ui])
   const uiMatch = textForParsing.match(/\[ui:\s*([\w-]+)\]/i);
   if (uiMatch) {
-    uiDirective = uiMatch[1].trim();
+    if (!uiDirective) uiDirective = uiMatch[1].trim();
     textForParsing = textForParsing.replace(uiMatch[0], "").trim();
   }
 
@@ -96,8 +113,10 @@ async function processResponse(response) {
       cleanResponse = response
         .replace(/\[action:[^\]]*\]/gi, "")
         .replace(/\[plan\](.|[\n\r])*?\[\/plan\]/gi, "")
+        .replace(/\[ui:\s*[\w-]+\][\s\S]*?\[\/ui\]/gi, "")
         .replace(/\[ui:[^\]]*\]/gi, "")
         .replace(/\[ui\][\s\S]*?\[\/ui\]/gi, "")
+        .replace(/\[\/ui\]/gi, "")
         .replace(/\[silent\]([\s\S]*?)\[\/silent\]/gi, "")
         .replace(/\[speak\]([\s\S]*?)\[\/speak\]/gi, "$1")
         .trim();
@@ -149,8 +168,10 @@ async function processResponse(response) {
   } else {
     cleanResponse = response
       .replace(/\[action:[^\]]*\]/gi, "")
+      .replace(/\[ui:\s*[\w-]+\][\s\S]*?\[\/ui\]/gi, "")
       .replace(/\[ui:[^\]]*\]/gi, "")
       .replace(/\[ui\][\s\S]*?\[\/ui\]/gi, "")
+      .replace(/\[\/ui\]/gi, "")
       .replace(/\[silent\]([\s\S]*?)\[\/silent\]/gi, "")
       .replace(/\[speak\]([\s\S]*?)\[\/speak\]/gi, "$1")
       .trim();
