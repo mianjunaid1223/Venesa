@@ -92,7 +92,7 @@ SINGLE ACTION:
 MULTI-STEP PLAN:
 [plan]
 [step: toolName, marker: silently|announce|confirm, param: value, label: Natural description]
-[step: toolName2, marker: announce, param: $toolName, label: Natural description]
+[step: toolName2, marker: announce, param: $step1.field, label: Natural description]
 [/plan]
 ```
 
@@ -170,8 +170,8 @@ src/
 │   │                            #   resolveStepRefs: null-output detection - throws clear error when a
 │   │                            #   referenced step failed, distinct from a genuinely missing field
 │   ├── system-prompt.js         # Builds LLM context from memory + skill registry
-│   │                            #   Governance v2.0: role, execution contract, refusal contract,
-│   │                            #   UI contract, memory contract, decomposition rules
+│   │                            #   Identity, personality, protocol, orchestration guide,
+│   │                            #   token system, internal tools, refusal rules
 │   ├── memory.js                # Named-bucket key-value store persisted to disk (~/.venesa/memory/)
 │   │                            #   mutate(): explicit mutation contract API
 │   ├── services.config.js       # Third-party service configuration (ElevenLabs, Gemini)
@@ -212,6 +212,7 @@ src/
 │
 ├── platform/                    # Electron main-process bindings
 │   ├── main.js                  # App bootstrap: windows, global shortcuts, tray, protocol
+│   │                            #   Single-instance lock (requestSingleInstanceLock)
 │   │                            #   venesa-asset:// custom protocol for asset loading
 │   │                            #   Alt+Space global shortcut; auto-login settings
 │   │                            #   Validates venesa.standard.json on startup

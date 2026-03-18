@@ -112,7 +112,10 @@ async function processResponse(response) {
     } else {
       cleanResponse = response
         .replace(/\[action:[^\]]*\]/gi, "")
+        .replace(/\[step:[^\]]*\]/gi, "")
         .replace(/\[plan\](.|[\n\r])*?\[\/plan\]/gi, "")
+        .replace(/\[plan\]/gi, "")
+        .replace(/\[\/plan\]/gi, "")
         .replace(/\[ui:\s*[\w-]+\][\s\S]*?\[\/ui\]/gi, "")
         .replace(/\[ui:[^\]]*\]/gi, "")
         .replace(/\[ui\][\s\S]*?\[\/ui\]/gi, "")
@@ -123,6 +126,9 @@ async function processResponse(response) {
 
       if (cleanResponse.includes("[action:")) {
         cleanResponse = cleanResponse.split("[action:")[0].trim();
+      }
+      if (cleanResponse.includes("[step:")) {
+        cleanResponse = cleanResponse.split("[step:")[0].trim();
       }
     }
 
@@ -168,6 +174,9 @@ async function processResponse(response) {
   } else {
     cleanResponse = response
       .replace(/\[action:[^\]]*\]/gi, "")
+      .replace(/\[step:[^\]]*\]/gi, "")
+      .replace(/\[plan\]/gi, "")
+      .replace(/\[\/plan\]/gi, "")
       .replace(/\[ui:\s*[\w-]+\][\s\S]*?\[\/ui\]/gi, "")
       .replace(/\[ui:[^\]]*\]/gi, "")
       .replace(/\[ui\][\s\S]*?\[\/ui\]/gi, "")

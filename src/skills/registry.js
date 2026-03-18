@@ -212,7 +212,8 @@ Rules:
 - Batch operations (same tool, N items) → one [step:] per item inside a [plan].
 - Data tools (returnType: data) → result is verbalized by the platform after execution.
 - Action tools (returnType: action) → speak what you are about to do, not the outcome.
-- When a search returns multiple results, present them to the user and ask which one to open. Do NOT auto-open the first result unless the user explicitly asked for the first one.`;
+- For search requests: ALWAYS emit the action tag immediately. Never ask "what do you want to search for?"
+- When a search returns multiple results AND the user wanted to open one, present the list. Otherwise just show the results.`;
 
     return output;
 }

@@ -41,6 +41,15 @@ app.commandLine.appendSwitch("autoplay-policy", "no-user-gesture-required");
 app.commandLine.appendSwitch("disable-gpu-cache");
 app.commandLine.appendSwitch("disable-http-cache");
 
+const gotTheLock = app.requestSingleInstanceLock();
+
+if (!gotTheLock) {
+
+  app.quit();
+  return;
+}
+
+
 const llm = require("../brain/llm");
 const logger = require("../lib/logger");
 const sttService = require("./speech/stt");
@@ -59,6 +68,16 @@ const actionHandlers = require("./ipc/action-handlers");
 const trayManager = require("./tray");
 const connectivity = require("../lib/connectivity");
 
+// When a second instance is launched, focus the existing main window.
+app.on("second-instance", () => {
+  const mw = mainWin.getWindow();
+  if (mw && !mw.isDestroyed()) {
+    if (mw.isMinimized()) mw.restore();
+    mw.show();
+    mw.focus();
+  }
+});
+
 // Assign a unique session ID for this runtime instance so tokens like
 // {{runtime.session_id}} resolve consistently within one session.
 global.__venesa_session_id = `session_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
@@ -67,7 +86,6 @@ function validateStandard() {
   try {
     const standard = require("../../venesa.standard.json");
     const { PROTOCOL_VERSION } = require("../brain/protocol");
-    const pkg = require("../../package.json");
 
     const errors = [];
     if (standard.compatibility?.protocolVersion && standard.compatibility.protocolVersion !== PROTOCOL_VERSION) {
