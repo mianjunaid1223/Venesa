@@ -1,6 +1,6 @@
 # Venesa Standards
 
-**Governance:** Venesa Governance & Execution Contract v2.0
+**Governance:** Venesa Governance & Execution Contract v2.1
 **Protocol Version:** 2.0
 
 ## Foundational Rules

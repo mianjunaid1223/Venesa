@@ -202,9 +202,8 @@ Step that uses output from a previous step:
   [step: toolB, marker: announce, paramA: $step1.field, label: Use the fetched data]
   [/plan]
 
-searchFiles output format (use $stepN references accordingly):
+searchFiles output format (the platform renders results for user selection):
   { files: [{name, path}, ...], folders: [{name, path}, ...] }
-  Example: $step1.files[0].path  or  $step1.folders[0].path
 
 Rules:
 - Match tool to intent. If intent is clear, act immediately — never ask for clarification.
@@ -213,7 +212,7 @@ Rules:
 - Data tools (returnType: data) → result is verbalized by the platform after execution.
 - Action tools (returnType: action) → speak what you are about to do, not the outcome.
 - For search requests: ALWAYS emit the action tag immediately. Never ask "what do you want to search for?"
-- When a search returns multiple results AND the user wanted to open one, present the list. Otherwise just show the results.`;
+- searchFiles is ALWAYS a standalone [action:]. NEVER combine it with openFile in a [plan]. The platform presents results and the user selects.`;
 
     return output;
 }

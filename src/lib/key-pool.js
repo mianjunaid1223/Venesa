@@ -29,6 +29,7 @@ let initialized = false;
  * silently promoted to primary/candidate.
  */
 let keysLoaded = false;
+let _autoInitStarted = false;
 
 function loadKeysFromEnv() {
   if (!fs.existsSync(ENV_PATH)) return;
@@ -246,7 +247,36 @@ async function initialize() {
 function getNextKey(service) {
   if (!service || typeof service !== "string") return null;
   if (!initialized) {
-    logger.warn("Key pool not initialized");
+    // Keys may have been loaded from .env by hasKeys() but full network
+    // validation hasn't run.  Fall back to loaded keys so callers like
+    // tts.transcribe() don't fail with "No ElevenLabs API key available"
+    // in bundled apps where llm.initializeAPI() is slow or has errored.
+    const svc = service.toLowerCase();
+    const s = pool[svc];
+    if (s && s.keys.length > 0) {
+      logger.warn(`[KeyPool] Pool not initialized — using unvalidated ${svc} key`);
+      // Kick off background initialization so subsequent calls are fully validated
+      if (!_autoInitStarted) {
+        _autoInitStarted = true;
+        initialize().catch(e => logger.warn(`[KeyPool] Auto-init failed: ${e.message}`));
+      }
+      return s.primary || s.keys[0];
+    }
+    // Try loading from .env in case hasKeys() was never called
+    if (!keysLoaded) {
+      loadKeysFromEnv();
+      keysLoaded = true;
+      const s2 = pool[svc];
+      if (s2 && s2.keys.length > 0) {
+        logger.warn(`[KeyPool] Pool not initialized — loaded and using unvalidated ${svc} key`);
+        if (!_autoInitStarted) {
+          _autoInitStarted = true;
+          initialize().catch(e => logger.warn(`[KeyPool] Auto-init failed: ${e.message}`));
+        }
+        return s2.keys[0];
+      }
+    }
+    logger.warn("Key pool not initialized and no keys loaded");
     return null;
   }
   service = service.toLowerCase();
@@ -396,6 +426,7 @@ function getStats() {
 function invalidate() {
   initialized = false;
   keysLoaded = false;
+  _autoInitStarted = false;
   pool.gemini.keys = [];
   pool.gemini.primary = null;
   pool.gemini.candidate = null;

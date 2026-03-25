@@ -249,15 +249,18 @@ app.whenReady().then(async () => {
   if (llm.needsSetup()) {
     setupWin.createSetupWindow();
   } else {
-    // Start background window (Vosk) immediately in parallel with LLM init
-    // so the 20-40s WASM model load overlaps with the rest of startup.
+
     startWakeWord();
+
+
+    try { voiceWin.ensureReady(); } catch (e) {
+      logger.error(`[Main] voiceWin.ensureReady failed: ${e.message}`);
+    }
 
     try {
       await llm.initializeAPI();
     } catch (e) {
-      // Non-fatal: user may not have API keys yet (skipped during setup).
-      // The main window still opens so they can add keys via Settings.
+
       logger.error(`[Main] initializeAPI failed: ${e.message}`);
     }
     createMainWindow();

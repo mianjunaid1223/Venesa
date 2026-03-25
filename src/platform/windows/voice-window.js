@@ -78,6 +78,13 @@ function createVoiceWindow() {
     });
 }
 
+
+function ensureReady() {
+    if (voiceWindow && !voiceWindow.isDestroyed()) return;
+    createVoiceWindow();
+    logger.info('[VoiceWindow] Pre-created (hidden) for fast wake-word response');
+}
+
 function showVoiceWindow(closeAllFeatureWindows) {
     if (!voiceWindow || voiceWindow.isDestroyed()) {
         createVoiceWindow();
@@ -163,5 +170,6 @@ module.exports = {
     createVoiceWindow,
     showVoiceWindow,
     hideVoiceWindow,
+    ensureReady,
     getWindow,
 };

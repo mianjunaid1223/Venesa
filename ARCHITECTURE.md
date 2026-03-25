@@ -5,7 +5,7 @@
 Venesa is a **generic execution platform** for Windows built on Electron. The language model is the strategic reasoning layer - it plans. The platform is the execution layer - it validates and runs. No component formats or re-interprets the model's output independently.
 
 **Version:** 2.0.0
-**Governance:** Venesa Governance & Execution Contract v2.0
+**Governance:** Venesa Governance & Execution Contract v2.1
 **Target Platform:** Windows 10 / 11 (x64)
 **Runtime:** Electron 28, Node.js ≥ 18.17.0
 **Primary Model:** Google Gemini 2.5
@@ -158,7 +158,7 @@ Buckets: `preferences` | `context` | `aliases` | `history`
 ```text
 src/
 ├── brain/                       # Intelligence core
-│   ├── protocol.js              # Single source of truth: all protocol constants v2.0
+│   ├── protocol.js              # Single source of truth: all protocol constants v2.1
 │   │                            #   RETURN_TYPES, EXECUTION_MARKERS, EXECUTION_MODES,
 │   │                            #   AI_DECISIONS, MEMORY_OPERATIONS,
 │   │                            #   WORKFLOW_STAGES, LIFECYCLE_HOOKS

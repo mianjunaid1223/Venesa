@@ -57,6 +57,11 @@ function validatePlan(plan) {
     const step = plan.steps[i];
     const priorHasDiscovery = hasDiscovery;
 
+    // Verify skill exists in registry
+    if (!registry.has(step.actionName)) {
+      return { valid: false, error: `Step ${i + 1} uses unknown skill '${step.actionName}'. Only registered tools can be invoked.` };
+    }
+
     for (const [key, value] of Object.entries(step.params)) {
       if (typeof value !== "string") continue;
       const refMatch = value.match(STEP_REF_PATTERN);
