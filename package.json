@@ -1,6 +1,6 @@
 {
   "name": "venesa",
-  "version": "2.0.0",
+  "version": "2.1.0",
   "description": "Venesa — Programmable intelligence platform with typed skill execution, silent deferred processing, and community-powered capability ecosystem",
   "main": "src/platform/main.js",
   "scripts": {
