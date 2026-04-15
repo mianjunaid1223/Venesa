@@ -1,4 +1,7 @@
-const { ipcMain, shell, desktopCapturer, BrowserWindow } = require("electron");
+// IPC Voice Handlers — handles voice-based queries from the renderer.
+// Uses the shared query-pipeline for LLM → process → verbalize logic.
+// Adds voice-specific: TTS, screen capture, search result selection, listen continuation.
+const { ipcMain, shell, desktopCapturer } = require("electron");
 const path = require("path");
 const fs = require("fs");
 const os = require("os");
@@ -6,52 +9,13 @@ const logger = require("../../lib/logger");
 const llm = require("../../brain/llm");
 const processor = require("../../brain/processor");
 const orchestrator = require("../../brain/orchestrator");
-const memory = require("../../brain/memory");
 const ttsService = require("../speech/tts");
 const sttService = require("../speech/stt");
 const uiPipeline = require("../ui-pipeline");
 const connectivity = require("../../lib/connectivity");
+const { executeQuery, dispatchResults } = require("./query-pipeline");
 
 const OFFLINE_SUBTITLE = 'No internet connection. Please check your connection and try again.';
-
-const RESULT_MAX_CHARS = 1500;
-
-/**
- * Returns a compact string representation of a tool result, truncated to
- * RESULT_MAX_CHARS if necessary so LLM prompts stay within safe size limits.
- * @param {*} result  Raw tool result (any type).
- * @param {number} [maxChars]  Override the default character limit.
- * @returns {string}
- */
-function summarizeOrTruncateResult(result, maxChars = RESULT_MAX_CHARS) {
-  const util = require('util');
-  function safeStringify(value) {
-    try {
-      return JSON.stringify(value);
-    } catch {
-      try { return util.inspect(value, { depth: null }); } catch { return '[Unserializable object]'; }
-    }
-  }
-
-  let str;
-  if (typeof result === 'string') {
-    str = result;
-  } else if (Array.isArray(result)) {
-    // Summarise arrays: include item count and first few entries
-    const preview = safeStringify(result.slice(0, 10));
-    str = result.length > 10
-      ? `(${result.length} items) ${preview} … [TRUNCATED]`
-      : safeStringify(result);
-  } else if (result && typeof result === 'object') {
-    str = safeStringify(result);
-  } else {
-    str = String(result);
-  }
-  if (str.length > maxChars) {
-    return str.slice(0, maxChars) + ' … [TRUNCATED]';
-  }
-  return str;
-}
 
 let cachedScreenCapture = null;
 
@@ -62,27 +26,10 @@ let listenContextStack = [];
 function needsVisualContext(query) {
   if (!query) return false;
   const visualKeywords = [
-    "show",
-    "see",
-    "look",
-    "screen",
-    "display",
-    "what is",
-    "what's",
-    "read",
-    "visible",
-    "image",
-    "picture",
-    "window",
-    "find on",
-    "what do you see",
-    "describe",
-    "tell me about",
-    "on my screen",
-    "this",
-    "that",
-    "here",
-    "there",
+    "show", "see", "look", "screen", "display", "what is", "what's",
+    "read", "visible", "image", "picture", "window", "find on",
+    "what do you see", "describe", "tell me about", "on my screen",
+    "this", "that", "here", "there",
   ];
   const lowerQuery = query.toLowerCase().trim();
   return visualKeywords.some((keyword) => lowerQuery.includes(keyword));
@@ -109,6 +56,23 @@ function sendStatus(event, stage) {
   }
 }
 
+/**
+ * Synthesize text to speech and send audio to the voice window.
+ */
+function speakResponse(event, text) {
+  if (!ttsService.isAvailable() || !text || text.length === 0) return;
+  ttsService
+    .synthesizeToDataURL(text)
+    .then((audioDataUrl) => {
+      if (!event.sender.isDestroyed()) {
+        event.sender.send("voice-audio-ready", audioDataUrl);
+      }
+    })
+    .catch((err) => {
+      logger.error(`[voice] TTS synthesis failed: ${err.message}`);
+    });
+}
+
 function register(getVoiceWindow, hideVoiceWindow) {
   ipcMain.on("voice-window-ready", () => { });
 
@@ -129,6 +93,7 @@ function register(getVoiceWindow, hideVoiceWindow) {
 
       sendStatus(event, "thinking");
 
+      // Determine if visual context is needed
       let imageToSend = null;
       if (needsVisualContext(payload.query)) {
         imageToSend = payload.image || cachedScreenCapture;
@@ -137,6 +102,7 @@ function register(getVoiceWindow, hideVoiceWindow) {
         }
       }
 
+      // Build query with listen context if present
       let finalQuery = payload.query;
 
       if (listenContextStack.length > 0) {
@@ -146,6 +112,7 @@ function register(getVoiceWindow, hideVoiceWindow) {
         finalQuery = `[CONVERSATION CONTEXT: You (Venesa) previously asked the user — ${turns}] User's latest response: "${payload.query}"`;
       }
 
+      // Prepend search result context if user is selecting from results
       if (payload.previousResults && Array.isArray(payload.previousResults)) {
         const listStr = payload.previousResults
           .map((r) => `${r.index}. ${r.name} (${r.type})`)
@@ -161,167 +128,75 @@ function register(getVoiceWindow, hideVoiceWindow) {
         ${JSON.stringify(payload.previousResults.map((r) => ({ index: r.index, path: r.path })))}`;
       }
 
-      const rawResponse = await llm.sendQuery(finalQuery, imageToSend, "voice");
-
       sendStatus(event, "working");
 
-      const { cleanResponse, results, uiDirective, uiBlocks } =
-        await processor.processResponse(rawResponse, "voice");
+      // ── Use shared pipeline for LLM → process → verbalize ──
+      const result = await executeQuery({
+        query: finalQuery,
+        imageData: imageToSend,
+        mode: 'voice',
+      });
 
-      let finalResponse = (cleanResponse || "")
-        .replace(/\[NEED_SCREEN\]/g, "")
-        .trim();
-      let hasSearchResults = false;
-      let searchResultData = null;
-      let shouldListenAgain = false;
+      let finalResponse = result.text;
+      let shouldListenAgain = result.shouldListen;
 
-      if (results && results.length > 0) {
-        for (const res of results) {
-          if (res.actionName === "listen") {
-            shouldListenAgain = true;
-            continue;
-          }
-          if (res.actionName === "searchFiles" && res.result) {
-            try {
-              searchResultData =
-                typeof res.result === "string"
-                  ? JSON.parse(res.result)
-                  : res.result;
-              const hasItems =
-                (searchResultData.apps?.length || 0) +
-                (searchResultData.files?.length || 0) +
-                (searchResultData.folders?.length || 0) >
-                0;
-              if (hasItems) hasSearchResults = true;
-            } catch (e) {
-              logger.error(`[voice] Search parse error: ${e.message}`);
-            }
-            continue;
-          }
-        }
-
-        // For data-returning skills, do a second LLM pass to verbalize the result naturally.
-        // The first pass only emits the action — the result isn't known until after execution.
-        // Suppress the initial [speak] text — only speak after data is received and verbalized.
-        const dataResults = results.filter(
-          (r) => (
-            r.returnType === "data" ||
-            r.returnType === "hybrid" ||
-            (r.returnType === "memory" && r.actionName === "getMemory")
-          ) && (r.result !== undefined || r.error),
-        );
-        if (dataResults.length > 0) {
-          // Clear anticipatory speak text — we only want the verbalized data response
-          finalResponse = "";
-          try {
-            const resultContext = dataResults
-              .map((r) => {
-                if (r.error) {
-                  return `[FAILED ${r.actionName}: ${r.error}]`;
-                }
-                // surface success:false from the handler's own return value
-                const raw = r.result;
-                if (raw && typeof raw === 'object' && raw.success === false) {
-                  return `[FAILED ${r.actionName}: ${raw.error || 'Unknown error'}]`;
-                }
-                return `[RESULT for ${r.actionName}: ${summarizeOrTruncateResult(r.result)}]`;
-              })
-              .join("\n");
-            const verbalizeQuery = `${resultContext}
-The user asked (via voice): "${payload.query}"
-
-Present this data naturally. Rules:
-- Speak conversationally in 1-2 sentences maximum.
-- If some results FAILED and others SUCCEEDED, speak the successful ones and note which ones could not be retrieved — do this naturally, not as an error message.
-- If ALL results failed, say so naturally in one sentence without technical detail.
-- If the data is clearer as a table or visual (e.g. comparisons, rankings, multi-column data), place the formatted data inside a [ui] block inside [silent] and keep spoken text brief (e.g. "Here's the comparison.").
-- Use [speak]...[/speak] for the spoken part and [silent][ui]...[/ui][/silent] for any visual block.
-- Do NOT emit new [action:] tags.`;
-            const verbalRaw = await llm.sendQuery(verbalizeQuery, null, "voice");
-            // Only extract speak/ui blocks — never execute actions from verbalization response
-            const speakMatch = verbalRaw.match(/\[speak\]([\s\S]*?)\[\/speak\]/i);
-            const spokenResult = speakMatch ? speakMatch[1].trim() : verbalRaw
-              .replace(/\[action:[^\]]*\]/gi, '')
-              .replace(/\[plan\][\s\S]*?\[\/plan\]/gi, '')
-              .replace(/\[step:[^\]]*\]/gi, '')
-              .replace(/\[silent\][\s\S]*?\[\/silent\]/gi, '')
-              .replace(/\[ui\][\s\S]*?\[\/ui\]/gi, '')
-              .trim();
-            const verbalUiBlockMatches = [...verbalRaw.matchAll(/\[ui\]([\s\S]*?)\[\/ui\]/gi)];
-            const verbalUiBlocks = verbalUiBlockMatches.map(m => m[1].trim()).filter(Boolean);
-            if (spokenResult && spokenResult.trim()) {
-              finalResponse = spokenResult.trim();
-            }
-            // Dispatch any [ui] blocks produced by the verbalization pass
-            if (verbalUiBlocks && verbalUiBlocks.length > 0 && !event.sender.isDestroyed()) {
-              uiPipeline.dispatchUiBlocks(event.sender, verbalUiBlocks);
-              event.sender.send("halt-microphone");
-            }
-          } catch (verbalErr) {
-            logger.warn(`[voice] Verbalization pass failed: ${verbalErr.message}`);
-            // Fallback — don't leak the anticipatory text
-            finalResponse = "I couldn't retrieve that information right now.";
-          }
-        }
+      // Dispatch UI blocks with halt-microphone
+      if (result.uiBlocks && result.uiBlocks.length > 0 && !event.sender.isDestroyed()) {
+        uiPipeline.dispatchUiBlocks(event.sender, result.uiBlocks);
+        event.sender.send("halt-microphone");
       }
 
-      if (uiBlocks && uiBlocks.length > 0) {
-        uiPipeline.dispatchUiBlocks(event.sender, uiBlocks);
-
-        if (!event.sender.isDestroyed()) {
-          event.sender.send("halt-microphone");
-        }
+      // Dispatch structured UI from skill results
+      if (result.results && result.results.length > 0 && !event.sender.isDestroyed()) {
+        uiPipeline.dispatchFromResults(event.sender, result.results, result.uiDirective);
       }
 
-      if (results && results.length > 0) {
-        if (event.sender && !event.sender.isDestroyed()) {
-          uiPipeline.dispatchFromResults(event.sender, results, uiDirective);
-        }
-      }
-
-      if (hasSearchResults && searchResultData) {
+      // Handle search results for voice selection UI
+      if (result.searchData) {
+        const searchResultData = result.searchData;
         const apps = searchResultData.apps || [];
         const files = searchResultData.files || [];
         const folders = searchResultData.folders || [];
         const totalCount = apps.length + files.length + folders.length;
 
-        const allResults = [];
-        apps.forEach((app) =>
-          allResults.push({ name: app.name, type: "app", data: app }),
-        );
-        folders.forEach((folder) =>
-          allResults.push({
-            name: typeof folder === "string" ? path.basename(folder) : folder.name,
-            path: typeof folder === "string" ? folder : folder.path,
-            type: "folder",
-            data: typeof folder === "string" ? folder : folder.path,
-          }),
-        );
-        files.forEach((file) =>
-          allResults.push({
-            name: typeof file === "string" ? path.basename(file) : file.name,
-            path: typeof file === "string" ? file : file.path,
-            type: "file",
-            data: typeof file === "string" ? file : file.path,
-          }),
-        );
-        const displayResults = allResults.slice(0, 5);
-
-        if (!event.sender.isDestroyed()) {
-          event.sender.send("voice-search-results", {
-            results: displayResults,
-            totalCount,
-            waitingForSelection: true,
-          });
-        }
-
         if (totalCount > 0) {
-          if (!finalResponse) {
+          const allResults = [];
+          apps.forEach((app) =>
+            allResults.push({ name: app.name, type: "app", data: app }),
+          );
+          folders.forEach((folder) =>
+            allResults.push({
+              name: typeof folder === "string" ? path.basename(folder) : folder.name,
+              path: typeof folder === "string" ? folder : folder.path,
+              type: "folder",
+              data: typeof folder === "string" ? folder : folder.path,
+            }),
+          );
+          files.forEach((file) =>
+            allResults.push({
+              name: typeof file === "string" ? path.basename(file) : file.name,
+              path: typeof file === "string" ? file : file.path,
+              type: "file",
+              data: typeof file === "string" ? file : file.path,
+            }),
+          );
+          const displayResults = allResults.slice(0, 5);
+
+          if (!event.sender.isDestroyed()) {
+            event.sender.send("voice-search-results", {
+              results: displayResults,
+              totalCount,
+              waitingForSelection: true,
+            });
+          }
+
+          if (!finalResponse || finalResponse === 'Done.') {
             finalResponse = `I found ${totalCount} match${totalCount > 1 ? "es" : ""}. Which one would you like?`;
           }
         } else {
-          if (!finalResponse)
+          if (!finalResponse || finalResponse === 'Done.') {
             finalResponse = "I couldn't find any matching files or apps.";
+          }
         }
       }
 
@@ -331,6 +206,7 @@ Present this data naturally. Rules:
 
       sendStatus(event, "speaking");
 
+      // Send text response to voice window
       if (!event.sender.isDestroyed()) {
         event.sender.send("voice-response", {
           text: finalResponse,
@@ -338,6 +214,7 @@ Present this data naturally. Rules:
         });
       }
 
+      // Auto-close on cancel phrases
       const cancelRegex = /\b(cancelled|closing|cancel)\b|no problem!?/i;
       if (cancelRegex.test(finalResponse)) {
         shouldListenAgain = false;
@@ -349,6 +226,7 @@ Present this data naturally. Rules:
         }, 1500);
       }
 
+      // Continue listening if [action: listen] was emitted
       if (shouldListenAgain && !event.sender.isDestroyed()) {
         const voiceWin = getVoiceWindow();
         if (voiceWin && !voiceWin.isDestroyed() && voiceWin.isVisible()) {
@@ -359,24 +237,9 @@ Present this data naturally. Rules:
         listenContextStack = [];
       }
 
-      if (ttsService.isAvailable() && finalResponse.length > 0) {
-        ttsService
-          .synthesizeToDataURL(finalResponse)
-          .then((audioDataUrl) => {
-            if (!event.sender.isDestroyed()) {
-              event.sender.send("voice-audio-ready", audioDataUrl);
-            }
-          })
-          .catch((err) => {
-            logger.error(`[voice] TTS synthesis failed: ${err.message}`);
-          });
-      }
+      // TTS synthesis
+      speakResponse(event, finalResponse);
 
-      try {
-        memory.addInteraction(payload.query, finalResponse, rawResponse);
-      } catch (memErr) {
-        logger.warn(`[voice] History write failed: ${memErr.message}`);
-      }
     } catch (error) {
       logger.error(`[voice] Voice query error: ${error.message}`, error);
       const errMsg = (error.message || '').toLowerCase();
@@ -540,18 +403,7 @@ Present this data naturally. Rules:
         });
       }
 
-      if (ttsService.isAvailable() && finalResponse.length > 0) {
-        ttsService
-          .synthesizeToDataURL(finalResponse)
-          .then((audioDataUrl) => {
-            if (!event.sender.isDestroyed()) {
-              event.sender.send("voice-audio-ready", audioDataUrl);
-            }
-          })
-          .catch((err) => {
-            logger.error(`[voice] TTS synthesis failed: ${err.message}`);
-          });
-      }
+      speakResponse(event, finalResponse);
     } catch (error) {
       logger.error(`[voice] voice-file-action error: ${error.message}`);
       if (!event.sender.isDestroyed()) {

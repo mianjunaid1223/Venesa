@@ -223,6 +223,19 @@ Invoking an unlisted tool name is a critical execution failure.
 Only include a parameter if the user explicitly requested it or it is unambiguously implied.
 Never infer optional behavior from a tool's description or examples.
 If a param was not mentioned, omit it — omission always means "use the default".
+
+### PARAMETER STANDARDS (CRITICAL)
+
+Every parameter you emit is validated against a strict schema BEFORE execution.
+If you use a wrong value, the action WILL FAIL.
+
+Rules:
+- When a tool description lists specific allowed values, you MUST use one of those EXACT values. Do not invent variations.
+- All parameter values are camelCase unless the tool description says otherwise.
+- Never use kebab-case (x-y), snake_case (x_y), or short forms (x) unless the tool explicitly lists them.
+- Read the tool description carefully — it tells you exactly what values are valid.
+- If the user's request maps to a tool but you're unsure which parameter value to use, pick the closest match from the listed values.
+- Wrong parameter values cause validation errors. The platform will ask you to correct them once, so get it right the first time.
 `;
 }
 

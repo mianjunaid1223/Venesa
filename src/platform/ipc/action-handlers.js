@@ -1,10 +1,18 @@
-// IPC Action Handlers — handles file, app, and URL actions from the renderer.
+/**
+ * ═══════════════════════════════════════════════════════════════
+ *  MODULE: IPC Action Handlers
+ *  Handles file/app/URL actions from the renderer.
+ * ═══════════════════════════════════════════════════════════════
+ *  DEPENDS ON: brain/processor
+ *  USED BY:    platform/main
+ * ═══════════════════════════════════════════════════════════════
+ */
+
 const { ipcMain, shell } = require('electron');
 const path = require('path');
 const os = require('os');
 const { execFile } = require('child_process');
-const logger = require('../../lib/logger');
-const orchestrator = require('../../brain/orchestrator');
+const processor = require('../../brain/processor');
 
 const HOME_DIR = os.homedir();
 
@@ -27,22 +35,13 @@ function register() {
             const { actionName, params } = payload || {};
             if (!actionName) return;
 
-            // Ensure skills are loaded
-            try { require('../../skills/loader'); } catch (e) { /* already loaded */ }
             const registry = require('../../skills/registry');
 
             const skill = registry.get(actionName);
             if (!skill || typeof skill.handler !== 'function') {
-                logger.warn(`[perform-action] Skill '${actionName}' not found. Available: ${registry.getAllNames().join(', ')}`);
+                console.log(`[perform-action] Skill '${actionName}' not found. Available: ${registry.getAllNames().join(', ')}`);
                 if (!event.sender.isDestroyed()) {
                     event.sender.send('action-result', JSON.stringify({ notFound: true }));
-                }
-                return;
-            }
-
-            if (skill._enabled === false) {
-                if (!event.sender.isDestroyed()) {
-                    event.sender.send('action-result', JSON.stringify({ error: `Capability '${actionName}' is disabled.` }));
                 }
                 return;
             }
@@ -51,10 +50,9 @@ function register() {
             let validatedParams = params || {};
             if (skill.schema && typeof skill.schema.parse === 'function') {
                 try {
-                    const { coerceParams } = require('../../skills/validator');
-                    validatedParams = skill.schema.parse(coerceParams(params || {}, skill.schema));
+                    validatedParams = skill.schema.parse(params || {});
                 } catch (valErr) {
-                    logger.warn(`[perform-action] Validation failed for '${actionName}': ${valErr.message}`);
+                    console.log(`[perform-action] Schema validation failed for '${actionName}':`, valErr.message);
                     if (!event.sender.isDestroyed()) {
                         event.sender.send('action-result', JSON.stringify({ error: valErr.message }));
                     }
@@ -68,7 +66,7 @@ function register() {
                 event.sender.send('action-result', resultStr);
             }
         } catch (err) {
-            logger.error(`[perform-action] Error: ${err.message}`);
+            console.error(`[perform-action] Error:`, err);
             if (!event.sender.isDestroyed()) {
                 event.sender.send('action-result', JSON.stringify({ error: err.message }));
             }
@@ -85,27 +83,20 @@ function register() {
                 const safeAppIdPattern = /^[a-zA-Z0-9._!\-]+$/;
                 if (!safeAppIdPattern.test(appInfo.appId)) return;
                 execFile('explorer.exe', [`shell:AppsFolder\\${appInfo.appId}`], { windowsHide: true }, (err) => {
-                    if (err) logger.error(`Failed to launch app ${appInfo.appId}: ${err.message}`);
+                    if (err) console.error(`Failed to launch app ${appInfo.appId}:`, err);
                 });
             } else {
-                if (!appInfo.name || typeof appInfo.name !== 'string') {
-                    logger.error(`Cannot launch app: missing or invalid name in appInfo ${JSON.stringify(appInfo)}`);
-                    return;
-                }
-                const result = await orchestrator.executeAction('launchApplication', { appName: appInfo.name });
-                if (!result.success) {
-                    logger.error(`Failed to launch app: ${result.error}`);
-                }
+                await processor.launchApplication(appInfo.name);
             }
         } catch (error) {
-            logger.error(`Failed to launch app: ${error.message}`);
+            console.error('Failed to launch app:', error);
         }
     });
 
     ipcMain.on('open-file', (event, filePath) => {
         const fullPath = resolveAndValidatePath(filePath);
         if (!fullPath) return;
-        shell.openPath(fullPath).catch(err => logger.error(`open-file failed: ${err.message}`));
+        shell.openPath(fullPath).catch(err => console.error('open-file failed:', err));
     });
 
     ipcMain.on('show-file-in-folder', (event, filePath) => {
@@ -117,17 +108,13 @@ function register() {
     ipcMain.on('open-folder', (event, folderPath) => {
         const fullPath = resolveAndValidatePath(folderPath);
         if (!fullPath) return;
-        shell.openPath(fullPath).catch(err => logger.error(`open-folder failed: ${err.message}`));
+        shell.openPath(fullPath).catch(err => console.error('open-folder failed:', err));
     });
 
     ipcMain.on('open-external-url', (event, url) => {
-        if (typeof url !== 'string') {
-            logger.warn(`[action-handlers] open-external-url received non-string: ${typeof url}`);
-            return;
-        }
-        if (url.startsWith('http://') || url.startsWith('https://')) {
+        if (url && (url.startsWith('http://') || url.startsWith('https://'))) {
             shell.openExternal(url).catch(err => {
-                logger.error(`open-external-url failed: ${err.message}`);
+                console.error('open-external-url failed:', err);
             });
         }
     });

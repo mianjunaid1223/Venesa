@@ -62,10 +62,6 @@ function startBackgroundWakeWordDetection(showVoiceWindow, captureScreenForVoice
     ipcMain.removeAllListeners('console-error');
     ipcMain.removeAllListeners('resume-failed');
 
-    ipcMain.on('wake-word-detected', () => {
-        if (typeof onWakeDetected === 'function') onWakeDetected('hey venesa');
-    });
-
     function onWakeDetected(wakeWord) {
         logger.info(`[Background] Wake word detected ("${wakeWord}"), opening voice window`);
         wakeWordService.pauseDetection();
@@ -78,6 +74,10 @@ function startBackgroundWakeWordDetection(showVoiceWindow, captureScreenForVoice
             backgroundAudioWindow.webContents.send('play-acknowledgment');
         }
     }
+
+    ipcMain.on('wake-word-detected', () => {
+        onWakeDetected('hey venesa');
+    });
 
     wakeWordService.startDetection(onWakeDetected);
 

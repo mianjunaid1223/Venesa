@@ -4,7 +4,7 @@
 
 Venesa is a **generic execution platform** for Windows built on Electron. The language model is the strategic reasoning layer - it plans. The platform is the execution layer - it validates and runs. No component formats or re-interprets the model's output independently.
 
-**Version:** 2.0.0
+**Version:** 2.1.0
 **Governance:** Venesa Governance & Execution Contract v2.1
 **Target Platform:** Windows 10 / 11 (x64)
 **Runtime:** Electron 28, Node.js ≥ 18.17.0
@@ -49,18 +49,20 @@ Every operation in Venesa traverses all 7 stages in order. No stage may mutate a
 ## Execution Flow
 
 ```text
-┌──────────────┐    ┌──────────────────┐    ┌──────────────┐    ┌─────────────────┐    ┌───────────────┐
-│  User Input  │───▶│ Context / Memory │───▶│  LLM Engine  │───▶│ Protocol Parser │───▶│ Skill Executor│
-│ (text/voice) │    │   Resolution     │    │ (Selected model) │    │ (processor.js)  │    │(orchestrator) │
-└──────────────┘    └──────────────────┘    └──────────────┘    └─────────────────┘    └───────────────┘
-                                                                                                │
-                                                                         ┌──────────────────────┤
-                                                                         ▼                      ▼
-                                                                  ┌────────────┐       ┌──────────────┐
-                                                                  │ TTS Engine │       │  UI Pipeline │
-                                                                  │(ElevenLabs)│       │  (renderer)  │
-                                                                  └────────────┘       └──────────────┘
+┌──────────────┐    ┌──────────────────┐    ┌─────────────────────┐    ┌───────────────┐
+│  User Input  │───▶│ Query Pipeline   │───▶│ LLM → Processor →   │───▶│ Skill Executor│
+│ (text/voice) │    │ (query-pipeline) │    │ Verbalization        │    │(orchestrator) │
+└──────────────┘    └──────────────────┘    └─────────────────────┘    └───────────────┘
+                                                                              │
+                                                        ┌─────────────────────┤
+                                                        ▼                     ▼
+                                                 ┌────────────┐      ┌──────────────┐
+                                                 │ TTS Engine │      │  UI Pipeline │
+                                                 │(ElevenLabs)│      │  (renderer)  │
+                                                 └────────────┘      └──────────────┘
 ```
+
+> Both text and voice modes use the same `query-pipeline.js` for LLM call → response processing → data verbalization → UI dispatch. Voice mode adds TTS synthesis, screen capture, and listen continuation on top.
 
 ## AI Authority Contract
 
@@ -226,12 +228,12 @@ src/
 │   │                            #   Pinned versions: floating specs resolve once and pin
 │   ├── tray.js                  # System tray icon and context menu
 │   ├── ipc/                     # IPC channel handlers (main-process side)
-│   │   ├── query-handlers.js    # Text query lifecycle, streaming chunks to UI
-│   │   ├── voice-handlers.js    # Voice query lifecycle + TTS coordination
+│   │   ├── query-pipeline.js    # Shared query-to-response pipeline (LLM → process → verbalize)
+│   │   │                        #   Used by both text and voice handlers — single source of truth
+│   │   ├── query-handlers.js    # Text query IPC — delegates to query-pipeline
+│   │   ├── voice-handlers.js    # Voice query IPC — delegates to query-pipeline, adds TTS
 │   │   ├── action-handlers.js   # Direct skill invocations and plan execution
 │   │   └── system-handlers.js   # Settings CRUD, capability management, app controls
-│   │                            #   Wake-word deduplication: wakeWordActive flag prevents double-start
-│   │                            #   across applyWakeWordPatch and setup-flow startWakeWord calls
 │   ├── preload/                 # Context-bridged preload scripts per window
 │   │   ├── main.preload.js      # Main window preload - minimal IPC surface
 │   │   ├── voice.preload.js     # Voice window preload

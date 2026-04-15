@@ -89,6 +89,17 @@ async function sendQuery(query, imageData = null, mode = "text") {
     throw new Error("LLM not initialized");
   }
 
+  // Fail fast when offline
+  try {
+    const connectivity = require("../lib/connectivity");
+    if (connectivity.isOnline() === false) {
+      throw new Error("No internet connection. Please check your connection and try again.");
+    }
+  } catch (e) {
+    if (e.message.includes("internet")) throw e;
+    // connectivity module not available — continue
+  }
+
   const maxRetries = 3;
   let lastError = null;
 
@@ -141,6 +152,7 @@ async function sendQuery(query, imageData = null, mode = "text") {
   for (let attempt = 0; attempt < maxRetries; attempt++) {
     try {
       const chat = createFreshChat(mode);
+      const queryTimeout = 30000;
       let result;
 
       if (imageData) {

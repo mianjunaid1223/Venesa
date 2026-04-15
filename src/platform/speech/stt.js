@@ -103,6 +103,15 @@ function feedAudio(buffer) {
 
 async function processRecording() {
     if (!isRecording || audioChunks.length === 0 || isProcessingRecording) return;
+
+    // Guard: skip transcription if ElevenLabs is not available
+    if (!ttsService.isAvailable()) {
+        logger.warn('STT skipped: no ElevenLabs API key available');
+        audioChunks = [];
+        isRecording = false;
+        return;
+    }
+
     isProcessingRecording = true;
 
     try {

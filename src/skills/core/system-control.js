@@ -1,29 +1,40 @@
 const { z } = require('zod');
 const { runPowerShell } = require('./_shared');
 
+const VALID_COMMANDS = [
+    'setVolume', 'volumeUp', 'volumeDown', 'volumeMute',
+    'setBrightness', 'brightnessUp', 'brightnessDown',
+    'wifiToggle', 'bluetoothToggle',
+    'shutdown', 'restart', 'sleep', 'lock',
+    'emptyTrash', 'openSettings',
+];
+
 module.exports = {
     schema: z.object({
-        command: z.string().describe('The system command like volumeUp, shutdown'),
-        value: z.preprocess((val) => Number(val), z.number()).optional(),
+        command: z.enum(VALID_COMMANDS).describe(
+            'EXACT command name. Must be one of: setVolume, volumeUp, volumeDown, volumeMute, setBrightness, brightnessUp, brightnessDown, wifiToggle, bluetoothToggle, shutdown, restart, sleep, lock, emptyTrash, openSettings'
+        ),
+        value: z.preprocess((val) => Number(val), z.number()).optional().describe('Numeric value 0-100 for setVolume or setBrightness'),
     }),
     name: 'systemControl',
-    description: 'Control system settings (volume, brightness, wifi, bluetooth, power)',
+    description: 'Control system settings. command MUST be exactly one of: setVolume (needs value 0-100), volumeUp, volumeDown, volumeMute, setBrightness (needs value 0-100), brightnessUp, brightnessDown, wifiToggle, bluetoothToggle, shutdown, restart, sleep, lock, emptyTrash, openSettings',
     tags: ['system', 'control', 'volume', 'brightness'],
 
     returnType: 'action',
-    marker: 'confirm',
+    marker: 'announce',
     ui: null,
 
     examples: [
-
         { user: 'turn the volume up', action: '[action: systemControl, command: volumeUp]' },
-
-        { user: 'set brightness to 50', action: '[action: systemControl, command: setBrightness, value: 50]' },
-
+        { user: 'set volume to 90', action: '[action: systemControl, command: setVolume, value: 90]' },
+        { user: 'set the volume to 50%', action: '[action: systemControl, command: setVolume, value: 50]' },
+        { user: 'lower the volume', action: '[action: systemControl, command: volumeDown]' },
         { user: 'mute', action: '[action: systemControl, command: volumeMute]' },
-
+        { user: 'set brightness to 40', action: '[action: systemControl, command: setBrightness, value: 40]' },
+        { user: 'increase brightness', action: '[action: systemControl, command: brightnessUp]' },
         { user: 'lock my PC', action: '[action: systemControl, command: lock]' },
-
+        { user: 'shut down the computer', action: '[action: systemControl, command: shutdown]' },
+        { user: 'restart', action: '[action: systemControl, command: restart]' },
     ],
 
 
@@ -52,12 +63,12 @@ for($i=0;$i-lt ${steps};$i++) { $w.SendKeys([char]175) }
                 }
                 case 'setBrightness': {
                     const cb = Math.max(0, Math.min(100, value));
-                    return `Get-CimInstance -Namespace root/WMI -ClassName WmiMonitorBrightnessMethods | Invoke-CimMethod -MethodName WmiSetBrightness -Arguments @{ Timeout = 0; Brightness = ${cb} }`;
+                    return `Get-CimInstance -Namespace root/WMI -ClassName WmiMonitorBrightnessMethods -ErrorAction SilentlyContinue | Invoke-CimMethod -MethodName WmiSetBrightness -Arguments @{ Timeout = 0; Brightness = ${cb} }`;
                 }
                 case 'brightnessUp':
-                    return `$b = (Get-CimInstance -Namespace root/WMI -ClassName WmiMonitorBrightness).CurrentBrightness; Get-CimInstance -Namespace root/WMI -ClassName WmiMonitorBrightnessMethods | Invoke-CimMethod -MethodName WmiSetBrightness -Arguments @{ Timeout = 0; Brightness = [math]::Min(100, $b + 10) }`;
+                    return `$b = (Get-CimInstance -Namespace root/WMI -ClassName WmiMonitorBrightness -ErrorAction SilentlyContinue).CurrentBrightness; Get-CimInstance -Namespace root/WMI -ClassName WmiMonitorBrightnessMethods -ErrorAction SilentlyContinue | Invoke-CimMethod -MethodName WmiSetBrightness -Arguments @{ Timeout = 0; Brightness = [math]::Min(100, $b + 10) }`;
                 case 'brightnessDown':
-                    return `$b = (Get-CimInstance -Namespace root/WMI -ClassName WmiMonitorBrightness).CurrentBrightness; Get-CimInstance -Namespace root/WMI -ClassName WmiMonitorBrightnessMethods | Invoke-CimMethod -MethodName WmiSetBrightness -Arguments @{ Timeout = 0; Brightness = [math]::Max(0, $b - 10) }`;
+                    return `$b = (Get-CimInstance -Namespace root/WMI -ClassName WmiMonitorBrightness -ErrorAction SilentlyContinue).CurrentBrightness; Get-CimInstance -Namespace root/WMI -ClassName WmiMonitorBrightnessMethods -ErrorAction SilentlyContinue | Invoke-CimMethod -MethodName WmiSetBrightness -Arguments @{ Timeout = 0; Brightness = [math]::Max(0, $b - 10) }`;
                 case 'wifiToggle':
                     return "$a = Get-NetAdapter | Where-Object { $_.InterfaceDescription -match 'Wi-Fi|Wireless' } | Select-Object -First 1; if ($a.Status -eq 'Up') { Disable-NetAdapter -Name $a.Name -Confirm:$false } else { Enable-NetAdapter -Name $a.Name -Confirm:$false }";
                 case 'bluetoothToggle':

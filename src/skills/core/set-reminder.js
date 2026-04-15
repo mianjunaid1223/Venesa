@@ -1,8 +1,18 @@
 const { z } = require('zod');
 const { logger } = require('./_shared');
+const path = require('path');
 
 const activeReminders = new Map();
 let nextReminderId = 1;
+
+function getAssetsPath() {
+    try {
+        const paths = require('../../lib/paths');
+        return paths.getAssetsPath();
+    } catch {
+        return path.join(__dirname, '../../../assets');
+    }
+}
 
 module.exports = {
     schema: z.object({
@@ -13,7 +23,7 @@ module.exports = {
         time: z.string().optional().describe('Specific time to fire the reminder (HH:MM format)'),
     }),
     name: 'setReminder',
-    description: 'Set a timed reminder notification',
+    description: 'Set a timed reminder notification with sound',
     tags: ['reminder', 'timer', 'notification'],
 
     returnType: 'action',
@@ -62,8 +72,42 @@ module.exports = {
         const reminderId = nextReminderId++;
         const timerId = setTimeout(() => {
             try {
-                const { Notification } = require('electron');
-                new Notification({ title: 'Venesa Reminder', body: message }).show();
+                const { Notification, BrowserWindow } = require('electron');
+
+                // Play reminder sound
+                try {
+                    const allWindows = BrowserWindow.getAllWindows();
+                    const visibleWindow = allWindows.find(w => !w.isDestroyed() && w.isVisible())
+                        || allWindows.find(w => !w.isDestroyed());
+                    if (visibleWindow) {
+                        visibleWindow.webContents.executeJavaScript(
+                            `(function() { try { new Audio('venesa-asset://cue-done.wav').play(); } catch(e) {} })()`
+                        ).catch(() => { });
+                    }
+                } catch (soundErr) {
+                    logger.warn(`[setReminder] Sound playback failed: ${soundErr.message}`);
+                }                // Show native OS notification with the reminder message
+                const notification = new Notification({
+                    title: 'Venesa Reminder',
+                    body: message,
+                    silent: false,
+                    urgency: 'critical',
+                });
+                notification.show();
+
+                // Also notify the main window so the UI can show it
+                try {
+                    const mainWindows = BrowserWindow.getAllWindows();
+                    for (const win of mainWindows) {
+                        if (!win.isDestroyed() && win.webContents && !win.webContents.isDestroyed()) {
+                            win.webContents.send('reminder-fired', { message, reminderId });
+                        }
+                    }
+                } catch (e) {
+                    logger.warn(`[setReminder] Failed to notify main window: ${e.message}`);
+                }
+
+                logger.info(`[setReminder] Reminder ${reminderId} fired: "${message}"`);
             } catch (e) {
                 logger.error(`Reminder notification failed: ${e.message}`);
             } finally {
@@ -71,10 +115,14 @@ module.exports = {
             }
         }, delaySec * 1000);
 
-        activeReminders.set(reminderId, timerId);
+        activeReminders.set(reminderId, { timerId, message, fireAt: Date.now() + delaySec * 1000 });
 
-        logger.info(`Reminder scheduled (TimerID: ${reminderId}) for ${delaySec}s (content omitted)`);
-        return { success: true, message: `Reminder set in ${delaySec} seconds.`, timerId: reminderId };
+        const displayDelay = delaySec >= 60
+            ? `${Math.round(delaySec / 60)} minute${Math.round(delaySec / 60) !== 1 ? 's' : ''}`
+            : `${delaySec} second${delaySec !== 1 ? 's' : ''}`;
+
+        logger.info(`Reminder scheduled (ID: ${reminderId}) for ${delaySec}s: "${message}"`);
+        return { success: true, message: `Reminder set for ${displayDelay}.`, timerId: reminderId };
     },
     cancel(params) {
         const rawId = params.timerId ?? params.id;
@@ -83,10 +131,11 @@ module.exports = {
             return { success: false, message: 'Invalid or missing reminder id.' };
         }
         if (activeReminders.has(id)) {
-            clearTimeout(activeReminders.get(id));
+            clearTimeout(activeReminders.get(id).timerId);
             activeReminders.delete(id);
             return { success: true, message: `Reminder ${id} cancelled.` };
         }
         return { success: false, message: `Reminder ${id} not found.` };
     }
 };
+

@@ -308,9 +308,45 @@ async function executeAction(actionName, params, ctx = {}) {
               return `${path}: ${e.message}`;
             })
             .join(", ");
-          throw new Error(`Validation failed for ${actionName}: ${messages}`);
+
+          // Self-correction: ask the LLM to fix the params
+          logger.warn(`[orchestrator] Validation failed for ${actionName}: ${messages}. Requesting LLM correction.`);
+          try {
+            const llm = require("./llm");
+            const correctionQuery = `Your previous action failed validation.
+Action: [action: ${actionName}, ${Object.entries(params).map(([k, v]) => `${k}: ${v}`).join(', ')}]
+Error: ${messages}
+
+The tool "${actionName}" description: ${skill.description}
+
+Emit the CORRECTED action tag with valid parameter values. Only output the corrected [action:] tag, nothing else.`;
+
+            const correctedRaw = await llm.sendQuery(correctionQuery, null, "text");
+            logger.info(`[orchestrator] LLM correction response: ${correctedRaw}`);
+
+            // Parse the corrected action
+            const correctedActions = parseActionsStrict(correctedRaw);
+            if (correctedActions.length > 0 && correctedActions[0].actionName === actionName) {
+              const correctedParams = correctedActions[0].params;
+              validatedParams = skill.schema.parse(
+                coerceParams(correctedParams, skill.schema),
+              );
+              logger.info(`[orchestrator] Self-correction succeeded for ${actionName}`);
+              // Fall through to handler execution below
+            } else {
+              throw new Error(`Validation failed for ${actionName}: ${messages}`);
+            }
+          } catch (correctionErr) {
+            // If correction also fails, throw the original error
+            if (correctionErr.message?.includes("Validation failed")) {
+              throw correctionErr;
+            }
+            logger.error(`[orchestrator] Self-correction failed: ${correctionErr.message}`);
+            throw new Error(`Validation failed for ${actionName}: ${messages}`);
+          }
+        } else {
+          throw err;
         }
-        throw err;
       }
     }
 

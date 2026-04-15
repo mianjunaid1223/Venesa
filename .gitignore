@@ -21,8 +21,6 @@ logs/
 # OS
 Thumbs.db
 .DS_Store
-.env
 
+# Temp
 .cap-tmp/
-dist/
-dist2/
